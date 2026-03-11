@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// CORE: Tablas compartidas por todas las unidades
+// ==========================================
+
+enum Unit {
+  travel
+  work_study
+  oxford_education
+}
+
+enum Channel {
+  whatsapp
+  web
+  instagram
+}
+
+enum ConversationStatus {
+  active
+  waiting_human
+  closed
+  follow_up
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum SenderType {
+  user
+  bot
+  agent
+}
+
+enum ContentType {
+  text
+  image
+  document
+  audio
+  template
+  interactive
+}
+
+model Contact {
+  id            String    @id @default(uuid())
+  phone         String    @unique         // Número normalizado E.164
+  name          String?
+  email         String?
+  sourceUnit    Unit      @map("source_unit")
+  activeUnits   Unit[]    @map("active_units")
+  tags          String[]  @default([])
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt      @map("updated_at")
+
+  conversations Conversation[]
+  travelLeads   TravelLead[]
+  // workStudyLeads WorkStudyLead[]    // Fase 2
+  // oxfordLeads    OxfordLead[]       // Fase 3
+
+  @@map("contacts")
+}
+
+model Conversation {
+  id             String             @id @default(uuid())
+  contactId      String             @map("contact_id")
+  unit           Unit
+  channel        Channel            @default(whatsapp)
+  status         ConversationStatus @default(active)
+  assignedAgent  String?            @map("assigned_agent")
+  interestScore  Int                @default(0) @map("interest_score")
+  metadata       Json?              @default("{}")
+  startedAt      DateTime           @default(now()) @map("started_at")
+  lastMessageAt  DateTime           @default(now()) @map("last_message_at")
+  closedAt       DateTime?          @map("closed_at")
+
+  contact        Contact            @relation(fields: [contactId], references: [id])
+  messages       Message[]
+
+  @@index([contactId, unit])
+  @@index([status])
+  @@map("conversations")
+}
+
+model Message {
+  id             String           @id @default(uuid())
+  conversationId String           @map("conversation_id")
+  direction      MessageDirection
+  senderType     SenderType       @map("sender_type")
+  contentType    ContentType      @default(text) @map("content_type")
+  content        String
+  mediaUrl       String?          @map("media_url")
+  waMessageId    String?          @map("wa_message_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  conversation   Conversation     @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([waMessageId])
+  @@map("messages")
+}
+
+// ==========================================
+// TRAVEL: Tablas específicas de Travel (Fase 1)
+// ==========================================
+
+enum TravelLeadStatus {
+  nuevo
+  contactado
+  interesado
+  materiales_enviados
+  derivado_asesor
+  en_proceso_pago
+  inscrito
+  no_interesado
+}
+
+model TravelLead {
+  id              String            @id @default(uuid())
+  contactId       String            @map("contact_id")
+  tripId          String?           @map("trip_id")       // ID del viaje en Google Sheets
+  schoolCode      String?           @map("school_code")   // Código del colegio
+  programInterest String?           @map("program_interest")
+  travelerName    String?           @map("traveler_name")
+  travelerAge     Int?              @map("traveler_age")
+  parentName      String?           @map("parent_name")
+  budgetRange     String?           @map("budget_range")
+  status          TravelLeadStatus  @default(nuevo)
+  materialsSent   String[]          @default([]) @map("materials_sent")
+  followUpDate    DateTime?         @map("follow_up_date")
+  followUpCount   Int               @default(0) @map("follow_up_count")
+  notes           String?
+  extras          Json?             @default("{}") // Actividades extras, París, etc.
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt      @map("updated_at")
+
+  contact         Contact           @relation(fields: [contactId], references: [id])
+
+  @@index([contactId])
+  @@index([status])
+  @@index([schoolCode])
+  @@map("travel_leads")
+}
+
+// ==========================================
+// WORK & STUDY: Tablas específicas (Fase 2)
+// PLACEHOLDER - Descomentar cuando se implemente Fase 2
+// ==========================================
+
+// enum WSLeadStatus {
+//   nuevo
+//   primer_contacto
+//   en_calificacion
+//   hot
+//   warm
+//   cold
+//   reunion_agendada
+//   reunion_completada
+//   en_proceso
+//   inscrito
+//   no_interesado
+//   archivado
+// }
+
+// enum WSLeadSource {
+//   whatsapp_directo
+//   landing_page
+//   facebook_ads
+//   instagram_ads
+//   google_ads
+//   referido
+//   evento
+//   manual
+// }
+
+// model WorkStudyLead {
+//   id                String         @id @default(uuid())
+//   contactId         String         @map("contact_id")
+//   source            WSLeadSource
+//   sourceDetail      String?        @map("source_detail")
+//
+//   // Datos del prospecto
+//   fullName          String?        @map("full_name")
+//   age               Int?
+//   countryInterest   String?        @map("country_interest")
+//   programType       String?        @map("program_type")
+//   estimatedDate     String?        @map("estimated_date")
+//   hasPassport       Boolean?       @map("has_passport")
+//   englishLevel      String?        @map("english_level")
+//   mainConcern       String?        @map("main_concern")
+//
+//   // Calificación
+//   temperature       String         @default("nuevo")
+//   score             Int            @default(0)
+//   status            WSLeadStatus   @default(nuevo)
+//
+//   // Seguimiento
+//   assignedAgent     String?        @map("assigned_agent")
+//   nurturingSequence String?        @map("nurturing_sequence")
+//   nurturingStep     Int            @default(0) @map("nurturing_step")
+//   nextFollowUp      DateTime?      @map("next_follow_up")
+//   followUpCount     Int            @default(0) @map("follow_up_count")
+//
+//   // Reunión
+//   meetingDate       DateTime?      @map("meeting_date")
+//   meetingAttended   Boolean?       @map("meeting_attended")
+//   meetingNotes      String?        @map("meeting_notes")
+//   remindersSent     Int            @default(0) @map("reminders_sent")
+//
+//   // Metadata
+//   materialsSent     String[]       @default([]) @map("materials_sent")
+//   tags              String[]       @default([])
+//   notes             String?
+//   extras            Json?          @default("{}")
+//   zohoId            String?        @map("zoho_id")
+//   createdAt         DateTime       @default(now()) @map("created_at")
+//   updatedAt         DateTime       @updatedAt @map("updated_at")
+//
+//   contact           Contact        @relation(fields: [contactId], references: [id])
+//
+//   @@index([contactId])
+//   @@index([temperature])
+//   @@index([status])
+//   @@index([nextFollowUp])
+//   @@index([source])
+//   @@map("work_study_leads")
+// }
+
+// ==========================================
+// OXFORD EDUCATION: Tablas específicas (Fase 3)
+// PLACEHOLDER - Descomentar cuando se implemente Fase 3
+// ==========================================
+
+// enum OxfordLeadType {
+//   b2b_institutional
+//   b2c_individual
+// }
+
+// enum OxfordLeadStatus {
+//   nuevo
+//   primer_contacto
+//   en_calificacion
+//   interesado
+//   demo_agendada
+//   demo_completada
+//   propuesta_enviada
+//   en_negociacion
+//   cerrado_ganado
+//   cerrado_perdido
+//   no_interesado
+//   archivado
+// }
+
+// enum OxfordProduct {
+//   oxford_tcc
+//   oxford_tcc_kids
+//   english_teaching_certificate
+//   alphable
+//   oxford_life
+//   rising_stars
+// }
+
+// model OxfordLead {
+//   id                String             @id @default(uuid())
+//   contactId         String             @map("contact_id")
+//   leadType          OxfordLeadType     @map("lead_type")
+//   source            String?
+//   sourceDetail      String?            @map("source_detail")
+//
+//   // Datos del contacto
+//   fullName          String?            @map("full_name")
+//   role              String?
+//
+//   // Datos institucionales (B2B)
+//   institutionName   String?            @map("institution_name")
+//   institutionType   String?            @map("institution_type")
+//   estimatedStudents Int?               @map("estimated_students")
+//   currentCert       String?            @map("current_cert")
+//   schoolCycle       String?            @map("school_cycle")
+//
+//   // Productos de interés
+//   productsInterest  OxfordProduct[]    @map("products_interest")
+//   primaryProduct    OxfordProduct?     @map("primary_product")
+//
+//   // Calificación
+//   temperature       String             @default("nuevo")
+//   score             Int                @default(0)
+//   status            OxfordLeadStatus   @default(nuevo)
+//
+//   // Seguimiento
+//   assignedAgent     String?            @map("assigned_agent")
+//   nurturingSequence String?            @map("nurturing_sequence")
+//   nurturingStep     Int                @default(0) @map("nurturing_step")
+//   nextFollowUp      DateTime?          @map("next_follow_up")
+//   followUpCount     Int                @default(0) @map("follow_up_count")
+//
+//   // Reunión/Demo
+//   meetingDate       DateTime?          @map("meeting_date")
+//   meetingAttended   Boolean?           @map("meeting_attended")
+//   meetingNotes      String?            @map("meeting_notes")
+//
+//   // Propuesta (B2B)
+//   proposalSent      Boolean            @default(false) @map("proposal_sent")
+//   proposalDate      DateTime?          @map("proposal_date")
+//   proposalAmount    Float?             @map("proposal_amount")
+//
+//   // Metadata
+//   materialsSent     String[]           @default([]) @map("materials_sent")
+//   tags              String[]           @default([])
+//   notes             String?
+//   extras            Json?              @default("{}")
+//   zohoId            String?            @map("zoho_id")
+//   createdAt         DateTime           @default(now()) @map("created_at")
+//   updatedAt         DateTime           @updatedAt @map("updated_at")
+//
+//   contact           Contact            @relation(fields: [contactId], references: [id])
+//
+//   @@index([contactId])
+//   @@index([leadType])
+//   @@index([temperature])
+//   @@index([status])
+//   @@index([primaryProduct])
+//   @@map("oxford_leads")
+// }

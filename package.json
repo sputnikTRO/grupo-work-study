@@ -1,0 +1,43 @@
+{
+  "name": "grupo-work-study",
+  "version": "1.0.0",
+  "description": "Sistema integral de automatización comercial vía WhatsApp para Grupo Work & Study",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "node scripts/seed.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "chatbot",
+    "claude-ai",
+    "crm",
+    "lead-management"
+  ],
+  "author": "Grupo Work & Study",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@fastify/cors": "^10.0.1",
+    "@prisma/client": "^6.1.0",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.0",
+    "googleapis": "^144.0.0",
+    "ioredis": "^5.4.2",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "prisma": "^6.1.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
