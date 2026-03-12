@@ -15,6 +15,7 @@ import * as conversationService from '../../services/conversation.service.js';
 import * as messageService from '../../services/message.service.js';
 import * as leadService from '../../services/lead.service.js';
 import * as sheetsCache from '../../core/sheets/cache.js';
+import { syncLeadToSheet } from '../../core/sheets/leads-sync.js';
 
 /**
  * Travel Unit Message Handler
@@ -112,7 +113,7 @@ export async function handleMessage(message, phoneNumberId) {
       msgLogger.info({ conversationId: conv.id, leadId: lead.id }, 'Message saved to database');
 
       // Process the message with Claude AI + full integration
-      await processMessageWithAI(phone, content, conv, lead, phoneNumberId);
+      await processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId);
 
     } finally {
       // Always release the lock
@@ -133,9 +134,10 @@ export async function handleMessage(message, phoneNumberId) {
  * @param {Object} content - Extracted message content
  * @param {Object} conv - Conversation object
  * @param {Object} lead - TravelLead object
+ * @param {Object} contact - Contact object
  * @param {string} phoneNumberId - WhatsApp phone number ID
  */
-async function processMessageWithAI(phone, content, conv, lead, phoneNumberId) {
+async function processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId) {
   const processLogger = logger.child({
     phone,
     conversationId: conv.id,
@@ -208,9 +210,18 @@ async function processMessageWithAI(phone, content, conv, lead, phoneNumberId) {
         // Force handoff (will be executed in next message from Claude or manually trigger)
         // For now, just log it - the next Claude response should detect high score and derive
       }
+
+      // Update conv object with new score for sync
+      conv.interestScore = scoringResult.newScore;
     }
 
     processLogger.info('Conversation history updated in Redis');
+
+    // SYNC TO GOOGLE SHEETS: Sync lead data to Leads_Log sheet for dashboards/CRM
+    // This happens AFTER all updates to ensure we sync the latest data
+    // Failures here won't break the main flow (errors are logged but not thrown)
+    await syncLeadToSheet(lead, contact, conv);
+    processLogger.debug('Lead synced to Google Sheets');
 
   } catch (error) {
     processLogger.error({ err: error }, 'Error processing message with AI');
