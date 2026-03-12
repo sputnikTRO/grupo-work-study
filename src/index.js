@@ -32,7 +32,16 @@ await fastify.register(cors, {
   methods: ['GET', 'POST'],
 });
 
-// Health check endpoint
+// Ready check endpoint (for Railway health checks)
+// Returns 200 as soon as server is listening, without checking dependencies
+fastify.get('/ready', async (request, reply) => {
+  return {
+    status: 'ready',
+    timestamp: new Date().toISOString(),
+  };
+});
+
+// Health check endpoint (detailed diagnostics)
 fastify.get('/health', async (request, reply) => {
   try {
     // Check database connection
