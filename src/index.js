@@ -20,7 +20,19 @@ import * as followUpJob from './jobs/followup.job.js';
 
 // Create Fastify instance
 const fastify = Fastify({
-  logger: logger,
+  logger: {
+    level: env.LOG_LEVEL,
+    transport: env.NODE_ENV === 'development'
+      ? {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'HH:MM:ss Z',
+            ignore: 'pid,hostname',
+          },
+        }
+      : undefined,
+  },
   disableRequestLogging: env.NODE_ENV === 'production',
   requestIdLogLabel: 'reqId',
   requestIdHeader: 'x-request-id',
