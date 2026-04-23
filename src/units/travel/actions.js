@@ -362,7 +362,7 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
   actionLogger.info({ field, value }, 'Capturing data');
 
   try {
-    const leadFields = ['parent_name', 'traveler_name', 'traveler_age', 'school_code', 'program_interest', 'budget_range'];
+    const leadFields = ['parent_name', 'traveler_name', 'traveler_age', 'school_code', 'program_interest', 'budget_range', 'destination'];
 
     if (leadFields.includes(field)) {
       // Update lead
@@ -376,6 +376,7 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
         school_code: 'schoolCode',
         program_interest: 'programInterest',
         budget_range: 'budgetRange',
+        destination: 'destination',
       };
 
       const mappedField = fieldMapping[field] || field;

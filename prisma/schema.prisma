@@ -130,6 +130,7 @@ model TravelLead {
   tripId          String?           @map("trip_id")       // ID del viaje en Google Sheets
   schoolCode      String?           @map("school_code")   // Código del colegio
   programInterest String?           @map("program_interest")
+  destination     String?           // Destino de viaje (Londres, Nueva York, etc.)
   travelerName    String?           @map("traveler_name")
   travelerAge     Int?              @map("traveler_age")
   parentName      String?           @map("parent_name")

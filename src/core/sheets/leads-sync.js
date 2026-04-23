@@ -13,18 +13,19 @@ const SHEET_NAME = 'Leads_Log';
 // Column structure (keep in sync with sheet headers)
 const COLUMNS = {
   TIMESTAMP: 0,         // A - timestamp
-  NOMBRE: 1,            // B - nombre
-  TELEFONO: 2,          // C - telefono
-  COLEGIO: 3,           // D - colegio
-  PROGRAMA: 4,          // E - programa
-  DESTINO: 5,           // F - destino
-  EDAD_ESTUDIANTE: 6,   // G - edad_estudiante
-  SCORE: 7,             // H - score
-  ESTATUS: 8,           // I - estatus
-  ASESOR_ASIGNADO: 9,   // J - asesor_asignado
-  MATERIALES_ENVIADOS: 10, // K - materiales_enviados
-  ULTIMO_CONTACTO: 11,  // L - ultimo_contacto
-  NOTAS: 12,            // M - notas
+  NOMBRE_PADRE: 1,      // B - nombre_padre
+  NOMBRE_ESTUDIANTE: 2, // C - nombre_estudiante
+  TELEFONO: 3,          // D - telefono
+  COLEGIO: 4,           // E - colegio
+  PROGRAMA: 5,          // F - programa
+  DESTINO: 6,           // G - destino
+  EDAD_ESTUDIANTE: 7,   // H - edad_estudiante
+  SCORE: 8,             // I - score
+  ESTATUS: 9,           // J - estatus
+  ASESOR_ASIGNADO: 10,  // K - asesor_asignado
+  MATERIALES_ENVIADOS: 11, // L - materiales_enviados
+  ULTIMO_CONTACTO: 12,  // M - ultimo_contacto
+  NOTAS: 13,            // N - notas
 };
 
 /**
@@ -38,11 +39,12 @@ const COLUMNS = {
 function formatLeadRow(lead, contact, conversation) {
   return [
     lead.createdAt?.toISOString() || new Date().toISOString(),  // timestamp
-    lead.parentName || contact.name || 'Sin nombre',             // nombre
+    lead.parentName || contact.name || 'Sin nombre',             // nombre_padre
+    lead.travelerName || 'Sin capturar',                         // nombre_estudiante
     contact.phone,                                                // telefono
     lead.schoolCode || 'Sin asignar',                            // colegio
     'travel',                                                     // programa
-    lead.preferredDestination || 'Sin especificar',              // destino
+    lead.destination || 'Sin especificar',                       // destino
     lead.travelerAge?.toString() || '',                          // edad_estudiante
     conversation.interestScore?.toString() || '1',               // score
     lead.status || 'activo',                                     // estatus
@@ -132,7 +134,8 @@ export async function syncLeadToSheet(lead, contact, conversation) {
 export function getLeadsLogHeaders() {
   return [
     'timestamp',
-    'nombre',
+    'nombre_padre',
+    'nombre_estudiante',
     'telefono',
     'colegio',
     'programa',
