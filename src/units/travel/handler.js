@@ -84,22 +84,29 @@ export async function handleMessage(message, phoneNumberId) {
       // Get or create travel lead
       const lead = await leadService.findOrCreateTravelLead(contact.id);
 
+      // NOTE: Automatic school detection disabled to prevent false positives.
+      // Claude will now explicitly ask for the school instead of auto-detecting from message text.
+      // The school code should only be captured after explicit user confirmation via [CAPTURAR_DATO:school_code:XX]
+      //
+      // Previously, the bot would auto-detect schools from greetings like "Hola desde Americano"
+      // and immediately assume that was the user's school, which caused incorrect assumptions.
+      //
       // FIRST MESSAGE: Detect school if this is likely a first message
-      if (isLikelyFirstMessage(content.text) && !lead.schoolCode) {
-        const detectedSchool = await detectSchool(content.text);
-
-        if (detectedSchool) {
-          msgLogger.info({ schoolCode: detectedSchool.codigo, schoolName: detectedSchool.nombre }, 'School detected');
-
-          // Update lead with school code
-          await leadService.updateTravelLead(lead.id, {
-            schoolCode: detectedSchool.codigo,
-          });
-
-          // Refresh lead object
-          lead.schoolCode = detectedSchool.codigo;
-        }
-      }
+      // if (isLikelyFirstMessage(content.text) && !lead.schoolCode) {
+      //   const detectedSchool = await detectSchool(content.text);
+      //
+      //   if (detectedSchool) {
+      //     msgLogger.info({ schoolCode: detectedSchool.codigo, schoolName: detectedSchool.nombre }, 'School detected');
+      //
+      //     // Update lead with school code
+      //     await leadService.updateTravelLead(lead.id, {
+      //       schoolCode: detectedSchool.codigo,
+      //     });
+      //
+      //     // Refresh lead object
+      //     lead.schoolCode = detectedSchool.codigo;
+      //   }
+      // }
 
       // Save incoming message to database
       await messageService.createInbound(
