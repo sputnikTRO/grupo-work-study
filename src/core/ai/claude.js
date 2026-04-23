@@ -95,7 +95,6 @@ async function chatWithRetry(systemPrompt, messages) {
         max_tokens: CLAUDE.MAX_TOKENS,
         system: systemPrompt,
         messages: messages,
-        timeout: CLAUDE.TIMEOUT_MS,
       });
 
       logger.debug({
