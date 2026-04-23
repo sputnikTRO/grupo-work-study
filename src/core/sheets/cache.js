@@ -152,27 +152,32 @@ export async function getAllSchools() {
 
 /**
  * Gets materials filtered by trip and/or school
+ * Note: Current Google Sheets structure doesn't have trip_id or school_code fields
+ * Returns all materials for now
  *
- * @param {string} tripId - Trip ID (optional)
- * @param {string} schoolCode - School code (optional)
+ * @param {string} tripId - Trip ID (optional, not used in current sheet structure)
+ * @param {string} schoolCode - School code (optional, not used in current sheet structure)
  * @returns {Promise<Array>} Array of material objects
  */
 export async function getMaterials(tripId = null, schoolCode = null) {
   const materials = await getCachedSheet('Materiales');
 
+  // Current Sheets structure doesn't have trip_id or school_code fields
+  // Return all materials
+  // TODO: If client adds these fields to Sheets, uncomment filtering logic below
+  /*
   return materials.filter(material => {
-    // Filter by trip if provided
     if (tripId && material.trip_id !== tripId) {
       return false;
     }
-
-    // Filter by school if provided
     if (schoolCode && material.school_code && material.school_code !== schoolCode) {
       return false;
     }
-
     return true;
   });
+  */
+
+  return materials;
 }
 
 /**
@@ -189,23 +194,33 @@ export async function getMaterial(materialId) {
 }
 
 /**
- * Gets payment scheme for a trip and school
+ * Gets payment schemes for a trip
+ * Note: Google Sheets uses 'viaje_codigo' field (not 'trip_id')
+ * School-specific pricing not available in current sheet structure
  *
- * @param {string} tripId - Trip ID
- * @param {string} schoolCode - School code
- * @returns {Promise<Object|null>} Payment scheme object or null
+ * @param {string} tripId - Trip ID (matches 'viaje_codigo' in Sheets)
+ * @param {string} schoolCode - School code (not used, kept for backwards compatibility)
+ * @returns {Promise<Array>} Array of payment scheme objects for this trip
  */
 export async function getPaymentScheme(tripId, schoolCode) {
-  if (!tripId || !schoolCode) return null;
+  if (!tripId) return null;
 
   const schemes = await getCachedSheet('Esquemas de Pago');
-  return schemes.find(scheme =>
-    scheme.trip_id === tripId && scheme.school_code?.toUpperCase() === schoolCode.toUpperCase()
-  ) || null;
+
+  // Filter by viaje_codigo (the actual field name in Google Sheets)
+  const matchingSchemes = schemes.filter(scheme =>
+    scheme.viaje_codigo === tripId
+  );
+
+  // Return first matching scheme, or null if none found
+  // Note: Since school_code doesn't exist in current Sheets structure,
+  // we return the first scheme for this trip regardless of school
+  return matchingSchemes.length > 0 ? matchingSchemes[0] : null;
 }
 
 /**
  * Gets activities for a trip
+ * Note: Google Sheets uses 'viaje_codigo' field (not 'trip_id')
  *
  * @param {string} tripId - Trip ID (optional, if not provided returns all)
  * @returns {Promise<Array>} Array of activity objects
@@ -217,7 +232,8 @@ export async function getActivities(tripId = null) {
     return activities;
   }
 
-  return activities.filter(activity => activity.trip_id === tripId);
+  // Filter by viaje_codigo (the actual field name in Google Sheets)
+  return activities.filter(activity => activity.viaje_codigo === tripId);
 }
 
 /**

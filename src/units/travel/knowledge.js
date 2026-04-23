@@ -39,9 +39,10 @@ export async function buildDynamicKnowledge(schoolCode = null) {
       sections.push(buildActivitiesSection(activities));
     }
 
-    // Get payment scheme if school is known
-    if (schoolCode && trips.length > 0) {
-      const paymentScheme = await sheetsCache.getPaymentScheme(trips[0].id, schoolCode);
+    // Get payment scheme if we have active trips
+    // Note: Using 'codigo' field from trips (matches 'viaje_codigo' in payment schemes)
+    if (trips.length > 0 && trips[0].codigo) {
+      const paymentScheme = await sheetsCache.getPaymentScheme(trips[0].codigo, schoolCode);
       if (paymentScheme) {
         sections.push(buildPaymentSection(paymentScheme));
       }
@@ -93,6 +94,7 @@ ${school.notas ? `Notas: ${school.notas}` : ''}`;
 
 /**
  * Builds trips information section
+ * Uses actual Google Sheets column names: codigo, destino, fechas_salida, precio, descripcion
  */
 function buildTripsSection(trips, schoolCode) {
   if (trips.length === 0) {
@@ -100,17 +102,26 @@ function buildTripsSection(trips, schoolCode) {
   }
 
   const tripTexts = trips.map(trip => {
-    let text = `**${trip.nombre || 'Viaje'}**\n`;
-    text += `- Destino: ${trip.destino || 'Londres'}\n`;
-    text += `- Fecha de salida: ${trip.fecha_salida || 'Por confirmar'}\n`;
-    text += `- Fecha de regreso: ${trip.fecha_regreso || 'Por confirmar'}\n`;
-    text += `- Duración: ${trip.duracion || '9 días / 10 noches'}\n`;
-    if (trip.precio_base) {
-      text += `- Precio de referencia: $${trip.precio_base} MXN (varía por colegio y promoción)\n`;
+    // Use 'codigo' as the name since 'nombre' doesn't exist in Sheets
+    let text = `**${trip.codigo || 'Viaje'}**\n`;
+
+    if (trip.destino) {
+      text += `- Destino: ${trip.destino}\n`;
     }
-    if (trip.incluye) {
-      text += `- Incluye: ${trip.incluye}\n`;
+
+    if (trip.fechas_salida) {
+      text += `- Fechas: ${trip.fechas_salida}\n`;
     }
+
+    // Use 'precio' field from Sheets (not 'precio_base')
+    if (trip.precio) {
+      text += `- Precio de referencia: $${trip.precio} MXN\n`;
+    }
+
+    if (trip.descripcion) {
+      text += `- Descripción: ${trip.descripcion}\n`;
+    }
+
     return text;
   }).join('\n');
 
@@ -119,17 +130,32 @@ function buildTripsSection(trips, schoolCode) {
 
 /**
  * Builds activities section
+ * Uses actual Google Sheets column names: nombre, costo, descripcion, incluido
  */
 function buildActivitiesSection(activities) {
   const activityTexts = activities.map(activity => {
     let text = `**${activity.nombre}**\n`;
-    text += `- Precio: $${activity.precio} MXN\n`;
+
+    // Use 'costo' field from Sheets (not 'precio')
+    if (activity.costo) {
+      // Only show price if it's not 0 or "0"
+      const costo = parseFloat(activity.costo);
+      if (costo > 0) {
+        text += `- Costo: $${activity.costo} MXN\n`;
+      } else {
+        text += `- Incluido en el precio base\n`;
+      }
+    }
+
     if (activity.descripcion) {
       text += `- Descripción: ${activity.descripcion}\n`;
     }
-    if (activity.incluye) {
-      text += `- Incluye: ${activity.incluye}\n`;
+
+    // Use 'incluido' field from Sheets (not 'incluye')
+    if (activity.incluido) {
+      text += `- Incluido: ${activity.incluido}\n`;
     }
+
     return text;
   }).join('\n');
 
@@ -138,21 +164,21 @@ function buildActivitiesSection(activities) {
 
 /**
  * Builds payment scheme section
+ * Uses actual Google Sheets column names: viaje_codigo, modalidad, detalles, monto_inicial
  */
 function buildPaymentSection(scheme) {
   let text = `## ESQUEMA DE PAGOS\n\n`;
-  text += `- Apartado: $${scheme.apartado} MXN\n`;
-  if (scheme.pago_con_beca) {
-    text += `- Pago con promoción: $${scheme.pago_con_beca} MXN (fecha límite: ${scheme.fecha_limite_beca || 'ver con asesora'})\n`;
+
+  if (scheme.modalidad) {
+    text += `**Modalidad:** ${scheme.modalidad}\n\n`;
   }
-  if (scheme.mensualidades) {
-    text += `- Mensualidades: ${scheme.mensualidades}\n`;
+
+  if (scheme.monto_inicial) {
+    text += `- Monto inicial: $${scheme.monto_inicial} MXN\n`;
   }
-  if (scheme.seguro) {
-    text += `- Seguro: $${scheme.seguro} MXN\n`;
-  }
-  if (scheme.notas) {
-    text += `\nNotas importantes: ${scheme.notas}`;
+
+  if (scheme.detalles) {
+    text += `- Detalles: ${scheme.detalles}\n`;
   }
 
   return text;
