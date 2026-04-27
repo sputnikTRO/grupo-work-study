@@ -180,6 +180,70 @@ export async function getSpreadsheetMetadata(spreadsheetId) {
 }
 
 /**
+ * Creates a new sheet in the spreadsheet
+ *
+ * @param {string} spreadsheetId - Google Sheets ID
+ * @param {string} sheetTitle - Title for the new sheet
+ * @returns {Promise<Object>} Response from Sheets API
+ */
+export async function createSheet(spreadsheetId, sheetTitle) {
+  const sheetsLogger = logger.child({ spreadsheetId, sheetTitle, function: 'sheets.createSheet' });
+
+  try {
+    const client = getClient();
+
+    sheetsLogger.info('Creating new sheet');
+
+    const response = await client.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: sheetTitle,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    sheetsLogger.info({ sheetId: response.data.replies[0].addSheet.properties.sheetId }, 'Sheet created successfully');
+
+    return response.data;
+
+  } catch (error) {
+    sheetsLogger.error({ err: error }, 'Error creating sheet');
+    throw error;
+  }
+}
+
+/**
+ * Checks if a sheet exists in the spreadsheet
+ *
+ * @param {string} spreadsheetId - Google Sheets ID
+ * @param {string} sheetTitle - Title of the sheet to check
+ * @returns {Promise<boolean>} True if sheet exists, false otherwise
+ */
+export async function sheetExists(spreadsheetId, sheetTitle) {
+  const sheetsLogger = logger.child({ spreadsheetId, sheetTitle, function: 'sheets.sheetExists' });
+
+  try {
+    const metadata = await getSpreadsheetMetadata(spreadsheetId);
+    const exists = metadata.sheets.some(sheet => sheet.title === sheetTitle);
+
+    sheetsLogger.debug({ exists }, 'Sheet existence checked');
+
+    return exists;
+
+  } catch (error) {
+    sheetsLogger.error({ err: error }, 'Error checking sheet existence');
+    throw error;
+  }
+}
+
+/**
  * Appends a row to a sheet
  *
  * @param {string} spreadsheetId - Google Sheets ID
@@ -289,6 +353,84 @@ export async function findRowByColumn(spreadsheetId, sheetName, columnIndex, sea
 
   } catch (error) {
     sheetsLogger.error({ err: error }, 'Error finding row');
+    throw error;
+  }
+}
+
+/**
+ * Appends multiple rows to a sheet in a single batch operation
+ *
+ * @param {string} spreadsheetId - Google Sheets ID
+ * @param {string} sheetName - Sheet name
+ * @param {Array<Array>} rowsData - Array of row arrays to append
+ * @returns {Promise<Object>} Response from Sheets API
+ */
+export async function appendRows(spreadsheetId, sheetName, rowsData) {
+  const sheetsLogger = logger.child({
+    spreadsheetId,
+    sheetName,
+    rowCount: rowsData.length,
+    function: 'sheets.appendRows'
+  });
+
+  try {
+    const client = getClient();
+
+    sheetsLogger.debug({ rowCount: rowsData.length }, 'Appending multiple rows to sheet');
+
+    const response = await client.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: rowsData,
+      },
+    });
+
+    sheetsLogger.info({
+      updatedRange: response.data.updates.updatedRange,
+      updatedRows: response.data.updates.updatedRows
+    }, 'Rows appended successfully');
+
+    return response.data;
+
+  } catch (error) {
+    sheetsLogger.error({ err: error }, 'Error appending rows to sheet');
+    throw error;
+  }
+}
+
+/**
+ * Updates a specific range in a sheet
+ *
+ * @param {string} spreadsheetId - Google Sheets ID
+ * @param {string} range - A1 notation range (e.g., 'Sheet1!A1:D1')
+ * @param {Array<Array>} values - 2D array of values to update
+ * @returns {Promise<Object>} Response from Sheets API
+ */
+export async function updateRange(spreadsheetId, range, values) {
+  const sheetsLogger = logger.child({ spreadsheetId, range, function: 'sheets.updateRange' });
+
+  try {
+    const client = getClient();
+
+    sheetsLogger.debug({ range }, 'Updating range in sheet');
+
+    const response = await client.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values,
+      },
+    });
+
+    sheetsLogger.info({ updatedRange: response.data.updatedRange }, 'Range updated successfully');
+
+    return response.data;
+
+  } catch (error) {
+    sheetsLogger.error({ err: error }, 'Error updating range in sheet');
     throw error;
   }
 }
