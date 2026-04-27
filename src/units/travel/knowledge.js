@@ -54,6 +54,18 @@ export async function buildDynamicKnowledge(schoolCode = null) {
       sections.push(buildMaterialsSection(materials));
     }
 
+    // Get Info_Viajes for each active trip
+    if (trips.length > 0) {
+      for (const trip of trips) {
+        if (trip.codigo) {
+          const infoViajes = await sheetsCache.getInfoViajes(trip.codigo);
+          if (infoViajes.length > 0) {
+            sections.push(buildInfoViajesSection(trip.codigo, infoViajes));
+          }
+        }
+      }
+    }
+
     // Get FAQ
     const faq = await sheetsCache.getFAQ();
     if (faq.length > 0) {
@@ -211,4 +223,47 @@ function buildFAQSection(faq) {
  */
 function buildAdvisorSection(advisor) {
   return `## ASESORA ASIGNADA\n\nNombre: ${advisor.nombre}\n${advisor.whatsapp ? `WhatsApp: ${advisor.whatsapp}` : ''}\n\nCuando derives a esta asesora, menciona su nombre en el mensaje de despedida.`;
+}
+
+/**
+ * Builds travel information section from Info_Viajes sheet
+ * Organizes information by categories: Trámites, Clima, Equipaje, Conectividad, etc.
+ * Uses actual Google Sheets column names: viaje_codigo, categoria, titulo, contenido
+ *
+ * @param {string} tripCode - Trip code (e.g., 'LON2026')
+ * @param {Array} infoViajes - Array of info objects for this trip
+ * @returns {string} Formatted info section
+ */
+function buildInfoViajesSection(tripCode, infoViajes) {
+  if (infoViajes.length === 0) {
+    return '';
+  }
+
+  // Group information by category
+  const categoriesMap = {};
+  infoViajes.forEach(info => {
+    const categoria = info.categoria || 'General';
+    if (!categoriesMap[categoria]) {
+      categoriesMap[categoria] = [];
+    }
+    categoriesMap[categoria].push(info);
+  });
+
+  // Build section for each category
+  const categoryTexts = Object.entries(categoriesMap).map(([categoria, items]) => {
+    const itemTexts = items.map(item => {
+      let text = '';
+      if (item.titulo) {
+        text += `**${item.titulo}**\n`;
+      }
+      if (item.contenido) {
+        text += `${item.contenido}\n`;
+      }
+      return text;
+    }).join('\n');
+
+    return `### ${categoria}\n\n${itemTexts}`;
+  }).join('\n');
+
+  return `## INFORMACIÓN DETALLADA DE ${tripCode}\n\n${categoryTexts}`;
 }

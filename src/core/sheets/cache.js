@@ -19,6 +19,7 @@ const SHEET_NAMES = [
   'Asesoras',
   'Esquemas de Pago',
   'FAQ',
+  'Info_Viajes',
   'Configuración',
 ];
 
@@ -258,6 +259,24 @@ export async function getAdvisor(schoolCode) {
  */
 export async function getFAQ() {
   return await getCachedSheet('FAQ');
+}
+
+/**
+ * Gets travel information (Info_Viajes) for a specific trip
+ * This contains detailed information from presentations: trámites, clima, equipaje, etc.
+ *
+ * @param {string} tripId - Trip ID (matches 'viaje_codigo' in Sheets)
+ * @returns {Promise<Array>} Array of info objects for this trip
+ */
+export async function getInfoViajes(tripId = null) {
+  const infoViajes = await getCachedSheet('Info_Viajes');
+
+  if (!tripId) {
+    return infoViajes;
+  }
+
+  // Filter by viaje_codigo (the actual field name in Google Sheets)
+  return infoViajes.filter(info => info.viaje_codigo === tripId);
 }
 
 /**

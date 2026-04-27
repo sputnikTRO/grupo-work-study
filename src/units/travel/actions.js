@@ -18,6 +18,7 @@ import * as conversation from '../../core/ai/conversation.js';
  * - [CAPTURAR_DATO:campo:valor]
  * - [ACTUALIZAR_SCORE:N]
  * - [PROGRAMAR_SEGUIMIENTO:tiempo]
+ * - [SOLICITAR_DOCUMENTO:tipo]
  */
 
 // Regex patterns for each action type
@@ -27,6 +28,7 @@ const ACTION_PATTERNS = {
   CAPTURAR_DATO: /\[CAPTURAR_DATO:([^:]+):([^\]]+)\]/g,
   ACTUALIZAR_SCORE: /\[ACTUALIZAR_SCORE:(\d+)\]/g,
   PROGRAMAR_SEGUIMIENTO: /\[PROGRAMAR_SEGUIMIENTO:([^\]]+)\]/g,
+  SOLICITAR_DOCUMENTO: /\[SOLICITAR_DOCUMENTO:([^\]]+)\]/g,
 };
 
 /**
@@ -81,6 +83,15 @@ export function parseActions(claudeResponse) {
     actions.push({
       type: 'PROGRAMAR_SEGUIMIENTO',
       time: match[1].trim(),
+    });
+  }
+
+  // Parse SOLICITAR_DOCUMENTO
+  matches = [...claudeResponse.matchAll(ACTION_PATTERNS.SOLICITAR_DOCUMENTO)];
+  for (const match of matches) {
+    actions.push({
+      type: 'SOLICITAR_DOCUMENTO',
+      documentType: match[1].trim(),
     });
   }
 
@@ -176,6 +187,10 @@ async function executeAction(action, lead, conversation, phone, phoneNumberId) {
 
     case 'PROGRAMAR_SEGUIMIENTO':
       await executeScheduleFollowUp(action.time, lead, actionLogger);
+      break;
+
+    case 'SOLICITAR_DOCUMENTO':
+      await executeRequestDocument(action.documentType, lead, actionLogger);
       break;
 
     default:
@@ -448,6 +463,35 @@ async function executeScheduleFollowUp(time, lead, actionLogger) {
 }
 
 /**
+ * [SOLICITAR_DOCUMENTO:tipo] - Registers document request
+ * Note: Claude's response should already include the user-facing message asking for the document
+ * This function just logs the request in the lead notes for tracking
+ */
+async function executeRequestDocument(documentType, lead, actionLogger) {
+  actionLogger.info({ documentType }, 'Requesting document');
+
+  try {
+    // Add to lead notes that this document was requested
+    const timestamp = new Date().toISOString();
+    const noteEntry = `[${timestamp}] Documento solicitado: ${documentType}`;
+
+    const currentNotes = lead.notes || '';
+    const updatedNotes = currentNotes
+      ? `${currentNotes}\n${noteEntry}`
+      : noteEntry;
+
+    await leadService.updateTravelLead(lead.id, {
+      notes: updatedNotes,
+    });
+
+    actionLogger.info({ documentType }, 'Document request logged in lead notes');
+
+  } catch (error) {
+    actionLogger.error({ err: error }, 'Error logging document request');
+  }
+}
+
+/**
  * Parses follow-up time string to Date
  *
  * @param {string} time - Time string (e.g., "24h", "3d", "1w")
@@ -502,6 +546,9 @@ export function validateAction(action) {
 
     case 'PROGRAMAR_SEGUIMIENTO':
       return !!action.time;
+
+    case 'SOLICITAR_DOCUMENTO':
+      return !!action.documentType;
 
     default:
       return false;
