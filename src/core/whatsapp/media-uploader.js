@@ -3,12 +3,13 @@ import FormData from 'form-data';
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import redis from '../database/redis.js';
+import * as googleDrive from '../google-drive/client.js';
 
 /**
  * WhatsApp Media Uploader
  *
  * Uploads media files to WhatsApp Cloud API and caches media IDs
- * This is more reliable than sending external URLs, especially for Google Drive files
+ * Uses Google Drive API for Drive files (more reliable than HTTP download)
  */
 
 const API_BASE_URL = `https://graph.facebook.com/${env.WA_API_VERSION}`;
@@ -22,7 +23,22 @@ const MEDIA_CACHE_TTL = 60 * 60 * 24 * 29; // 29 days (WhatsApp media expires af
  */
 async function downloadFile(url) {
   try {
-    logger.info({ url }, 'Downloading file from URL');
+    // Check if it's a Google Drive URL
+    if (googleDrive.isGoogleDriveUrl(url)) {
+      logger.info({ url }, 'Detected Google Drive URL, using Drive API');
+
+      const fileId = googleDrive.extractFileId(url);
+
+      if (!fileId) {
+        throw new Error('Could not extract file ID from Google Drive URL');
+      }
+
+      // Use Google Drive API (authenticated with service account)
+      return await googleDrive.downloadFile(fileId);
+    }
+
+    // For non-Drive URLs, use HTTP download
+    logger.info({ url }, 'Downloading file from URL via HTTP');
 
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
@@ -34,9 +50,10 @@ async function downloadFile(url) {
     });
 
     const buffer = Buffer.from(response.data);
-    logger.info({ size: buffer.length }, 'File downloaded successfully');
+    logger.info({ size: buffer.length }, 'File downloaded successfully via HTTP');
 
     return buffer;
+
   } catch (error) {
     logger.error({ err: error, url }, 'Error downloading file');
     throw new Error(`Failed to download file: ${error.message}`);
