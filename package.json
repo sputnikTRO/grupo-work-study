@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "demo": "node scripts/demo-bot.js",
+    "demo:auto": "node scripts/demo-bot.js auto",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -30,13 +32,13 @@
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
+    "form-data": "^4.0.5",
     "googleapis": "^144.0.0",
     "ioredis": "^5.4.2",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
     "prisma": "^6.1.0"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=20.0.0"
   }

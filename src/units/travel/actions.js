@@ -6,6 +6,7 @@ import * as conversationService from '../../services/conversation.service.js';
 import * as messageService from '../../services/message.service.js';
 import { sendTextMessage, sendMediaMessage, sendMediaMessageByUrl } from '../../core/whatsapp/client.js';
 import * as conversation from '../../core/ai/conversation.js';
+import { getOrUploadMedia, getMimeType } from '../../core/whatsapp/media-uploader.js';
 
 /**
  * Action Tag Parser and Executor
@@ -233,6 +234,11 @@ function convertGoogleDriveUrl(url) {
 
 /**
  * [ENVIAR_MATERIAL:ID] - Sends material via WhatsApp
+ *
+ * Uses WhatsApp's media upload API for reliable delivery:
+ * 1. Downloads file from source (Google Drive, etc)
+ * 2. Uploads to WhatsApp and gets media_id (cached for 29 days)
+ * 3. Sends using media_id (more reliable than external URLs)
  */
 async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actionLogger) {
   actionLogger.info({ materialId }, 'Sending material');
@@ -261,7 +267,7 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
       actionLogger.info({ originalUrl, convertedUrl: materialUrl }, 'Converted Google Drive URL to direct download format');
     }
 
-    // Determine if URL is a media file (PDF, image) or generic link
+    // Determine media type
     const urlLower = materialUrl.toLowerCase();
     const tipoLower = (material.tipo || '').toLowerCase();
 
@@ -269,31 +275,44 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
     const isPdf = tipoLower === 'pdf' || tipoLower === 'document' || urlLower.endsWith('.pdf');
     const isImage = tipoLower === 'imagen' || tipoLower === 'image' || urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i);
 
-    if (isPdf) {
-      // Send PDF as document
-      actionLogger.info('Sending PDF document via WhatsApp');
-      await sendMediaMessageByUrl(
-        phone,
-        'document',
-        materialUrl,
-        null, // No caption for documents
-        material.nombre || 'documento.pdf',
-        phoneNumberId
-      );
-      actionLogger.info('PDF document sent successfully');
+    if (isPdf || isImage) {
+      // Upload to WhatsApp and get media_id (or use cached media_id)
+      const mimeType = getMimeType(material.tipo, materialUrl);
+      const filename = material.nombre || (isPdf ? 'documento.pdf' : 'imagen.jpg');
 
-    } else if (isImage) {
-      // Send image
-      actionLogger.info('Sending image via WhatsApp');
-      await sendMediaMessageByUrl(
-        phone,
-        'image',
+      actionLogger.info({ materialId, mimeType, filename }, 'Uploading media to WhatsApp');
+
+      const mediaId = await getOrUploadMedia(
+        materialId,
         materialUrl,
-        material.descripcion || null, // Image caption
-        null,
+        mimeType,
+        filename,
         phoneNumberId
       );
-      actionLogger.info('Image sent successfully');
+
+      // Send using media_id (more reliable than URL)
+      if (isPdf) {
+        actionLogger.info({ mediaId }, 'Sending PDF document via WhatsApp using media_id');
+        await sendMediaMessage(
+          phone,
+          'document',
+          mediaId,
+          null, // No caption for documents
+          phoneNumberId
+        );
+        actionLogger.info('PDF document sent successfully');
+
+      } else if (isImage) {
+        actionLogger.info({ mediaId }, 'Sending image via WhatsApp using media_id');
+        await sendMediaMessage(
+          phone,
+          'image',
+          mediaId,
+          material.descripcion || null, // Image caption
+          phoneNumberId
+        );
+        actionLogger.info('Image sent successfully');
+      }
 
     } else {
       // Send as text message with link

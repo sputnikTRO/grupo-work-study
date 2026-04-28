@@ -52,40 +52,54 @@ const isPdf = tipoLower === 'pdf' || tipoLower === 'document' || urlLower.endsWi
 const isImage = tipoLower === 'imagen' || tipoLower === 'image' || ...;
 ```
 
-#### 1.3 Fix Google Drive URL download en `actions.js` (líneas 201-232, 249-262):
+#### 1.3 SOLUCIÓN DEFINITIVA: Upload a WhatsApp usando media_id en lugar de URL
+
+**PROBLEMA IDENTIFICADO:**
+- ❌ Enviar PDFs por URL externa NO funciona confiablemente con WhatsApp Cloud API
+- ❌ Google Drive muestra página de confirmación HTML para archivos >25MB
+- ❌ WhatsApp descarga el HTML en lugar del PDF real (904KB HTML vs 27.96MB PDF)
+
+**SOLUCIÓN CORRECTA:**
+Usar el endpoint de Media Upload de WhatsApp Cloud API:
+
 ```javascript
-// NUEVO: Función para convertir URLs de Google Drive
-function convertGoogleDriveUrl(url) {
-  const patterns = [
-    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
-    /drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/,
-    /drive\.google\.com\/u\/\d+\/uc\?id=([a-zA-Z0-9_-]+)/,
-  ];
+// NUEVO ARCHIVO: src/core/whatsapp/media-uploader.js
+// 1. Descarga el archivo de Google Drive
+const fileBuffer = await downloadFile(googleDriveUrl);
 
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) {
-      // Usa drive.usercontent.google.com para descarga directa
-      return `https://drive.usercontent.google.com/download?id=${match[1]}&export=download&authuser=0`;
-    }
-  }
-  return url;
-}
+// 2. Sube a WhatsApp y obtiene media_id
+const response = await axios.post(
+  `https://graph.facebook.com/v21.0/${phoneNumberId}/media`,
+  formData, // file + messaging_product
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const mediaId = response.data.id;
 
-// En executeSendMaterial():
-materialUrl = convertGoogleDriveUrl(materialUrl);
+// 3. Cachea el media_id en Redis por 29 días
+await redis.setex(`whatsapp:media:${materialId}`, 29_days, mediaId);
+
+// 4. Envía usando media_id en lugar de URL
+await sendMediaMessage(phone, 'document', mediaId, null, phoneNumberId);
 ```
 
+**VENTAJAS:**
+- ✅ Los archivos suben a WhatsApp permanecen 30 días
+- ✅ No depende de URLs externas (Google Drive, etc)
+- ✅ Mucho más confiable según documentación de Meta
+- ✅ Los media_id se cachean para no re-subir cada vez
+- ✅ Funciona con archivos hasta 100MB (límite de WhatsApp)
+
 **Razón:**
-- WhatsApp Cloud API descargaba la página de confirmación HTML de Google Drive en lugar del PDF
-- Para archivos grandes (>25MB), Google Drive muestra página de confirmación de virus
-- El dominio `drive.usercontent.google.com` proporciona descarga directa sin confirmación
-- Ahora el bot convierte automáticamente cualquier URL de Google Drive al formato correcto
+- WhatsApp Cloud API recomienda usar media_id en lugar de URLs externas
+- URLs externas tienen problemas de rate limiting y confirmaciones HTML
+- Subir a WhatsApp primero garantiza que el archivo se envíe correctamente
 
 **Archivos modificados:**
-- ✅ `src/units/travel/prompts.js` (líneas 175-211)
+- ✅ `src/units/travel/prompts.js` (líneas 175-211) - Instrucciones explícitas de envío
 - ✅ `src/units/travel/actions.js` (líneas 225-229) - Case-sensitivity
-- ✅ `src/units/travel/actions.js` (líneas 201-232, 249-262) - Google Drive URL conversion
+- ✅ `src/units/travel/actions.js` (líneas 201-232) - Google Drive URL conversion
+- ✅ `src/units/travel/actions.js` (líneas 235-336) - Usar media_id en lugar de URL
+- ✅ `src/core/whatsapp/media-uploader.js` (NUEVO) - Sistema de upload y caché
 
 ---
 
@@ -159,8 +173,10 @@ Deriva a asesora cuando:
 | `src/units/travel/prompts.js` | 43-53 | Modificación | Reglas de derivación sin mención a colegio no encontrado |
 | `src/units/travel/prompts.js` | 95-111 | Reescritura | Instrucciones para tratar todos los colegios por igual |
 | `src/units/travel/prompts.js` | 175-211 | Agregado | Sección completa "CUÁNDO ENVIAR MATERIALES ESPECÍFICOS" |
-| `src/units/travel/actions.js` | 225-229 | Fix | Detección case-insensitive de tipos de archivo |
-| `src/units/travel/actions.js` | 201-232, 249-262 | Agregado | Conversión automática de URLs de Google Drive a formato directo |
+| `src/units/travel/actions.js` | 1-9 | Modificación | Import de media-uploader para upload a WhatsApp |
+| `src/units/travel/actions.js` | 201-232 | Agregado | Conversión automática de URLs de Google Drive |
+| `src/units/travel/actions.js` | 235-336 | Reescritura | Usar media_id en lugar de URL externa (SOLUCIÓN DEFINITIVA) |
+| `src/core/whatsapp/media-uploader.js` | nuevo | Agregado | Sistema completo de upload, download y caché de media_ids |
 | `scripts/test-material-sending.js` | nuevo | Agregado | Script de prueba para validar funcionalidad |
 | `scripts/update-material-url.js` | nuevo | Agregado | Script para actualizar URLs de materiales en Sheets |
 
@@ -196,9 +212,11 @@ Hola, me interesa el viaje a Londres. ¿Me envías información completa?
 1. ✅ Bot responde: "¡Por supuesto! Le envío nuestra presentación completa..."
 2. ✅ Bot ADJUNTA el PDF real (27.96 MB)
 3. ✅ El archivo descargado es el PDF completo, NO un HTML
-4. ✅ En logs: "Converted Google Drive URL to direct download format"
-5. ✅ En logs: "Sending PDF document via WhatsApp"
-6. ✅ En logs: "PDF document sent successfully"
+4. ✅ En logs: "Uploading media to WhatsApp"
+5. ✅ En logs (primera vez): "Downloading file from URL" + "Media uploaded successfully to WhatsApp"
+6. ✅ En logs (siguientes veces): "Using cached WhatsApp media ID"
+7. ✅ En logs: "Sending PDF document via WhatsApp using media_id"
+8. ✅ En logs: "PDF document sent successfully"
 
 ### Test 2: Colegio No en Lista
 
@@ -230,10 +248,29 @@ Cuando un prospecto pida el brochure, deberías ver en los logs:
 [INFO] Executing actions
 [INFO] Sending material
     materialId: "BROCHURE_LON_CEWIN"
-[INFO] Sending PDF document via WhatsApp
-    phone: "+52..."
-    type: "document"
-    url: "https://drive.google.com/uc?id=..."
+[INFO] Uploading media to WhatsApp
+    materialId: "BROCHURE_LON_CEWIN"
+    mimeType: "application/pdf"
+    filename: "Brochure English 4 Life Londres 2026 - CEWIN"
+
+--- Primera vez (descarga y upload) ---
+[INFO] Downloading file from URL
+    url: "https://drive.usercontent.google.com/download?id=..."
+[INFO] File downloaded successfully
+    size: 29295616 (27.96 MB)
+[INFO] Uploading media to WhatsApp
+[INFO] Media uploaded successfully to WhatsApp
+    mediaId: "1234567890123456"
+[INFO] Media ID cached for 29 days
+
+--- Siguientes veces (usa caché) ---
+[INFO] Using cached WhatsApp media ID
+    materialId: "BROCHURE_LON_CEWIN"
+    mediaId: "1234567890123456"
+
+--- Envío ---
+[INFO] Sending PDF document via WhatsApp using media_id
+    mediaId: "1234567890123456"
 [INFO] PDF document sent successfully
 [INFO] Material added to lead sent list
 [INFO] Response sent to WhatsApp
@@ -279,8 +316,12 @@ npm run dev
 - El fix es case-insensitive, funciona con `PDF`, `pdf`, `Pdf`, etc.
 - El prompt ahora es MUY explícito sobre cuándo enviar materiales
 - Claude tiene ejemplos concretos con IDs reales de materiales
-- URLs de Google Drive se convierten automáticamente a `drive.usercontent.google.com` para descarga directa
-- Soluciona el problema de WhatsApp descargando HTML en lugar del PDF real
+- **SOLUCIÓN DEFINITIVA:** Upload a WhatsApp usando media_id (no más URLs externas)
+- Los archivos se descargan de Google Drive y se suben a WhatsApp
+- Los media_ids se cachean en Redis por 29 días (WhatsApp los guarda 30 días)
+- Primera solicitud: descarga + upload (puede tomar 10-20 segundos)
+- Siguientes solicitudes: instantáneo (usa media_id cacheado)
+- Soluciona completamente el problema de HTML en lugar de PDF
 
 ### Para el Problema 2 (Derivación temprana):
 - TODAS las menciones a "colegio sin convenio" fueron eliminadas
