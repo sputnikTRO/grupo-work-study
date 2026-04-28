@@ -222,8 +222,11 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
 
     // Determine if URL is a media file (PDF, image) or generic link
     const urlLower = materialUrl.toLowerCase();
-    const isPdf = urlLower.endsWith('.pdf') || material.tipo === 'pdf';
-    const isImage = urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i) || material.tipo === 'imagen';
+    const tipoLower = (material.tipo || '').toLowerCase();
+
+    // Check tipo field first (case-insensitive), then fallback to URL pattern
+    const isPdf = tipoLower === 'pdf' || tipoLower === 'document' || urlLower.endsWith('.pdf');
+    const isImage = tipoLower === 'imagen' || tipoLower === 'image' || urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i);
 
     if (isPdf) {
       // Send PDF as document
