@@ -199,6 +199,39 @@ async function executeAction(action, lead, conversation, phone, phoneNumberId) {
 }
 
 /**
+ * Converts Google Drive URLs to direct download format
+ *
+ * Handles various Google Drive URL formats and converts them to use
+ * drive.usercontent.google.com which provides direct file access
+ * without HTML confirmation pages (even for large files)
+ *
+ * @param {string} url - Original URL (may or may not be Google Drive)
+ * @returns {string} - Converted URL or original if not Google Drive
+ */
+function convertGoogleDriveUrl(url) {
+  // Extract file ID from various Google Drive URL formats
+  const patterns = [
+    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,           // /file/d/ID
+    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,           // /open?id=ID
+    /drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/,             // /uc?id=ID
+    /drive\.google\.com\/u\/\d+\/uc\?id=([a-zA-Z0-9_-]+)/,     // /u/0/uc?id=ID
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      const fileId = match[1];
+      // Use drive.usercontent.google.com for direct download without confirmation page
+      // This format works reliably with WhatsApp Cloud API even for large files
+      return `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0`;
+    }
+  }
+
+  // Not a Google Drive URL, return as-is
+  return url;
+}
+
+/**
  * [ENVIAR_MATERIAL:ID] - Sends material via WhatsApp
  */
 async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actionLogger) {
@@ -213,11 +246,19 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
       return;
     }
 
-    const materialUrl = material.url || material.contenido;
+    let materialUrl = material.url || material.contenido;
 
     if (!materialUrl) {
       actionLogger.warn('Material has no URL or content');
       return;
+    }
+
+    // Convert Google Drive URLs to direct download format
+    const originalUrl = materialUrl;
+    materialUrl = convertGoogleDriveUrl(materialUrl);
+
+    if (originalUrl !== materialUrl) {
+      actionLogger.info({ originalUrl, convertedUrl: materialUrl }, 'Converted Google Drive URL to direct download format');
     }
 
     // Determine if URL is a media file (PDF, image) or generic link

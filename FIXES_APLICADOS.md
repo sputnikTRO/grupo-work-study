@@ -52,9 +52,40 @@ const isPdf = tipoLower === 'pdf' || tipoLower === 'document' || urlLower.endsWi
 const isImage = tipoLower === 'imagen' || tipoLower === 'image' || ...;
 ```
 
+#### 1.3 Fix Google Drive URL download en `actions.js` (líneas 201-232, 249-262):
+```javascript
+// NUEVO: Función para convertir URLs de Google Drive
+function convertGoogleDriveUrl(url) {
+  const patterns = [
+    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/,
+    /drive\.google\.com\/u\/\d+\/uc\?id=([a-zA-Z0-9_-]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      // Usa drive.usercontent.google.com para descarga directa
+      return `https://drive.usercontent.google.com/download?id=${match[1]}&export=download&authuser=0`;
+    }
+  }
+  return url;
+}
+
+// En executeSendMaterial():
+materialUrl = convertGoogleDriveUrl(materialUrl);
+```
+
+**Razón:**
+- WhatsApp Cloud API descargaba la página de confirmación HTML de Google Drive en lugar del PDF
+- Para archivos grandes (>25MB), Google Drive muestra página de confirmación de virus
+- El dominio `drive.usercontent.google.com` proporciona descarga directa sin confirmación
+- Ahora el bot convierte automáticamente cualquier URL de Google Drive al formato correcto
+
 **Archivos modificados:**
 - ✅ `src/units/travel/prompts.js` (líneas 175-211)
-- ✅ `src/units/travel/actions.js` (líneas 225-229)
+- ✅ `src/units/travel/actions.js` (líneas 225-229) - Case-sensitivity
+- ✅ `src/units/travel/actions.js` (líneas 201-232, 249-262) - Google Drive URL conversion
 
 ---
 
@@ -129,7 +160,9 @@ Deriva a asesora cuando:
 | `src/units/travel/prompts.js` | 95-111 | Reescritura | Instrucciones para tratar todos los colegios por igual |
 | `src/units/travel/prompts.js` | 175-211 | Agregado | Sección completa "CUÁNDO ENVIAR MATERIALES ESPECÍFICOS" |
 | `src/units/travel/actions.js` | 225-229 | Fix | Detección case-insensitive de tipos de archivo |
+| `src/units/travel/actions.js` | 201-232, 249-262 | Agregado | Conversión automática de URLs de Google Drive a formato directo |
 | `scripts/test-material-sending.js` | nuevo | Agregado | Script de prueba para validar funcionalidad |
+| `scripts/update-material-url.js` | nuevo | Agregado | Script para actualizar URLs de materiales en Sheets |
 
 ---
 
@@ -162,8 +195,10 @@ Hola, me interesa el viaje a Londres. ¿Me envías información completa?
 **Resultado esperado:**
 1. ✅ Bot responde: "¡Por supuesto! Le envío nuestra presentación completa..."
 2. ✅ Bot ADJUNTA el PDF real (27.96 MB)
-3. ✅ En logs: "Sending PDF document via WhatsApp"
-4. ✅ En logs: "PDF document sent successfully"
+3. ✅ El archivo descargado es el PDF completo, NO un HTML
+4. ✅ En logs: "Converted Google Drive URL to direct download format"
+5. ✅ En logs: "Sending PDF document via WhatsApp"
+6. ✅ En logs: "PDF document sent successfully"
 
 ### Test 2: Colegio No en Lista
 
@@ -244,6 +279,8 @@ npm run dev
 - El fix es case-insensitive, funciona con `PDF`, `pdf`, `Pdf`, etc.
 - El prompt ahora es MUY explícito sobre cuándo enviar materiales
 - Claude tiene ejemplos concretos con IDs reales de materiales
+- URLs de Google Drive se convierten automáticamente a `drive.usercontent.google.com` para descarga directa
+- Soluciona el problema de WhatsApp descargando HTML en lugar del PDF real
 
 ### Para el Problema 2 (Derivación temprana):
 - TODAS las menciones a "colegio sin convenio" fueron eliminadas
@@ -257,10 +294,12 @@ npm run dev
 
 **Antes:**
 - ❌ "Le envío el brochure" → Solo texto, sin archivo
+- ❌ "Le envío el brochure" → Archivo HTML de confirmación de Google Drive (904 KB)
 - ❌ "¿De qué colegio?" → "No lo tenemos, le conecto con asesora"
 
 **Después:**
-- ✅ "Le envío el brochure" → Texto + PDF adjunto real de 27.96 MB
+- ✅ "Le envío el brochure" → Texto + PDF adjunto real de 27.96 MB (descarga directa)
+- ✅ El archivo es el PDF completo, NO una página HTML
 - ✅ "Del Colegio XYZ" → "Perfecto, ¿cómo se llama usted?" (continúa conversación)
 
 ---
