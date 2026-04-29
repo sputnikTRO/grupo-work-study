@@ -8,6 +8,7 @@
 import { PrismaClient } from '@prisma/client';
 import { normalizePhone } from '../utils/phone.js';
 import logger from '../utils/logger.js';
+import redis from '../core/database/redis.js';
 
 const prisma = new PrismaClient();
 
@@ -149,6 +150,92 @@ export async function registerAdminRoutes(fastify) {
 
     } catch (error) {
       adminLogger.error({ err: error }, 'Error getting conversation status');
+      return reply.code(500).send({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /admin/clear-media-cache
+   * Clears all WhatsApp media cache from Redis
+   */
+  fastify.post('/admin/clear-media-cache', async (request, reply) => {
+    const adminLogger = logger.child({ endpoint: 'admin.clear-media-cache' });
+
+    try {
+      adminLogger.info('Clearing WhatsApp media cache');
+
+      const client = redis.getClient();
+
+      // Find all WhatsApp media keys
+      const keys = await client.keys('whatsapp:media:*');
+
+      adminLogger.info({ keyCount: keys.length }, 'Found cached media items');
+
+      if (keys.length === 0) {
+        return reply.send({
+          success: true,
+          message: 'Cache is already empty',
+          deletedCount: 0,
+        });
+      }
+
+      // Delete all keys
+      const result = await client.del(...keys);
+
+      adminLogger.info({ deletedCount: result }, 'Cache cleared successfully');
+
+      return reply.send({
+        success: true,
+        message: 'Cache cleared successfully',
+        deletedCount: result,
+        keys: keys,
+      });
+
+    } catch (error) {
+      adminLogger.error({ err: error }, 'Error clearing cache');
+      return reply.code(500).send({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /admin/media-cache-status
+   * Shows current media cache status
+   */
+  fastify.get('/admin/media-cache-status', async (request, reply) => {
+    const adminLogger = logger.child({ endpoint: 'admin.media-cache-status' });
+
+    try {
+      const client = redis.getClient();
+
+      // Find all WhatsApp media keys
+      const keys = await client.keys('whatsapp:media:*');
+
+      const cacheItems = [];
+      for (const key of keys) {
+        const mediaId = await client.get(key);
+        const ttl = await client.ttl(key);
+        cacheItems.push({
+          key,
+          mediaId,
+          ttlSeconds: ttl,
+          ttlDays: (ttl / 86400).toFixed(1),
+        });
+      }
+
+      return reply.send({
+        success: true,
+        totalCached: keys.length,
+        items: cacheItems,
+      });
+
+    } catch (error) {
+      adminLogger.error({ err: error }, 'Error getting cache status');
       return reply.code(500).send({
         success: false,
         error: error.message,
