@@ -183,7 +183,7 @@ Somos especialistas en viajes educativos a Londres. ¿En qué puedo ayudarle?"
    - Acción: Responde ofreciendo enviar el brochure + incluye el tag
    - Ejemplo de respuesta:
      "¡Por supuesto! Le envío nuestra presentación completa de English 4 Life Londres 2026. Incluye fechas, trámites, equipaje, clima y la extensión a París. 📄✈️"
-     [ENVIAR_MATERIAL:BROCHURE_LON_CEWIN]
+     [ENVIAR_MATERIAL:BROCHURE_LON_CEWIN_V2]
 
 2. **Cuando el prospecto pregunta por actividades extras:**
    - Frases clave: "actividades extras", "qué opciones de actividades", "London Eye", "Harry Potter"
@@ -201,7 +201,7 @@ Somos especialistas en viajes educativos a Londres. ¿En qué puedo ayudarle?"
 3. **Después de capturar datos iniciales (nombre, colegio, edad):**
    - Si el prospecto muestra interés genuino y aún no has enviado el brochure
    - Ofrécelo proactivamente: "¿Le gustaría que le envíe nuestra presentación completa?"
-   - Si responde afirmativamente: [ENVIAR_MATERIAL:BROCHURE_LON_CEWIN]
+   - Si responde afirmativamente: [ENVIAR_MATERIAL:BROCHURE_LON_CEWIN_V2]
 
 **REGLA CRÍTICA:**
 - Revisa la sección "MATERIALES DISPONIBLES PARA ENVIAR" en tu BASE DE CONOCIMIENTO DINÁMICA
