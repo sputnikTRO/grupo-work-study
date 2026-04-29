@@ -48,19 +48,31 @@ export async function sendTextMessage(to, text, phoneNumberId) {
  * @param {string} mediaType - Type: 'image', 'document', 'audio', 'video'
  * @param {string} mediaId - Media ID from Meta Upload API
  * @param {string} caption - Optional caption for image/video
+ * @param {string} filename - Optional filename for documents
  * @param {string} phoneNumberId - WhatsApp phone number ID to send from
  * @returns {Promise<Object>} API response
  */
-export async function sendMediaMessage(to, mediaType, mediaId, caption, phoneNumberId) {
+export async function sendMediaMessage(to, mediaType, mediaId, caption, filename, phoneNumberId) {
+  const mediaObject = {
+    id: mediaId,
+  };
+
+  // Add caption for images and videos
+  if (caption && (mediaType === 'image' || mediaType === 'video')) {
+    mediaObject.caption = caption;
+  }
+
+  // Add filename for documents
+  if (filename && mediaType === 'document') {
+    mediaObject.filename = filename;
+  }
+
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
     type: mediaType,
-    [mediaType]: {
-      id: mediaId,
-      ...(caption && (mediaType === 'image' || mediaType === 'video') ? { caption } : {}),
-    },
+    [mediaType]: mediaObject,
   };
 
   return await sendMessage(payload, phoneNumberId);

@@ -292,12 +292,13 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
 
       // Send using media_id (more reliable than URL)
       if (isPdf) {
-        actionLogger.info({ mediaId }, 'Sending PDF document via WhatsApp using media_id');
+        actionLogger.info({ mediaId, filename }, 'Sending PDF document via WhatsApp using media_id');
         await sendMediaMessage(
           phone,
           'document',
           mediaId,
           null, // No caption for documents
+          filename, // Filename for the document
           phoneNumberId
         );
         actionLogger.info('PDF document sent successfully');
@@ -309,6 +310,7 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
           'image',
           mediaId,
           material.descripcion || null, // Image caption
+          null, // No filename for images
           phoneNumberId
         );
         actionLogger.info('Image sent successfully');
