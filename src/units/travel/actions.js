@@ -259,13 +259,11 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
       return;
     }
 
-    // Convert Google Drive URLs to direct download format
-    const originalUrl = materialUrl;
-    materialUrl = convertGoogleDriveUrl(materialUrl);
-
-    if (originalUrl !== materialUrl) {
-      actionLogger.info({ originalUrl, convertedUrl: materialUrl }, 'Converted Google Drive URL to direct download format');
-    }
+    // Note: We DON'T convert Google Drive URLs here because media-uploader.js
+    // has logic to detect drive.google.com URLs and use authenticated Google Drive API,
+    // which works for private files. Converting to drive.usercontent.google.com
+    // breaks that detection and only works for public files.
+    // See: src/core/whatsapp/media-uploader.js lines 25-38
 
     // Determine media type
     const urlLower = materialUrl.toLowerCase();
