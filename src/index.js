@@ -15,8 +15,11 @@ import * as followUpJob from './jobs/followup.job.js';
  * Initializes Fastify server with:
  * - CORS support
  * - Health check endpoint
- * - WhatsApp webhook routes (to be implemented)
+ * - WhatsApp webhook routes
+ * - Admin routes
  * - Graceful shutdown handling
+ *
+ * Updated: 2026-05-04 - Miri personality deployment
  */
 
 // Create Fastify instance
