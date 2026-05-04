@@ -100,6 +100,85 @@ export async function registerAdminRoutes(fastify) {
   });
 
   /**
+   * DELETE /admin/delete-conversation/:phone
+   * Completely deletes all conversations and leads for a phone number
+   * Use this to force a fresh start with new prompts
+   */
+  fastify.delete('/admin/delete-conversation/:phone', async (request, reply) => {
+    const adminLogger = logger.child({ endpoint: 'admin.delete-conversation' });
+
+    try {
+      const { phone } = request.params;
+      const normalizedPhone = normalizePhone(phone);
+
+      adminLogger.info({ phone: normalizedPhone }, 'Deleting conversation completely');
+
+      // Find contact
+      const contact = await prisma.contact.findUnique({
+        where: { phone: normalizedPhone },
+        include: { conversations: true }
+      });
+
+      if (!contact) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Contact not found',
+          phone: normalizedPhone,
+        });
+      }
+
+      let deletedConversations = 0;
+      let deletedMessages = 0;
+
+      // Delete all conversations and messages
+      for (const conv of contact.conversations) {
+        // Delete messages
+        const result = await prisma.message.deleteMany({
+          where: { conversationId: conv.id }
+        });
+        deletedMessages += result.count;
+
+        // Delete conversation
+        await prisma.conversation.delete({
+          where: { id: conv.id }
+        });
+        deletedConversations++;
+
+        // Clear Redis history
+        const historyKey = `conversation:${conv.id}:history`;
+        await redis.getClient().del(historyKey);
+      }
+
+      // Delete leads
+      const deletedLeads = await prisma.travelLead.deleteMany({
+        where: { contactId: contact.id }
+      });
+
+      adminLogger.info({
+        deletedConversations,
+        deletedMessages,
+        deletedLeads: deletedLeads.count
+      }, 'Conversation deleted successfully');
+
+      return reply.send({
+        success: true,
+        message: 'Conversation deleted completely',
+        phone: normalizedPhone,
+        deletedConversations,
+        deletedMessages,
+        deletedLeads: deletedLeads.count,
+      });
+
+    } catch (error) {
+      adminLogger.error({ err: error }, 'Error deleting conversation');
+      return reply.code(500).send({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
    * GET /admin/conversation-status/:phone
    * Gets the status of conversations for a phone number
    */
