@@ -347,10 +347,10 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
 
     // Send farewell message to prospect
     let farewellMessage = advisor
-      ? `Con gusto le comunico con ${advisor.nombre}, nuestra asesora especializada que podrá darle una atención personalizada.`
-      : `Con gusto le comunico con una de nuestras asesoras que podrá darle una atención personalizada.`;
+      ? `Con gusto te comunico con ${advisor.nombre}, nuestra asesora especializada que te dará una atención personalizada 😊`
+      : `Con gusto te comunico con una de nuestras asesoras que te dará una atención personalizada 😊`;
 
-    farewellMessage += '\n\nElla le contactará en breve por este mismo medio. ¡Gracias por su interés! 😊';
+    farewellMessage += '\n\nElla te contactará en breve por este mismo medio. ¡Gracias por tu interés!';
 
     await sendTextMessage(phone, farewellMessage, phoneNumberId);
     actionLogger.info('Farewell message sent to prospect');
@@ -402,25 +402,21 @@ async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reaso
     const school = lead.schoolCode ? await sheetsCache.getSchool(lead.schoolCode) : null;
 
     // Build notification message
-    const notification = `🔔 *NUEVO LEAD DE ALTA PRIORIDAD*
+    const notification = `🔔 Nuevo lead de alta prioridad
 
-👤 *Contacto:*
-${lead.parentName ? `Padre/Madre: ${lead.parentName}` : 'Nombre: No capturado'}
-${lead.travelerName ? `Estudiante: ${lead.travelerName}` : ''}
-${lead.travelerAge ? `Edad: ${lead.travelerAge} años` : ''}
+${lead.parentName ? `👤 ${lead.parentName}` : '👤 Nombre no capturado'}
+${lead.travelerName ? `👨‍🎓 ${lead.travelerName}` : ''}
+${lead.travelerAge ? `📅 ${lead.travelerAge} años` : ''}
 
-🏫 *Colegio:*
-${school ? school.nombre : lead.schoolCode || 'No detectado'}
+🏫 ${school ? school.nombre : lead.schoolCode || 'Colegio no detectado'}
 
-📊 *Score de Interés:* ${conv.interestScore}/10
-📌 *Razón de Derivación:* ${reason}
+📊 Interés: ${conv.interestScore}/10
+📌 Razón: ${reason}
 
-📱 *WhatsApp del Prospecto:*
-${prospectPhone}
+📱 WhatsApp: ${prospectPhone}
 ${conversationSummary}
 ---
-_Este lead fue derivado automáticamente por el bot._
-_Por favor contacta al prospecto lo antes posible._`;
+Este lead fue derivado por Miri. Contáctalo lo antes posible 😊`;
 
     // Send notification to advisor's WhatsApp
     await sendTextMessage(advisor.whatsapp, notification, phoneNumberId);
