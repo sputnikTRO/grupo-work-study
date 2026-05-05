@@ -184,16 +184,32 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     // Execute actions with REAL implementation
     await executeActions(actions, lead, conv, phone, phoneNumberId);
 
-    // Send response to WhatsApp
-    await sendTextMessage(phone, cleanText, phoneNumberId);
-    processLogger.info('Response sent to WhatsApp');
+    // Split response by --- delimiter and send multiple messages
+    const messages = cleanText.split('---').map(msg => msg.trim()).filter(msg => msg.length > 0);
 
-    // Save outbound message to database
-    await messageService.createOutbound(conv.id, cleanText);
+    processLogger.info({ messageCount: messages.length }, 'Sending multiple WhatsApp messages');
 
-    // Add both messages to conversation history in Redis
+    // Send each message with a small delay to simulate natural typing
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+
+      // Add delay between messages (except for the first one)
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+      }
+
+      await sendTextMessage(phone, msg, phoneNumberId);
+      processLogger.debug({ messageIndex: i + 1, totalMessages: messages.length }, 'WhatsApp message sent');
+    }
+
+    processLogger.info('All messages sent to WhatsApp');
+
+    // Save outbound message to database (save the complete concatenated message)
+    await messageService.createOutbound(conv.id, cleanText.replace(/---/g, '\n'));
+
+    // Add both messages to conversation history in Redis (save complete message for Claude's context)
     await conversation.addMessage(conv.id, 'user', content.text);
-    await conversation.addMessage(conv.id, 'assistant', cleanText);
+    await conversation.addMessage(conv.id, 'assistant', cleanText.replace(/---/g, '\n'));
 
     // SCORING: Analyze user message and update score
     const scoringResult = updateScore(content.text, lead, conv.interestScore);
