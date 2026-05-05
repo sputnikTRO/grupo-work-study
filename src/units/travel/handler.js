@@ -193,13 +193,18 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
 
-      // Add delay between messages (except for the first one)
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
-      }
+      try {
+        // Add delay between messages (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+        }
 
-      await sendTextMessage(phone, msg, phoneNumberId);
-      processLogger.debug({ messageIndex: i + 1, totalMessages: messages.length }, 'WhatsApp message sent');
+        await sendTextMessage(phone, msg, phoneNumberId);
+        processLogger.debug({ messageIndex: i + 1, totalMessages: messages.length }, 'WhatsApp message sent');
+      } catch (error) {
+        processLogger.error({ err: error, messageIndex: i + 1 }, 'Error sending individual message, continuing with next');
+        // Continue with next message even if one fails
+      }
     }
 
     processLogger.info('All messages sent to WhatsApp');
