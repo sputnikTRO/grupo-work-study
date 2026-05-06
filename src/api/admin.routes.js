@@ -9,6 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { normalizePhone } from '../utils/phone.js';
 import logger from '../utils/logger.js';
 import redis from '../core/database/redis.js';
+import * as sheetsCache from '../core/sheets/cache.js';
 
 const prisma = new PrismaClient();
 
@@ -315,6 +316,45 @@ export async function registerAdminRoutes(fastify) {
 
     } catch (error) {
       adminLogger.error({ err: error }, 'Error getting cache status');
+      return reply.code(500).send({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /admin/refresh-sheets-cache
+   * Force refresh of Google Sheets cache
+   */
+  fastify.post('/admin/refresh-sheets-cache', async (request, reply) => {
+    const adminLogger = logger.child({ endpoint: 'admin.refresh-sheets-cache' });
+
+    try {
+      adminLogger.info('Forcing Google Sheets cache refresh');
+
+      const success = await sheetsCache.refreshCache();
+
+      if (success) {
+        const status = await sheetsCache.getCacheStatus();
+
+        adminLogger.info({ sheetCount: Object.keys(status.sheets).length }, 'Cache refreshed successfully');
+
+        return reply.send({
+          success: true,
+          message: 'Google Sheets cache refreshed successfully',
+          timestamp: new Date().toISOString(),
+          status,
+        });
+      } else {
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to refresh cache',
+        });
+      }
+
+    } catch (error) {
+      adminLogger.error({ err: error }, 'Error refreshing cache');
       return reply.code(500).send({
         success: false,
         error: error.message,
