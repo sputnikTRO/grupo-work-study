@@ -84,8 +84,8 @@ export async function readSheet(spreadsheetId, sheetName) {
         const obj = {};
 
         headers.forEach((header, index) => {
-          // Normalize header: lowercase, replace spaces with underscores
-          const key = header.toString().toLowerCase().trim().replace(/\s+/g, '_');
+          // Keep header as-is (no normalization) to match Spanish headers in new structure
+          const key = header.toString().trim();
 
           // Get cell value (or null if column doesn't exist in this row)
           obj[key] = row[index] !== undefined ? row[index].toString().trim() : null;
