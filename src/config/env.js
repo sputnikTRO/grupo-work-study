@@ -64,6 +64,10 @@ export const env = {
   MAX_CONVERSATION_HISTORY: parseInt(optionalEnv('MAX_CONVERSATION_HISTORY', '20'), 10),
   CONTACT_LOCK_TTL_SECONDS: parseInt(optionalEnv('CONTACT_LOCK_TTL_SECONDS', '30'), 10),
 
+  // Travel Bot Configuration (moved from Google Sheets "Configuración" tab)
+  HANDOFF_SCORE_THRESHOLD: parseInt(optionalEnv('HANDOFF_SCORE_THRESHOLD', '8'), 10),
+  MAX_FOLLOW_UPS: parseInt(optionalEnv('MAX_FOLLOW_UPS', '3'), 10),
+
   // Zoho CRM (optional - Fase 2 y 3)
   ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
   ZOHO_CLIENT_SECRET: process.env.ZOHO_CLIENT_SECRET,

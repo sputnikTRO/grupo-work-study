@@ -5,27 +5,33 @@ import logger from '../../utils/logger.js';
 /**
  * Google Sheets Leads Sync
  *
- * Syncs lead data to "Leads_Log" sheet for easy dashboarding and CRM integration
+ * Syncs lead data to "Leads" sheet for easy dashboarding and CRM integration
+ *
+ * NUEVA ESTRUCTURA SIMPLIFICADA (Mayo 2026):
+ * - Sheet name: "Leads" (previously "Leads_Log")
+ * - Headers en español
+ * - 14 columnas en total
  */
 
-const SHEET_NAME = 'Leads_Log';
+const SHEET_NAME = 'Leads';
 
 // Column structure (keep in sync with sheet headers)
+// Headers: ID | Fecha | Nombre Padre | Nombre Viajero | Edad | Colegio | WhatsApp | Interés | Estado | Materiales Enviados | Asesor Asignado | Última Actualización | Canal | Notas
 const COLUMNS = {
-  TIMESTAMP: 0,         // A - timestamp
-  NOMBRE_PADRE: 1,      // B - nombre_padre
-  NOMBRE_ESTUDIANTE: 2, // C - nombre_estudiante
-  TELEFONO: 3,          // D - telefono
-  COLEGIO: 4,           // E - colegio
-  PROGRAMA: 5,          // F - programa
-  DESTINO: 6,           // G - destino
-  EDAD_ESTUDIANTE: 7,   // H - edad_estudiante
-  SCORE: 8,             // I - score
-  ESTATUS: 9,           // J - estatus
-  ASESOR_ASIGNADO: 10,  // K - asesor_asignado
-  MATERIALES_ENVIADOS: 11, // L - materiales_enviados
-  ULTIMO_CONTACTO: 12,  // M - ultimo_contacto
-  NOTAS: 13,            // N - notas
+  ID: 0,                      // A - ID (lead ID from database)
+  FECHA: 1,                   // B - Fecha (creation date)
+  NOMBRE_PADRE: 2,            // C - Nombre Padre
+  NOMBRE_VIAJERO: 3,          // D - Nombre Viajero
+  EDAD: 4,                    // E - Edad
+  COLEGIO: 5,                 // F - Colegio
+  WHATSAPP: 6,                // G - WhatsApp
+  INTERES: 7,                 // H - Interés (score 1-10)
+  ESTADO: 8,                  // I - Estado (activo, derivado_asesor, etc)
+  MATERIALES_ENVIADOS: 9,     // J - Materiales Enviados
+  ASESOR_ASIGNADO: 10,        // K - Asesor Asignado
+  ULTIMA_ACTUALIZACION: 11,   // L - Última Actualización
+  CANAL: 12,                  // M - Canal (WhatsApp)
+  NOTAS: 13,                  // N - Notas
 };
 
 /**
@@ -38,20 +44,20 @@ const COLUMNS = {
  */
 function formatLeadRow(lead, contact, conversation) {
   return [
-    lead.createdAt?.toISOString() || new Date().toISOString(),  // timestamp
-    lead.parentName || contact.name || 'Sin nombre',             // nombre_padre
-    lead.travelerName || 'Sin capturar',                         // nombre_estudiante
-    contact.phone,                                                // telefono
-    lead.schoolCode || 'Sin asignar',                            // colegio
-    'travel',                                                     // programa
-    lead.destination || 'Sin especificar',                       // destino
-    lead.travelerAge?.toString() || '',                          // edad_estudiante
-    conversation.interestScore?.toString() || '1',               // score
-    lead.status || 'activo',                                     // estatus
-    conversation.assignedAdvisor || '',                          // asesor_asignado
-    (lead.materialsSent || []).join(', '),                       // materiales_enviados
-    lead.updatedAt?.toISOString() || new Date().toISOString(),   // ultimo_contacto
-    formatNotes(lead, conversation),                             // notas
+    lead.id?.toString() || '',                                      // ID
+    lead.createdAt?.toISOString() || new Date().toISOString(),     // Fecha
+    lead.parentName || contact.name || 'Sin nombre',               // Nombre Padre
+    lead.travelerName || 'Sin capturar',                           // Nombre Viajero
+    lead.travelerAge?.toString() || '',                            // Edad
+    lead.schoolCode || 'Sin asignar',                              // Colegio
+    contact.phone,                                                  // WhatsApp
+    conversation.interestScore?.toString() || '1',                 // Interés
+    lead.status || 'activo',                                       // Estado
+    (lead.materialsSent || []).join(', '),                         // Materiales Enviados
+    conversation.assignedAgent || conversation.assignedAdvisor || '', // Asesor Asignado
+    lead.updatedAt?.toISOString() || new Date().toISOString(),     // Última Actualización
+    'WhatsApp',                                                     // Canal
+    formatNotes(lead, conversation),                               // Notas
   ];
 }
 
@@ -75,6 +81,10 @@ function formatNotes(lead, conversation) {
 
   if (conversation.status === 'waiting_human') {
     notes.push('Esperando atención humana');
+  }
+
+  if (lead.destination) {
+    notes.push(`Destino: ${lead.destination}`);
   }
 
   return notes.join(' | ');
@@ -101,12 +111,12 @@ export async function syncLeadToSheet(lead, contact, conversation) {
     // Format row data
     const rowData = formatLeadRow(lead, contact, conversation);
 
-    // Check if lead already exists in sheet (search by phone number in column C)
+    // Check if lead already exists in sheet (search by ID in column A)
     const existingRow = await findRowByColumn(
       env.GOOGLE_SHEETS_ID,
       SHEET_NAME,
-      COLUMNS.TELEFONO,
-      contact.phone
+      COLUMNS.ID,
+      lead.id?.toString()
     );
 
     if (existingRow) {
@@ -126,32 +136,32 @@ export async function syncLeadToSheet(lead, contact, conversation) {
 }
 
 /**
- * Creates the header row for Leads_Log sheet
+ * Creates the header row for Leads sheet
  * Call this once when setting up the sheet for the first time
  *
- * @returns {Array} Header row
+ * @returns {Array} Header row (Spanish headers)
  */
 export function getLeadsLogHeaders() {
   return [
-    'timestamp',
-    'nombre_padre',
-    'nombre_estudiante',
-    'telefono',
-    'colegio',
-    'programa',
-    'destino',
-    'edad_estudiante',
-    'score',
-    'estatus',
-    'asesor_asignado',
-    'materiales_enviados',
-    'ultimo_contacto',
-    'notas',
+    'ID',
+    'Fecha',
+    'Nombre Padre',
+    'Nombre Viajero',
+    'Edad',
+    'Colegio',
+    'WhatsApp',
+    'Interés',
+    'Estado',
+    'Materiales Enviados',
+    'Asesor Asignado',
+    'Última Actualización',
+    'Canal',
+    'Notas',
   ];
 }
 
 /**
- * Initializes the Leads_Log sheet with headers
+ * Initializes the Leads sheet with headers
  * Only call this if the sheet doesn't exist or is empty
  *
  * @returns {Promise<void>}
@@ -160,15 +170,15 @@ export async function initializeLeadsLogSheet() {
   const syncLogger = logger.child({ function: 'sheets.initializeLeadsLogSheet' });
 
   try {
-    syncLogger.info('Initializing Leads_Log sheet with headers');
+    syncLogger.info('Initializing Leads sheet with headers');
 
     const headers = getLeadsLogHeaders();
     await appendRow(env.GOOGLE_SHEETS_ID, SHEET_NAME, headers);
 
-    syncLogger.info('Leads_Log sheet initialized successfully');
+    syncLogger.info('Leads sheet initialized successfully');
 
   } catch (error) {
-    syncLogger.error({ err: error }, 'Error initializing Leads_Log sheet');
+    syncLogger.error({ err: error }, 'Error initializing Leads sheet');
     throw error;
   }
 }

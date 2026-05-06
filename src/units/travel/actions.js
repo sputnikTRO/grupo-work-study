@@ -252,7 +252,8 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
       return;
     }
 
-    let materialUrl = material.url || material.contenido;
+    // New structure uses 'URL' column instead of 'url' or 'contenido'
+    let materialUrl = material['URL'] || material.url || material.contenido;
 
     if (!materialUrl) {
       actionLogger.warn('Material has no URL or content');
@@ -267,7 +268,8 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
 
     // Determine media type
     const urlLower = materialUrl.toLowerCase();
-    const tipoLower = (material.tipo || '').toLowerCase();
+    // New structure uses 'Tipo' column instead of 'tipo'
+    const tipoLower = (material['Tipo'] || material.tipo || '').toLowerCase();
 
     // Check tipo field first (case-insensitive), then fallback to URL pattern
     const isPdf = tipoLower === 'pdf' || tipoLower === 'document' || urlLower.endsWith('.pdf');
@@ -275,8 +277,9 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
 
     if (isPdf || isImage) {
       // Upload to WhatsApp and get media_id (or use cached media_id)
-      const mimeType = getMimeType(material.tipo, materialUrl);
-      const filename = material.nombre || (isPdf ? 'documento.pdf' : 'imagen.jpg');
+      const mimeType = getMimeType(material['Tipo'] || material.tipo, materialUrl);
+      // New structure uses 'Nombre' column instead of 'nombre'
+      const filename = material['Nombre'] || material.nombre || (isPdf ? 'documento.pdf' : 'imagen.jpg');
 
       actionLogger.info({ materialId, mimeType, filename }, 'Uploading media to WhatsApp');
 
@@ -307,7 +310,7 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
           phone,
           'image',
           mediaId,
-          material.descripcion || null, // Image caption
+          material['Descripción'] || material.descripcion || null, // Image caption
           null, // No filename for images
           phoneNumberId
         );
@@ -317,8 +320,10 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
     } else {
       // Send as text message with link
       actionLogger.info('Sending link as text message');
-      const linkMessage = material.descripcion
-        ? `${material.descripcion}\n\n${materialUrl}`
+      // New structure uses 'Descripción' column instead of 'descripcion'
+      const descripcion = material['Descripción'] || material.descripcion;
+      const linkMessage = descripcion
+        ? `${descripcion}\n\n${materialUrl}`
         : materialUrl;
 
       await sendTextMessage(phone, linkMessage, phoneNumberId);
@@ -402,13 +407,14 @@ async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reaso
     const school = lead.schoolCode ? await sheetsCache.getSchool(lead.schoolCode) : null;
 
     // Build notification message
+    // New structure uses 'Nombre Colegio' column instead of 'nombre'
     const notification = `🔔 Nuevo lead de alta prioridad
 
 ${lead.parentName ? `👤 ${lead.parentName}` : '👤 Nombre no capturado'}
 ${lead.travelerName ? `👨‍🎓 ${lead.travelerName}` : ''}
 ${lead.travelerAge ? `📅 ${lead.travelerAge} años` : ''}
 
-🏫 ${school ? school.nombre : lead.schoolCode || 'Colegio no detectado'}
+🏫 ${school ? (school['Nombre Colegio'] || school.nombre) : lead.schoolCode || 'Colegio no detectado'}
 
 📊 Interés: ${conv.interestScore}/10
 📌 Razón: ${reason}
