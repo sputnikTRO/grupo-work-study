@@ -348,7 +348,37 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
 
   try {
     // Get advisor for this school
-    const advisor = lead.schoolCode ? await sheetsCache.getAdvisor(lead.schoolCode) : null;
+    // Priority: 1) Already assigned advisor (from carousel), 2) School registry
+    let advisor = null;
+
+    if (lead.assignedAdvisor) {
+      // Use previously assigned advisor (from carousel or school registry)
+      const advisorName = lead.assignedAdvisor;
+      if (advisorName === 'Cecilia Rodríguez') {
+        advisor = {
+          nombre: 'Cecilia Rodríguez',
+          whatsapp: '5544884437',
+          email: 'cecilia@oxfordeducationlit.org'
+        };
+      } else if (advisorName === 'Camila Serafin') {
+        advisor = {
+          nombre: 'Camila Serafin',
+          whatsapp: '5539771457',
+          email: 'camila.serafin@oxfordeducationlit.org'
+        };
+      } else if (advisorName === 'Miguel Rodríguez') {
+        advisor = {
+          nombre: 'Miguel Rodríguez',
+          whatsapp: '5651070832',
+          email: 'customer.experience@oxfordeducationlit.org'
+        };
+      }
+      actionLogger.info({ assignedAdvisor: advisorName }, 'Using pre-assigned advisor from lead');
+    } else if (lead.schoolCode) {
+      // Fallback: try to find advisor from school registry
+      advisor = await sheetsCache.getAdvisor(lead.schoolCode);
+      actionLogger.info({ schoolCode: lead.schoolCode }, 'Using advisor from school registry');
+    }
 
     // Send farewell message to prospect
     let farewellMessage = advisor
@@ -436,6 +466,86 @@ Este lead fue derivado por Miri. Contáctalo lo antes posible 😊`;
 }
 
 /**
+ * Assigns advisor using carousel logic for new schools
+ *
+ * Assignment logic:
+ * 1. If school exists in Colegios sheet → use assigned advisor
+ * 2. If school is NEW (not in sheet) → carousel: Cecy → Cami → Cecy (alternating)
+ * 3. Future: If institution inquiry → assign Miguel Rodríguez
+ *
+ * @param {string} schoolName - School name (can be partial)
+ * @param {Object} actionLogger - Logger instance
+ * @returns {Promise<Object|null>} Advisor object {nombre, whatsapp, email} or null
+ */
+async function assignAdvisorWithCarousel(schoolName, actionLogger) {
+  try {
+    // Try to find school in registry
+    const school = await sheetsCache.getSchoolByName(schoolName);
+
+    if (school) {
+      // School is registered → use assigned advisor
+      const advisor = await sheetsCache.getAdvisor(schoolName);
+      if (advisor) {
+        actionLogger.info({ school: schoolName, advisor: advisor.nombre }, 'Using assigned advisor from registry');
+        return advisor;
+      }
+    }
+
+    // School is NEW (not in registry) → use carousel logic
+    actionLogger.info({ school: schoolName }, 'School not found in registry, using carousel assignment');
+
+    // Get all leads to count carousel position
+    const allLeads = await prisma.travelLead.findMany({
+      where: {
+        assignedAdvisor: {
+          in: ['Cecilia Rodríguez', 'Camila Serafin']
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    // Count how many leads each advisor has from carousel (excluding pre-assigned schools)
+    const ceciliaCount = allLeads.filter(l => l.assignedAdvisor === 'Cecilia Rodríguez').length;
+    const camilaCount = allLeads.filter(l => l.assignedAdvisor === 'Camila Serafin').length;
+
+    // Carousel logic: alternate starting with Cecilia
+    // If equal, choose Cecilia (first in rotation)
+    const useCecilia = ceciliaCount <= camilaCount;
+
+    const advisor = useCecilia
+      ? {
+          nombre: 'Cecilia Rodríguez',
+          whatsapp: '5544884437',
+          email: 'cecilia@oxfordeducationlit.org'
+        }
+      : {
+          nombre: 'Camila Serafin',
+          whatsapp: '5539771457',
+          email: 'camila.serafin@oxfordeducationlit.org'
+        };
+
+    actionLogger.info({
+      school: schoolName,
+      advisor: advisor.nombre,
+      ceciliaCount,
+      camilaCount,
+      reason: 'carousel'
+    }, 'Assigned new school via carousel');
+
+    return advisor;
+
+  } catch (error) {
+    actionLogger.error({ err: error, school: schoolName }, 'Error in carousel assignment');
+    // Default to Cecilia on error
+    return {
+      nombre: 'Cecilia Rodríguez',
+      whatsapp: '5544884437',
+      email: 'cecilia@oxfordeducationlit.org'
+    };
+  }
+}
+
+/**
  * [CAPTURAR_DATO:campo:valor] - Captures lead data
  */
 async function executeCaptureData(field, value, lead, conversation, actionLogger) {
@@ -466,6 +576,18 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
         updateData[mappedField] = parseInt(value, 10);
       } else {
         updateData[mappedField] = value;
+      }
+
+      // Special handling for school_code: assign advisor using carousel
+      if (mappedField === 'schoolCode') {
+        const advisor = await assignAdvisorWithCarousel(value, actionLogger);
+        if (advisor) {
+          updateData.assignedAdvisor = advisor.nombre;
+          actionLogger.info({
+            school: value,
+            advisor: advisor.nombre
+          }, 'Advisor assigned to lead');
+        }
       }
 
       await leadService.updateTravelLead(lead.id, updateData);

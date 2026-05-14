@@ -117,19 +117,18 @@ export async function getActiveTrips() {
 }
 
 /**
- * Gets school by code
- * New structure uses "Código" column instead of "codigo"
+ * Gets school by code or name
+ * DEPRECATED: Codes no longer used. This function now searches by name.
+ * Use getSchoolByName() directly instead.
  *
- * @param {string} code - School code (e.g., 'WC', 'TH', 'CW')
+ * @param {string} codeOrName - School code (deprecated) or school name
  * @returns {Promise<Object|null>} School object or null
  */
-export async function getSchool(code) {
-  if (!code) return null;
+export async function getSchool(codeOrName) {
+  if (!codeOrName) return null;
 
-  const schools = await getCachedSheet('Colegios');
-  return schools.find(school =>
-    school['Código']?.toUpperCase() === code.toUpperCase()
-  ) || null;
+  // For backwards compatibility, try to find by name
+  return await getSchoolByName(codeOrName);
 }
 
 /**
@@ -229,25 +228,31 @@ export async function getMaterial(materialId) {
  * Gets price for a specific school and trip with FALLBACK to "TODOS"
  *
  * Fallback logic:
- * 1. Search for specific school + trip combination
+ * 1. Search for specific school + trip combination (by full name or partial match)
  * 2. If not found, search for Colegio="TODOS" + same trip
  * 3. Return null if neither found
  *
- * @param {string} tripCode - Trip code (e.g., 'LON2026')
- * @param {string} schoolCode - School code (e.g., 'WC', 'TH') - optional
+ * @param {string} tripCode - Trip code (e.g., 'LON2027', 'DUB2027')
+ * @param {string} schoolName - School name (full or partial) - optional
  * @returns {Promise<Object|null>} Price object or null
  */
-export async function getPrice(tripCode, schoolCode = null) {
+export async function getPrice(tripCode, schoolName = null) {
   if (!tripCode) return null;
 
   const prices = await getCachedSheet('Precios');
 
-  // First try: specific school + trip
-  if (schoolCode) {
-    const specificPrice = prices.find(price =>
-      price['Código Viaje'] === tripCode &&
-      price['Colegio']?.toUpperCase() === schoolCode.toUpperCase()
-    );
+  // First try: specific school + trip (by name match)
+  if (schoolName) {
+    const normalizedSearch = schoolName.toLowerCase().trim();
+
+    const specificPrice = prices.find(price => {
+      const priceSchool = price['Colegio']?.toLowerCase() || '';
+      const matchesTrip = price['Código Viaje'] === tripCode;
+      const matchesSchool = priceSchool !== 'todos' &&
+                           priceSchool.includes(normalizedSearch);
+
+      return matchesTrip && matchesSchool;
+    });
 
     if (specificPrice) {
       return specificPrice;
@@ -282,15 +287,15 @@ export async function getActivities(tripCode = null) {
 
 /**
  * Gets advisor assigned to a school
- * New structure: advisor info is now IN Colegios sheet (columns: Asesora, WhatsApp Asesora, Email Asesora)
+ * New structure: advisor info is IN Colegios sheet (columns: Asesora, WhatsApp Asesora, Email Asesora)
  *
- * @param {string} schoolCode - School code
+ * @param {string} schoolName - School name (full or partial match)
  * @returns {Promise<Object|null>} Advisor object {nombre, whatsapp, email} or null
  */
-export async function getAdvisor(schoolCode) {
-  if (!schoolCode) return null;
+export async function getAdvisor(schoolName) {
+  if (!schoolName) return null;
 
-  const school = await getSchool(schoolCode);
+  const school = await getSchoolByName(schoolName);
 
   if (!school) return null;
 
