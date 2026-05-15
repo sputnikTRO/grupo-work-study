@@ -138,14 +138,18 @@ async function sendMessage(userMessage, dynamicKnowledge) {
   // Extract action tags
   const actionTagRegex = /\[([A-Z_]+)(?::([^\]]+))?\]/g;
   let match;
+  const actions = [];
 
   while ((match = actionTagRegex.exec(botResponse)) !== null) {
+    actions.push({ tag: match[1], params: match[2] });
     const [field, value] = match[2] ? match[2].split(':') : [];
 
     if (match[1] === 'CAPTURAR_DATO') {
       if (field === 'school_code') mockLead.schoolCode = value;
       else if (field === 'contact_type') log(`      ✓ Tipo de contacto: ${value}`, 'dim');
       else if (field === 'program_interest') mockLead.programInterest = value;
+    } else if (match[1] === 'DERIVAR_ASESOR') {
+      log(`      🔔 DERIVACIÓN A ASESOR: ${match[2]}`, 'yellow');
     }
   }
 
