@@ -1,7 +1,6 @@
 import logger from '../../utils/logger.js';
 import prisma from '../../core/database/client.js';
 import { sendTextMessage } from '../../core/whatsapp/client.js';
-import * as conversationService from '../../services/conversation.service.js';
 import * as leadService from '../../services/lead.service.js';
 import { normalizePhone } from '../../utils/phone.js';
 
@@ -15,13 +14,6 @@ const ADVISORS = {
   '5539771457': { nombre: 'Camila Serafín',    apodo: 'Cami',  role: 'asesor' },
 };
 
-const ASSIGNABLE = {
-  cecy:    { nombre: 'Cecilia Rodríguez', whatsapp: '5544884437' },
-  cecilia: { nombre: 'Cecilia Rodríguez', whatsapp: '5544884437' },
-  cami:    { nombre: 'Camila Serafín',    whatsapp: '5539771457' },
-  camila:  { nombre: 'Camila Serafín',    whatsapp: '5539771457' },
-  miguel:  { nombre: 'Miguel Rodríguez',  whatsapp: '5651070832' },
-};
 
 // ---------------------------------------------------------------------------
 // Exports públicos
@@ -51,16 +43,6 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
     } else if (text.startsWith('REGRESA ') || text === 'REGRESA') {
       const ticketNumber = parseTicket(text, 'REGRESA');
       await handleRegresa(ticketNumber, advisor, message.from, phoneNumberId, cmdLogger);
-
-    } else if (text.startsWith('ASIGNAR ') || text === 'ASIGNAR') {
-      if (advisor.role !== 'admin') {
-        await sendTextMessage(message.from, '⛔ Este comando solo está disponible para Miguel.', phoneNumberId);
-        return;
-      }
-      const parts = text.split(' ');
-      const ticketNumber = parseInt(parts[1], 10);
-      const targetKey    = parts[2]?.toLowerCase();
-      await handleAsignar(ticketNumber, targetKey, advisor, message.from, phoneNumberId, cmdLogger);
 
     } else if (text === 'AYUDA' || text === 'HELP' || text === 'HOLA') {
       await sendTextMessage(message.from, getHelpMessage(advisor), phoneNumberId);
@@ -181,41 +163,6 @@ async function handleRegresa(ticketNumber, advisor, replyTo, phoneNumberId, cmdL
 }
 
 // ---------------------------------------------------------------------------
-// ASIGNAR # [asesor] — Solo Miguel
-// ---------------------------------------------------------------------------
-
-async function handleAsignar(ticketNumber, targetKey, advisor, replyTo, phoneNumberId, cmdLogger) {
-  if (isNaN(ticketNumber) || ticketNumber < 1) {
-    throw new UserError('Uso: ASIGNAR # cecy/cami/miguel\nEjemplo: ASIGNAR 47 cami');
-  }
-
-  const target = targetKey ? ASSIGNABLE[targetKey] : null;
-  if (!target) {
-    throw new UserError('Asesor no reconocido. Usa: cecy, camila, cami, miguel');
-  }
-
-  const lead = await findLeadByTicket(ticketNumber, advisor);
-
-  const conv = await prisma.conversation.findFirst({
-    where: { contactId: lead.contactId },
-    orderBy: { lastMessageAt: 'desc' },
-  });
-  if (conv) {
-    await conversationService.update(conv.id, { assignedAgent: target.nombre });
-  }
-
-  await leadService.updateTravelLead(lead.id, { assignedAdvisor: target.nombre });
-
-  const name = lead.parentName || lead.contact.name || lead.contact.phone;
-  await sendTextMessage(
-    replyTo,
-    `✅ Lead #${ticketNumber} (${name}) asignado a *${target.nombre}*.\n📱 WhatsApp: ${lead.contact.phone}`,
-    phoneNumberId
-  );
-  cmdLogger.info({ ticketNumber, assignedTo: target.nombre }, 'Lead assigned');
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -272,15 +219,11 @@ async function findWaitingConversation(lead, ticketNumber) {
 }
 
 function getHelpMessage(advisor) {
-  const adminLine = advisor.role === 'admin'
-    ? '\n👤 *ASIGNAR # CECY/CAMI/MIGUEL* → Reasignar un lead'
-    : '';
-
   return `Hola ${advisor.apodo} 👋 Soy Miri. Comandos disponibles:
 
 ✅ *LISTO #* → Cerrar un lead que ya atendiste
 🔄 *REGRESA #* → Devolver un lead para que yo lo atienda
-📋 *PENDIENTES* → Ver tus leads activos${adminLine}
+📋 *PENDIENTES* → Ver tus leads activos
 
 Ejemplo: LISTO 47`;
 }
