@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import prisma from '../../core/database/client.js';
 import * as sheetsCache from '../../core/sheets/cache.js';
 import * as leadService from '../../services/lead.service.js';
 import * as contactService from '../../services/contact.service.js';
@@ -360,9 +361,9 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
           whatsapp: '5544884437',
           email: 'cecilia@oxfordeducationlit.org'
         };
-      } else if (advisorName === 'Camila Serafin') {
+      } else if (advisorName === 'Camila Serafín') {
         advisor = {
-          nombre: 'Camila Serafin',
+          nombre: 'Camila Serafín',
           whatsapp: '5539771457',
           email: 'camila.serafin@oxfordeducationlit.org'
         };
@@ -498,7 +499,7 @@ async function assignAdvisorWithCarousel(schoolName, actionLogger) {
     const allLeads = await prisma.travelLead.findMany({
       where: {
         assignedAdvisor: {
-          in: ['Cecilia Rodríguez', 'Camila Serafin']
+          in: ['Cecilia Rodríguez', 'Camila Serafín']
         }
       },
       orderBy: { createdAt: 'asc' }
@@ -506,7 +507,7 @@ async function assignAdvisorWithCarousel(schoolName, actionLogger) {
 
     // Count how many leads each advisor has from carousel (excluding pre-assigned schools)
     const ceciliaCount = allLeads.filter(l => l.assignedAdvisor === 'Cecilia Rodríguez').length;
-    const camilaCount = allLeads.filter(l => l.assignedAdvisor === 'Camila Serafin').length;
+    const camilaCount = allLeads.filter(l => l.assignedAdvisor === 'Camila Serafín').length;
 
     // Carousel logic: alternate starting with Cecilia
     // If equal, choose Cecilia (first in rotation)
@@ -519,7 +520,7 @@ async function assignAdvisorWithCarousel(schoolName, actionLogger) {
           email: 'cecilia@oxfordeducationlit.org'
         }
       : {
-          nombre: 'Camila Serafin',
+          nombre: 'Camila Serafín',
           whatsapp: '5539771457',
           email: 'camila.serafin@oxfordeducationlit.org'
         };

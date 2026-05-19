@@ -1,4 +1,5 @@
 import redis from '../database/redis.js';
+import prisma from '../database/client.js';
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 
@@ -26,17 +27,40 @@ export async function getHistory(conversationId) {
   try {
     const history = await redis.getConversationHistory(conversationId);
 
-    if (!history) {
-      convLogger.debug('No history found in Redis');
+    if (history && history.length > 0) {
+      convLogger.debug({ messageCount: history.length }, 'History loaded from Redis');
+      return history;
+    }
+
+    // Redis vacío (TTL expirado, reinicio, o primera vez) — reconstruir desde PostgreSQL
+    convLogger.info('Redis history empty, rebuilding from PostgreSQL');
+
+    const dbMessages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      take: MAX_HISTORY,
+    });
+
+    if (dbMessages.length === 0) {
+      convLogger.debug('No history in PostgreSQL either, starting fresh');
       return [];
     }
 
-    convLogger.debug({ messageCount: history.length }, 'History loaded from Redis');
-    return history;
+    const rebuilt = dbMessages.map(m => ({
+      role: m.senderType === 'user' ? 'user' : 'assistant',
+      content: m.content,
+      timestamp: m.createdAt.toISOString(),
+    }));
+
+    // Recargar en Redis para las próximas peticiones
+    await redis.setConversationHistory(conversationId, rebuilt);
+
+    convLogger.info({ messageCount: rebuilt.length }, 'History rebuilt from PostgreSQL and cached in Redis');
+    return rebuilt;
 
   } catch (error) {
-    convLogger.error({ err: error }, 'Error loading history from Redis');
-    return []; // Return empty on error, don't break the flow
+    convLogger.error({ err: error }, 'Error loading history');
+    return []; // No romper el flujo si hay error
   }
 }
 

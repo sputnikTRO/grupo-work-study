@@ -60,8 +60,8 @@ export const env = {
 
   // Bot Configuration
   SHEETS_CACHE_TTL_SECONDS: parseInt(optionalEnv('SHEETS_CACHE_TTL_SECONDS', '300'), 10),
-  CONVERSATION_CONTEXT_TTL_SECONDS: parseInt(optionalEnv('CONVERSATION_CONTEXT_TTL_SECONDS', '3600'), 10),
-  MAX_CONVERSATION_HISTORY: parseInt(optionalEnv('MAX_CONVERSATION_HISTORY', '20'), 10),
+  CONVERSATION_CONTEXT_TTL_SECONDS: parseInt(optionalEnv('CONVERSATION_CONTEXT_TTL_SECONDS', '86400'), 10),
+  MAX_CONVERSATION_HISTORY: parseInt(optionalEnv('MAX_CONVERSATION_HISTORY', '40'), 10),
   CONTACT_LOCK_TTL_SECONDS: parseInt(optionalEnv('CONTACT_LOCK_TTL_SECONDS', '30'), 10),
 
   // Travel Bot Configuration (moved from Google Sheets "Configuración" tab)
