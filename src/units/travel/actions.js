@@ -341,67 +341,101 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
   }
 }
 
+// Catálogo centralizado de asesores
+const ADVISORS = {
+  cecilia: {
+    nombre: 'Cecilia Rodríguez',
+    whatsapp: '5544884437',
+    email: 'cecilia@oxfordeducationlit.org',
+    tipo: 'familia',
+  },
+  camila: {
+    nombre: 'Camila Serafín',
+    whatsapp: '5539771457',
+    email: 'camila.serafin@oxfordeducationlit.org',
+    tipo: 'familia',
+  },
+  miguel: {
+    nombre: 'Miguel Rodríguez',
+    whatsapp: '5651070832',
+    email: 'customer.experience@oxfordeducationlit.org',
+    tipo: 'institucion',
+  },
+};
+
+/**
+ * Resuelve el objeto advisor a partir de un nombre guardado en BD
+ */
+function resolveAdvisorByName(name) {
+  return Object.values(ADVISORS).find(a => a.nombre === name) || null;
+}
+
 /**
  * [DERIVAR_ASESOR:razón] - Handoff to human advisor
+ *
+ * Lógica de asignación (en orden):
+ * 1. ¿Ya tiene assigned_advisor? → usar ese
+ * 2. ¿Es institución? → Miguel siempre
+ * 3. ¿Tiene colegio registrado en Sheets? → asesora del sheet
+ * 4. ¿Colegio no registrado? → carrusel Cecy/Cami
+ * 5. ¿Sin colegio? → carrusel Cecy/Cami (familia es el default)
  */
 async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId, actionLogger) {
-  actionLogger.info({ reason }, 'Handing off to advisor');
+  actionLogger.info({ reason, leadType: lead.leadType }, 'Handing off to advisor');
 
   try {
-    // Get advisor for this school
-    // Priority: 1) Already assigned advisor (from carousel), 2) School registry
     let advisor = null;
 
+    // 1. Ya tiene asesora asignada desde antes
     if (lead.assignedAdvisor) {
-      // Use previously assigned advisor (from carousel or school registry)
-      const advisorName = lead.assignedAdvisor;
-      if (advisorName === 'Cecilia Rodríguez') {
-        advisor = {
-          nombre: 'Cecilia Rodríguez',
-          whatsapp: '5544884437',
-          email: 'cecilia@oxfordeducationlit.org'
-        };
-      } else if (advisorName === 'Camila Serafín') {
-        advisor = {
-          nombre: 'Camila Serafín',
-          whatsapp: '5539771457',
-          email: 'camila.serafin@oxfordeducationlit.org'
-        };
-      } else if (advisorName === 'Miguel Rodríguez') {
-        advisor = {
-          nombre: 'Miguel Rodríguez',
-          whatsapp: '5651070832',
-          email: 'customer.experience@oxfordeducationlit.org'
-        };
-      }
-      actionLogger.info({ assignedAdvisor: advisorName }, 'Using pre-assigned advisor from lead');
-    } else if (lead.schoolCode) {
-      // Fallback: try to find advisor from school registry
-      advisor = await sheetsCache.getAdvisor(lead.schoolCode);
-      actionLogger.info({ schoolCode: lead.schoolCode }, 'Using advisor from school registry');
+      advisor = resolveAdvisorByName(lead.assignedAdvisor);
+      actionLogger.info({ assignedAdvisor: lead.assignedAdvisor }, 'Using pre-assigned advisor');
     }
 
-    // Send farewell message to prospect
-    let farewellMessage = advisor
-      ? `Con gusto te comunico con ${advisor.nombre}, nuestra asesora especializada que te dará una atención personalizada 😊`
-      : `Con gusto te comunico con una de nuestras asesoras que te dará una atención personalizada 😊`;
+    // 2. Institución → Miguel siempre
+    if (!advisor && lead.leadType === 'institucion') {
+      advisor = ADVISORS.miguel;
+      actionLogger.info('Institution lead → assigning Miguel Rodríguez');
+    }
 
-    farewellMessage += '\n\nElla te contactará en breve por este mismo medio. ¡Gracias por tu interés!';
+    // 3. Tiene colegio → buscar en Sheets
+    if (!advisor && lead.schoolCode) {
+      advisor = await sheetsCache.getAdvisor(lead.schoolCode);
+      if (advisor) actionLogger.info({ schoolCode: lead.schoolCode }, 'Using advisor from school registry');
+    }
+
+    // 4 y 5. Sin asesora aún (colegio no registrado o sin colegio) → carrusel Cecy/Cami
+    if (!advisor) {
+      advisor = await assignFamilyCarousel(actionLogger);
+      actionLogger.info({ advisor: advisor.nombre }, 'Assigned via family carousel');
+    }
+
+    // Persistir asesora en el lead para futuros handoffs
+    if (advisor && !lead.assignedAdvisor) {
+      await leadService.updateTravelLead(lead.id, { assignedAdvisor: advisor.nombre });
+    }
+
+    // Mensaje de despedida al prospecto
+    const esInstitucion = lead.leadType === 'institucion';
+    let farewellMessage = advisor
+      ? `Con gusto te comunico con ${advisor.nombre}, nuestro${esInstitucion ? ' ejecutivo' : 'a asesora'} especializado${esInstitucion ? '' : 'a'} que te dará una atención personalizada 😊`
+      : `Con gusto te comunico con uno de nuestros asesores que te dará una atención personalizada 😊`;
+    farewellMessage += '\n\nTe contactará en breve por este mismo medio. ¡Gracias por tu interés!';
 
     await sendTextMessage(phone, farewellMessage, phoneNumberId);
     actionLogger.info('Farewell message sent to prospect');
 
-    // Update conversation status to waiting_human
+    // Actualizar status de conversación
     await conversationService.update(conv.id, {
       status: 'waiting_human',
       assignedAgent: advisor?.nombre || 'Sin asignar',
     });
 
-    // Update lead status
+    // Actualizar status del lead
     await leadService.updateTravelLeadStatus(lead.id, 'derivado_asesor');
 
-    // Send notification to advisor via WhatsApp
-    if (advisor && advisor.whatsapp) {
+    // Notificar al asesor por WhatsApp
+    if (advisor?.whatsapp) {
       await sendAdvisorNotification(advisor, lead, conv, phone, reason, phoneNumberId, actionLogger);
     } else {
       actionLogger.warn('No advisor WhatsApp found, notification not sent');
@@ -467,82 +501,64 @@ Este lead fue derivado por Miri. Contáctalo lo antes posible 😊`;
 }
 
 /**
- * Assigns advisor using carousel logic for new schools
- *
- * Assignment logic:
- * 1. If school exists in Colegios sheet → use assigned advisor
- * 2. If school is NEW (not in sheet) → carousel: Cecy → Cami → Cecy (alternating)
- * 3. Future: If institution inquiry → assign Miguel Rodríguez
- *
- * @param {string} schoolName - School name (can be partial)
- * @param {Object} actionLogger - Logger instance
- * @returns {Promise<Object|null>} Advisor object {nombre, whatsapp, email} or null
+ * Carrusel de asesoras de FAMILIA: Cecilia ↔ Camila según carga actual
+ * Se usa cuando no hay colegio registrado en Sheets o no hay colegio capturado.
  */
-async function assignAdvisorWithCarousel(schoolName, actionLogger) {
+async function assignFamilyCarousel(actionLogger) {
   try {
-    // Try to find school in registry
-    const school = await sheetsCache.getSchoolByName(schoolName);
-
-    if (school) {
-      // School is registered → use assigned advisor
-      const advisor = await sheetsCache.getAdvisor(schoolName);
-      if (advisor) {
-        actionLogger.info({ school: schoolName, advisor: advisor.nombre }, 'Using assigned advisor from registry');
-        return advisor;
-      }
-    }
-
-    // School is NEW (not in registry) → use carousel logic
-    actionLogger.info({ school: schoolName }, 'School not found in registry, using carousel assignment');
-
-    // Get all leads to count carousel position
-    const allLeads = await prisma.travelLead.findMany({
-      where: {
-        assignedAdvisor: {
-          in: ['Cecilia Rodríguez', 'Camila Serafín']
-        }
-      },
-      orderBy: { createdAt: 'asc' }
+    const counts = await prisma.travelLead.groupBy({
+      by: ['assignedAdvisor'],
+      where: { assignedAdvisor: { in: [ADVISORS.cecilia.nombre, ADVISORS.camila.nombre] } },
+      _count: { assignedAdvisor: true },
     });
 
-    // Count how many leads each advisor has from carousel (excluding pre-assigned schools)
-    const ceciliaCount = allLeads.filter(l => l.assignedAdvisor === 'Cecilia Rodríguez').length;
-    const camilaCount = allLeads.filter(l => l.assignedAdvisor === 'Camila Serafín').length;
+    const ceciliaCount = counts.find(r => r.assignedAdvisor === ADVISORS.cecilia.nombre)?._count.assignedAdvisor ?? 0;
+    const camilaCount  = counts.find(r => r.assignedAdvisor === ADVISORS.camila.nombre)?._count.assignedAdvisor ?? 0;
 
-    // Carousel logic: alternate starting with Cecilia
-    // If equal, choose Cecilia (first in rotation)
-    const useCecilia = ceciliaCount <= camilaCount;
+    const advisor = ceciliaCount <= camilaCount ? ADVISORS.cecilia : ADVISORS.camila;
 
-    const advisor = useCecilia
-      ? {
-          nombre: 'Cecilia Rodríguez',
-          whatsapp: '5544884437',
-          email: 'cecilia@oxfordeducationlit.org'
-        }
-      : {
-          nombre: 'Camila Serafín',
-          whatsapp: '5539771457',
-          email: 'camila.serafin@oxfordeducationlit.org'
-        };
-
-    actionLogger.info({
-      school: schoolName,
-      advisor: advisor.nombre,
-      ceciliaCount,
-      camilaCount,
-      reason: 'carousel'
-    }, 'Assigned new school via carousel');
-
+    actionLogger.info({ ceciliaCount, camilaCount, assigned: advisor.nombre }, 'Family carousel assigned');
     return advisor;
 
   } catch (error) {
-    actionLogger.error({ err: error, school: schoolName }, 'Error in carousel assignment');
-    // Default to Cecilia on error
-    return {
-      nombre: 'Cecilia Rodríguez',
-      whatsapp: '5544884437',
-      email: 'cecilia@oxfordeducationlit.org'
-    };
+    actionLogger.error({ err: error }, 'Error in family carousel, defaulting to Cecilia');
+    return ADVISORS.cecilia;
+  }
+}
+
+/**
+ * Asigna asesora al capturar school_code.
+ *
+ * Lógica:
+ * 1. Institución → Miguel
+ * 2. Colegio registrado en Sheets → asesora del sheet
+ * 3. Colegio nuevo → carrusel Cecy/Cami
+ */
+async function assignAdvisorWithCarousel(schoolName, lead, actionLogger) {
+  try {
+    // 1. Institución → Miguel siempre
+    if (lead.leadType === 'institucion') {
+      actionLogger.info('Institution lead → assigning Miguel Rodríguez');
+      return ADVISORS.miguel;
+    }
+
+    // 2. Colegio registrado en Sheets
+    const school = await sheetsCache.getSchoolByName(schoolName);
+    if (school) {
+      const sheetAdvisor = await sheetsCache.getAdvisor(schoolName);
+      if (sheetAdvisor) {
+        actionLogger.info({ school: schoolName, advisor: sheetAdvisor.nombre }, 'Using advisor from school registry');
+        return sheetAdvisor;
+      }
+    }
+
+    // 3. Colegio nuevo → carrusel familia
+    actionLogger.info({ school: schoolName }, 'School not in registry, using family carousel');
+    return await assignFamilyCarousel(actionLogger);
+
+  } catch (error) {
+    actionLogger.error({ err: error, school: schoolName }, 'Error assigning advisor, defaulting to Cecilia');
+    return ADVISORS.cecilia;
   }
 }
 
@@ -553,48 +569,49 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
   actionLogger.info({ field, value }, 'Capturing data');
 
   try {
-    const leadFields = ['parent_name', 'traveler_name', 'traveler_age', 'school_code', 'program_interest', 'budget_range', 'destination'];
+    const leadFields = ['parent_name', 'traveler_name', 'traveler_age', 'school_code', 'program_interest', 'budget_range', 'destination', 'lead_type'];
 
     if (leadFields.includes(field)) {
-      // Update lead
       const updateData = {};
 
-      // Map field names to camelCase
       const fieldMapping = {
-        parent_name: 'parentName',
-        traveler_name: 'travelerName',
-        traveler_age: 'travelerAge',
-        school_code: 'schoolCode',
+        parent_name:      'parentName',
+        traveler_name:    'travelerName',
+        traveler_age:     'travelerAge',
+        school_code:      'schoolCode',
         program_interest: 'programInterest',
-        budget_range: 'budgetRange',
-        destination: 'destination',
+        budget_range:     'budgetRange',
+        destination:      'destination',
+        lead_type:        'leadType',
       };
 
       const mappedField = fieldMapping[field] || field;
 
-      // Parse travelerAge as integer
       if (mappedField === 'travelerAge') {
         updateData[mappedField] = parseInt(value, 10);
       } else {
         updateData[mappedField] = value;
       }
 
-      // Special handling for school_code: assign advisor using carousel
+      // Al capturar lead_type=institucion → asignar Miguel de inmediato
+      if (mappedField === 'leadType' && value === 'institucion' && !lead.assignedAdvisor) {
+        updateData.assignedAdvisor = ADVISORS.miguel.nombre;
+        actionLogger.info('Institution detected → assigning Miguel Rodríguez');
+      }
+
+      // Al capturar school_code → asignar asesora según tipo y registro
       if (mappedField === 'schoolCode') {
-        const advisor = await assignAdvisorWithCarousel(value, actionLogger);
+        const updatedLead = { ...lead, ...updateData }; // incluye leadType recién capturado si aplica
+        const advisor = await assignAdvisorWithCarousel(value, updatedLead, actionLogger);
         if (advisor) {
           updateData.assignedAdvisor = advisor.nombre;
-          actionLogger.info({
-            school: value,
-            advisor: advisor.nombre
-          }, 'Advisor assigned to lead');
+          actionLogger.info({ school: value, advisor: advisor.nombre }, 'Advisor assigned to lead');
         }
       }
 
       await leadService.updateTravelLead(lead.id, updateData);
       actionLogger.info({ mappedField }, 'Lead updated');
 
-      // Also update contact if it's name or email
       if (field === 'parent_name') {
         await contactService.update(conversation.contactId, { name: value });
         actionLogger.info('Contact name updated');

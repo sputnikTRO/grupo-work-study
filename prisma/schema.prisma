@@ -137,6 +137,7 @@ model TravelLead {
   budgetRange     String?           @map("budget_range")
   status          TravelLeadStatus  @default(nuevo)
   assignedAdvisor String?           @map("assigned_advisor")
+  leadType        String?           @map("lead_type")        // 'familia' | 'institucion'
   materialsSent   String[]          @default([]) @map("materials_sent")
   followUpDate    DateTime?         @map("follow_up_date")
   followUpCount   Int               @default(0) @map("follow_up_count")

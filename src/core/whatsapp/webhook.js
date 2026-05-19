@@ -1,5 +1,6 @@
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
+import { isAdvisorPhone, handleAdvisorCommand } from '../../units/travel/advisor-commands.js';
 
 /**
  * WhatsApp Webhook Handler
@@ -129,6 +130,13 @@ async function processInboundMessage(message, phoneNumberId) {
   }, 'Processing inbound message');
 
   try {
+    // Detectar si es un asesor enviando un comando
+    if (isAdvisorPhone(from)) {
+      logger.info({ from }, 'Message from advisor phone, routing to command handler');
+      await handleAdvisorCommand(message, phoneNumberId);
+      return;
+    }
+
     // Determine which unit this message belongs to
     const unit = getUnitFromPhoneNumberId(phoneNumberId);
 
