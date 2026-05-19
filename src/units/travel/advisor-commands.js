@@ -6,93 +6,99 @@ import * as leadService from '../../services/lead.service.js';
 import { normalizePhone } from '../../utils/phone.js';
 
 /**
- * Números de WhatsApp de los asesores autorizados para usar comandos.
- * Clave: número normalizado E.164 sin '+'. Valor: nombre del asesor.
+ * Registro de asesores autorizados.
+ * Clave: número E.164 sin '+'. role 'admin' = Miguel (puede usar ASIGNAR y ve todos los leads).
  */
-const ADVISOR_PHONES = {
-  '5651070832': 'Miguel Rodríguez',
-  '5544884437': 'Cecilia Rodríguez',
-  '5539771457': 'Camila Serafín',
+const ADVISORS = {
+  '5651070832': { nombre: 'Miguel Rodríguez', apodo: 'Miguel', role: 'admin' },
+  '5544884437': { nombre: 'Cecilia Rodríguez', apodo: 'Cecy',  role: 'asesor' },
+  '5539771457': { nombre: 'Camila Serafín',    apodo: 'Cami',  role: 'asesor' },
 };
 
-/**
- * Asesoras de familia para el comando ASIGNAR
- */
-const FAMILY_ADVISORS = {
+const ASSIGNABLE = {
+  cecy:    { nombre: 'Cecilia Rodríguez', whatsapp: '5544884437' },
   cecilia: { nombre: 'Cecilia Rodríguez', whatsapp: '5544884437' },
+  cami:    { nombre: 'Camila Serafín',    whatsapp: '5539771457' },
   camila:  { nombre: 'Camila Serafín',    whatsapp: '5539771457' },
   miguel:  { nombre: 'Miguel Rodríguez',  whatsapp: '5651070832' },
 };
 
-/**
- * Verifica si un número de teléfono pertenece a un asesor autorizado.
- */
+// ---------------------------------------------------------------------------
+// Exports públicos
+// ---------------------------------------------------------------------------
+
 export function isAdvisorPhone(phone) {
-  const normalized = normalizePhone(phone).replace('+', '');
-  return normalized in ADVISOR_PHONES;
+  return normalizePhone(phone).replace('+', '') in ADVISORS;
 }
 
-/**
- * Maneja un mensaje de WhatsApp enviado por un asesor.
- * Detecta el comando y lo ejecuta.
- *
- * @param {Object} message - Objeto de mensaje de WhatsApp
- * @param {string} phoneNumberId - ID del número de WhatsApp de Miri
- */
 export async function handleAdvisorCommand(message, phoneNumberId) {
-  const phone = normalizePhone(message.from).replace('+', '');
-  const advisorName = ADVISOR_PHONES[phone];
-  const text = (message.text?.body || '').trim().toUpperCase();
+  const advisor = getAdvisor(message.from);
+  if (!advisor) return;
 
-  const cmdLogger = logger.child({ advisor: advisorName, command: text });
-
+  const raw  = (message.text?.body || '').trim();
+  const text = raw.toUpperCase();
+  const cmdLogger = logger.child({ advisor: advisor.nombre, command: text });
   cmdLogger.info('Received advisor command');
 
   try {
     if (text === 'PENDIENTES' || text === 'PENDIENTE') {
-      await handlePendientes(advisorName, message.from, phoneNumberId, cmdLogger);
+      await handlePendientes(advisor, message.from, phoneNumberId, cmdLogger);
 
-    } else if (text.startsWith('ASIGNAR ')) {
+    } else if (text.startsWith('LISTO ') || text === 'LISTO') {
+      const ticketNumber = parseTicket(text, 'LISTO');
+      await handleListo(ticketNumber, advisor, message.from, phoneNumberId, cmdLogger);
+
+    } else if (text.startsWith('REGRESA ') || text === 'REGRESA') {
+      const ticketNumber = parseTicket(text, 'REGRESA');
+      await handleRegresa(ticketNumber, advisor, message.from, phoneNumberId, cmdLogger);
+
+    } else if (text.startsWith('ASIGNAR ') || text === 'ASIGNAR') {
+      if (advisor.role !== 'admin') {
+        await sendTextMessage(message.from, '⛔ Este comando solo está disponible para Miguel.', phoneNumberId);
+        return;
+      }
       const parts = text.split(' ');
-      const leadIndex = parseInt(parts[1], 10);
-      const targetAdvisor = parts[2]?.toLowerCase(); // 'cecilia', 'camila', 'miguel' (opcional)
-      await handleAsignar(leadIndex, targetAdvisor, advisorName, message.from, phoneNumberId, cmdLogger);
+      const ticketNumber = parseInt(parts[1], 10);
+      const targetKey    = parts[2]?.toLowerCase();
+      await handleAsignar(ticketNumber, targetKey, advisor, message.from, phoneNumberId, cmdLogger);
 
-    } else if (text === 'AYUDA' || text === 'HELP') {
-      await sendTextMessage(message.from, getHelpMessage(), phoneNumberId);
+    } else if (text === 'AYUDA' || text === 'HELP' || text === 'HOLA') {
+      await sendTextMessage(message.from, getHelpMessage(advisor), phoneNumberId);
 
     } else {
-      // Comando desconocido — ignorar silenciosamente (el asesor puede estar chateando)
       cmdLogger.debug('Unknown advisor command, ignoring');
     }
-  } catch (error) {
-    cmdLogger.error({ err: error }, 'Error handling advisor command');
-    await sendTextMessage(message.from, '❌ Error al ejecutar el comando. Intenta de nuevo.', phoneNumberId);
+
+  } catch (err) {
+    if (err instanceof UserError) {
+      await sendTextMessage(message.from, `❌ ${err.message}`, phoneNumberId);
+    } else {
+      cmdLogger.error({ err }, 'Unexpected error in advisor command');
+      await sendTextMessage(message.from, '❌ Error interno. Intenta de nuevo.', phoneNumberId);
+    }
   }
 }
 
-/**
- * PENDIENTES — Lista los leads en waiting_human con número de índice, tipo y tiempo
- */
-async function handlePendientes(advisorName, replyTo, phoneNumberId, cmdLogger) {
+// ---------------------------------------------------------------------------
+// PENDIENTES
+// ---------------------------------------------------------------------------
+
+async function handlePendientes(advisor, replyTo, phoneNumberId, cmdLogger) {
+  const where = advisor.role === 'admin'
+    ? { status: 'waiting_human', unit: 'travel' }
+    : { status: 'waiting_human', unit: 'travel', assignedAgent: advisor.nombre };
+
   const conversations = await prisma.conversation.findMany({
-    where: { status: 'waiting_human', unit: 'travel' },
-    orderBy: { lastMessageAt: 'asc' }, // más antiguos primero (esperan más)
-    include: {
-      contact: true,
-      messages: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      },
-    },
+    where,
+    orderBy: { lastMessageAt: 'asc' },
+    include: { contact: true },
   });
 
   if (conversations.length === 0) {
-    await sendTextMessage(replyTo, '✅ No hay leads pendientes en este momento.', phoneNumberId);
+    await sendTextMessage(replyTo, '✅ No tienes leads pendientes en este momento.', phoneNumberId);
     return;
   }
 
-  // Obtener leads relacionados para extraer leadType, schoolCode, parentName
   const contactIds = conversations.map(c => c.contact.id);
   const leads = await prisma.travelLead.findMany({
     where: { contactId: { in: contactIds } },
@@ -100,107 +106,188 @@ async function handlePendientes(advisorName, replyTo, phoneNumberId, cmdLogger) 
   const leadByContactId = Object.fromEntries(leads.map(l => [l.contactId, l]));
 
   const now = Date.now();
-
-  const lines = conversations.map((conv, i) => {
-    const lead = leadByContactId[conv.contact.id];
-    const index = i + 1;
-
-    const name = lead?.parentName || conv.contact.name || conv.contact.phone;
-    const school = lead?.schoolCode ? `(${lead.schoolCode})` : '';
+  const lines = conversations.map(conv => {
+    const lead      = leadByContactId[conv.contact.id];
+    const ticket    = lead?.ticketNumber ? `#${lead.ticketNumber}` : '(sin #)';
+    const name      = lead?.parentName || conv.contact.name || conv.contact.phone;
+    const school    = lead?.schoolCode ? ` (${lead.schoolCode})` : '';
     const typeEmoji = lead?.leadType === 'institucion' ? '🏫' : '👨‍👩‍👧';
-    const assignedTo = conv.assignedAgent ? ` → ${conv.assignedAgent}` : '';
+    const assigned  = conv.assignedAgent ? ` → ${conv.assignedAgent}` : '';
 
-    const diffMs = now - new Date(conv.lastMessageAt).getTime();
-    const diffMin = Math.floor(diffMs / 60000);
+    const diffMin = Math.floor((now - new Date(conv.lastMessageAt).getTime()) / 60000);
     const timeAgo = diffMin < 60
       ? `hace ${diffMin} min`
       : `hace ${Math.floor(diffMin / 60)}h ${diffMin % 60}min`;
 
-    return `#${index} — ${name} ${school} ${typeEmoji}${assignedTo} — ${timeAgo}`;
+    return `${ticket} — ${name}${school} ${typeEmoji}${assigned} — ${timeAgo}`;
   });
 
-  const header = `📋 *Leads pendientes (${conversations.length})*\n`;
-  const footer = '\n\nResponde *ASIGNAR #N* para tomarlo, o *ASIGNAR #N cecilia/camila/miguel* para asignarlo a otro asesor.';
-  const body = lines.join('\n');
-
-  await sendTextMessage(replyTo, header + body + footer, phoneNumberId);
-  cmdLogger.info({ count: conversations.length }, 'Pendientes list sent');
-}
-
-/**
- * ASIGNAR #N [asesor] — Asigna un lead pendiente a un asesor y reactiva la conversación
- *
- * Ejemplos:
- *   ASIGNAR 3          → se asigna a quien envió el comando
- *   ASIGNAR 3 camila   → se asigna a Camila Serafín
- *   ASIGNAR 3 miguel   → se asigna a Miguel Rodríguez
- */
-async function handleAsignar(leadIndex, targetAdvisorKey, requestingAdvisorName, replyTo, phoneNumberId, cmdLogger) {
-  if (isNaN(leadIndex) || leadIndex < 1) {
-    await sendTextMessage(replyTo, '❌ Uso: *ASIGNAR #N* (ej: ASIGNAR 2) o *ASIGNAR #N cecilia/camila/miguel*', phoneNumberId);
-    return;
-  }
-
-  // Obtener lista actual de pendientes (mismo orden que PENDIENTES)
-  const conversations = await prisma.conversation.findMany({
-    where: { status: 'waiting_human', unit: 'travel' },
-    orderBy: { lastMessageAt: 'asc' },
-    include: { contact: true },
-  });
-
-  const conv = conversations[leadIndex - 1];
-  if (!conv) {
-    await sendTextMessage(replyTo, `❌ No existe el lead #${leadIndex}. Usa *PENDIENTES* para ver la lista actual.`, phoneNumberId);
-    return;
-  }
-
-  // Determinar asesor destino
-  let targetAdvisor;
-  if (targetAdvisorKey && FAMILY_ADVISORS[targetAdvisorKey]) {
-    targetAdvisor = FAMILY_ADVISORS[targetAdvisorKey];
-  } else {
-    // Asignar a quien envía el comando
-    targetAdvisor = Object.values(FAMILY_ADVISORS).find(a => a.nombre === requestingAdvisorName)
-      || { nombre: requestingAdvisorName, whatsapp: null };
-  }
-
-  // Actualizar conversación: asignar asesor y mantener waiting_human
-  await conversationService.update(conv.id, {
-    assignedAgent: targetAdvisor.nombre,
-  });
-
-  // Actualizar lead con asesora asignada
-  const lead = await prisma.travelLead.findFirst({ where: { contactId: conv.contact.id } });
-  if (lead) {
-    await leadService.updateTravelLead(lead.id, { assignedAdvisor: targetAdvisor.nombre });
-  }
-
-  const prospectName = lead?.parentName || conv.contact.name || conv.contact.phone;
-  const prospectPhone = conv.contact.phone;
+  const footer = advisor.role === 'admin'
+    ? '\n\nUsa: *LISTO #* · *REGRESA #* · *ASIGNAR # cecy/cami/miguel*'
+    : '\n\nUsa: *LISTO #* para cerrar · *REGRESA #* para devolver a Miri';
 
   await sendTextMessage(
     replyTo,
-    `✅ Lead #${leadIndex} (${prospectName}) asignado a *${targetAdvisor.nombre}*.\n📱 WhatsApp del prospecto: ${prospectPhone}`,
+    `📋 *Leads pendientes (${conversations.length})*\n` + lines.join('\n') + footer,
     phoneNumberId
   );
-
-  cmdLogger.info({ leadIndex, assignedTo: targetAdvisor.nombre, prospectPhone }, 'Lead assigned via command');
+  cmdLogger.info({ count: conversations.length }, 'Pendientes sent');
 }
 
-/**
- * Mensaje de ayuda para asesores
- */
-function getHelpMessage() {
-  return `🤖 *Comandos disponibles para asesores:*
+// ---------------------------------------------------------------------------
+// LISTO #
+// ---------------------------------------------------------------------------
 
-*PENDIENTES* — Ver lista de leads esperando atención
+async function handleListo(ticketNumber, advisor, replyTo, phoneNumberId, cmdLogger) {
+  const lead = await findLeadByTicket(ticketNumber, advisor);
+  const conv = await findWaitingConversation(lead, ticketNumber);
 
-*ASIGNAR N* — Tomar el lead #N (se asigna a ti)
-  ej: ASIGNAR 2
+  await prisma.conversation.update({
+    where: { id: conv.id },
+    data: { status: 'closed', closedAt: new Date() },
+  });
 
-*ASIGNAR N cecilia* — Asignar lead #N a Cecilia
-*ASIGNAR N camila* — Asignar lead #N a Camila
-*ASIGNAR N miguel* — Asignar lead #N a Miguel
+  await leadService.updateTravelLead(lead.id, { status: 'cerrado_por_asesor' });
 
-*AYUDA* — Ver este mensaje`;
+  const name = lead.parentName || lead.contact.name || lead.contact.phone;
+  await sendTextMessage(
+    replyTo,
+    `✅ Lead #${ticketNumber} (${name}) cerrado. ¡Gracias ${advisor.apodo}!`,
+    phoneNumberId
+  );
+  cmdLogger.info({ ticketNumber, name }, 'Lead closed by advisor');
+}
+
+// ---------------------------------------------------------------------------
+// REGRESA #
+// ---------------------------------------------------------------------------
+
+async function handleRegresa(ticketNumber, advisor, replyTo, phoneNumberId, cmdLogger) {
+  const lead = await findLeadByTicket(ticketNumber, advisor);
+  const conv = await findWaitingConversation(lead, ticketNumber);
+
+  await prisma.conversation.update({
+    where: { id: conv.id },
+    data: { status: 'active', assignedAgent: null },
+  });
+
+  const name = lead.parentName || lead.contact.name || lead.contact.phone;
+  await sendTextMessage(
+    replyTo,
+    `🔄 Lead #${ticketNumber} (${name}) devuelto a Miri. Retomo la atención automática.`,
+    phoneNumberId
+  );
+  cmdLogger.info({ ticketNumber, name }, 'Lead returned to bot');
+}
+
+// ---------------------------------------------------------------------------
+// ASIGNAR # [asesor] — Solo Miguel
+// ---------------------------------------------------------------------------
+
+async function handleAsignar(ticketNumber, targetKey, advisor, replyTo, phoneNumberId, cmdLogger) {
+  if (isNaN(ticketNumber) || ticketNumber < 1) {
+    throw new UserError('Uso: ASIGNAR # cecy/cami/miguel\nEjemplo: ASIGNAR 47 cami');
+  }
+
+  const target = targetKey ? ASSIGNABLE[targetKey] : null;
+  if (!target) {
+    throw new UserError('Asesor no reconocido. Usa: cecy, camila, cami, miguel');
+  }
+
+  const lead = await findLeadByTicket(ticketNumber, advisor);
+
+  const conv = await prisma.conversation.findFirst({
+    where: { contactId: lead.contactId },
+    orderBy: { lastMessageAt: 'desc' },
+  });
+  if (conv) {
+    await conversationService.update(conv.id, { assignedAgent: target.nombre });
+  }
+
+  await leadService.updateTravelLead(lead.id, { assignedAdvisor: target.nombre });
+
+  const name = lead.parentName || lead.contact.name || lead.contact.phone;
+  await sendTextMessage(
+    replyTo,
+    `✅ Lead #${ticketNumber} (${name}) asignado a *${target.nombre}*.\n📱 WhatsApp: ${lead.contact.phone}`,
+    phoneNumberId
+  );
+  cmdLogger.info({ ticketNumber, assignedTo: target.nombre }, 'Lead assigned');
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getAdvisor(phone) {
+  const normalized = normalizePhone(phone).replace('+', '');
+  const data = ADVISORS[normalized];
+  return data ? { ...data, phone: normalized } : null;
+}
+
+function parseTicket(text, command) {
+  const parts = text.split(' ');
+  if (parts.length < 2) {
+    throw new UserError(`Falta el número del lead. Ejemplo: ${command} 47`);
+  }
+  const n = parseInt(parts[1], 10);
+  if (isNaN(n) || n < 1) {
+    throw new UserError(`Número inválido. Ejemplo: ${command} 47`);
+  }
+  return n;
+}
+
+async function findLeadByTicket(ticketNumber, advisor) {
+  const lead = await prisma.travelLead.findUnique({
+    where: { ticketNumber },
+    include: { contact: true },
+  });
+
+  if (!lead) {
+    throw new UserError(`No encontré el lead #${ticketNumber}. Escribe PENDIENTES para ver tus leads.`);
+  }
+
+  if (advisor.role !== 'admin' && lead.assignedAdvisor !== advisor.nombre) {
+    throw new UserError(`El lead #${ticketNumber} no está asignado a ti.`);
+  }
+
+  return lead;
+}
+
+async function findWaitingConversation(lead, ticketNumber) {
+  const conv = await prisma.conversation.findFirst({
+    where: { contactId: lead.contactId, status: 'waiting_human' },
+  });
+
+  if (!conv) {
+    const any = await prisma.conversation.findFirst({
+      where: { contactId: lead.contactId },
+      orderBy: { lastMessageAt: 'desc' },
+    });
+    const currentStatus = any?.status || 'desconocido';
+    throw new UserError(`El lead #${ticketNumber} no está en espera. Estado actual: ${currentStatus}`);
+  }
+
+  return conv;
+}
+
+function getHelpMessage(advisor) {
+  const adminLine = advisor.role === 'admin'
+    ? '\n👤 *ASIGNAR # CECY/CAMI/MIGUEL* → Reasignar un lead'
+    : '';
+
+  return `Hola ${advisor.apodo} 👋 Soy Miri. Comandos disponibles:
+
+✅ *LISTO #* → Cerrar un lead que ya atendiste
+🔄 *REGRESA #* → Devolver un lead para que yo lo atienda
+📋 *PENDIENTES* → Ver tus leads activos${adminLine}
+
+Ejemplo: LISTO 47`;
+}
+
+class UserError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'UserError';
+  }
 }

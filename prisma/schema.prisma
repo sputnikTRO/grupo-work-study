@@ -122,6 +122,7 @@ enum TravelLeadStatus {
   en_proceso_pago
   inscrito
   no_interesado
+  cerrado_por_asesor
 }
 
 model TravelLead {
@@ -136,6 +137,7 @@ model TravelLead {
   parentName      String?           @map("parent_name")
   budgetRange     String?           @map("budget_range")
   status          TravelLeadStatus  @default(nuevo)
+  ticketNumber    Int               @default(autoincrement()) @unique @map("ticket_number")
   assignedAdvisor String?           @map("assigned_advisor")
   leadType        String?           @map("lead_type")        // 'familia' | 'institucion'
   materialsSent   String[]          @default([]) @map("materials_sent")
