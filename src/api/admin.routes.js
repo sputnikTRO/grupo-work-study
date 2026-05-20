@@ -362,5 +362,46 @@ export async function registerAdminRoutes(fastify) {
     }
   });
 
+  /**
+   * GET /admin/db-probe
+   * Diagnostic: verifies the DATABASE_URL being used and tests a write/read cycle.
+   * Returns the DB host (partial), contact count, and a test create/delete.
+   */
+  fastify.get('/admin/db-probe', async (request, reply) => {
+    try {
+      const dbUrl = process.env.DATABASE_URL || 'NOT SET';
+      // Show only the host:port portion for safety
+      const hostMatch = dbUrl.match(/@([^/]+)/);
+      const dbHost = hostMatch ? hostMatch[1] : 'unknown';
+
+      const contactCount = await prisma.contact.count();
+
+      // Test write capability
+      let writeTest = 'skipped';
+      try {
+        const testContact = await prisma.contact.create({
+          data: {
+            phone: '+10000000001',
+            sourceUnit: 'travel',
+            activeUnits: ['travel'],
+          },
+        });
+        await prisma.contact.delete({ where: { id: testContact.id } });
+        writeTest = 'ok';
+      } catch (writeErr) {
+        writeTest = `FAILED: ${writeErr.message}`;
+      }
+
+      return reply.send({
+        dbHost,
+        contactCount,
+        writeTest,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      return reply.code(500).send({ error: error.message });
+    }
+  });
+
   logger.info('Admin routes registered');
 }
