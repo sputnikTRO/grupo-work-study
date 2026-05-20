@@ -20,7 +20,11 @@ const ADVISORS = {
 // ---------------------------------------------------------------------------
 
 export function isAdvisorPhone(phone) {
-  return normalizePhone(phone).replace('+', '') in ADVISORS;
+  // WhatsApp sends Mexican numbers as 521XXXXXXXXXX (13 digits).
+  // normalizePhone produces +52115XXXXXXXXX which strips to 14 chars.
+  // ADVISORS keys are 10-digit local numbers, so compare last 10 digits.
+  const normalized = normalizePhone(phone).replace('+', '');
+  return normalized.slice(-10) in ADVISORS;
 }
 
 export async function handleAdvisorCommand(message, phoneNumberId) {
@@ -168,7 +172,8 @@ async function handleRegresa(ticketNumber, advisor, replyTo, phoneNumberId, cmdL
 
 function getAdvisor(phone) {
   const normalized = normalizePhone(phone).replace('+', '');
-  const data = ADVISORS[normalized];
+  const last10 = normalized.slice(-10);
+  const data = ADVISORS[last10];
   return data ? { ...data, phone: normalized } : null;
 }
 
