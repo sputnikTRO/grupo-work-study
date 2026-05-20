@@ -17,18 +17,21 @@ export async function findOrCreateTravelLead(contactId) {
   const serviceLogger = logger.child({ contactId, service: 'lead.findOrCreateTravelLead' });
 
   try {
-    // Look for existing lead
+    // Look for existing lead — skip closed/handled ones so a returning contact
+    // always gets a fresh lead instead of inheriting stale data
+    const REUSABLE_STATUSES = ['nuevo', 'contactado', 'interesado', 'materiales_enviados', 'en_proceso_pago'];
+
     let lead = await prisma.travelLead.findFirst({
-      where: { contactId },
+      where: { contactId, status: { in: REUSABLE_STATUSES } },
       orderBy: { createdAt: 'desc' },
     });
 
     if (lead) {
-      serviceLogger.debug({ leadId: lead.id }, 'Travel lead found');
+      serviceLogger.debug({ leadId: lead.id, status: lead.status }, 'Reusable travel lead found');
       return lead;
     }
 
-    // Create new lead
+    // Create new lead (either first time, or previous lead was derivado/cerrado/inscrito)
     lead = await prisma.travelLead.create({
       data: {
         contactId,

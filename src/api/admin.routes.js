@@ -145,8 +145,8 @@ export async function registerAdminRoutes(fastify) {
         });
         deletedConversations++;
 
-        // Clear Redis history
-        const historyKey = `conversation:${conv.id}:history`;
+        // Clear Redis history (key format matches redis.js: CONVERSATION_HISTORY:conversationId)
+        const historyKey = `conversation:history:${conv.id}`;
         await redis.getClient().del(historyKey);
       }
 
