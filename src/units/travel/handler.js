@@ -165,6 +165,12 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     const systemPrompt = buildFullPrompt(lead, dynamicKnowledge);
     processLogger.debug({ systemPromptLength: systemPrompt.length }, 'System prompt built');
 
+    // ── DEBUG: show lead context section injected into prompt ────────────────
+    const ctxStart = systemPrompt.indexOf('## CONTEXTO DEL PROSPECTO ACTUAL');
+    const ctxEnd   = systemPrompt.indexOf('\n\n---', ctxStart);
+    const ctxSnippet = ctxStart >= 0 ? systemPrompt.slice(ctxStart, ctxEnd > 0 ? ctxEnd : ctxStart + 500) : '(section not found)';
+    console.log('[MIRI-DEBUG] LEAD CONTEXT IN PROMPT:\n' + ctxSnippet);
+
     // Format history for Claude (remove timestamps)
     const formattedHistory = conversation.formatForClaude(history);
 
@@ -174,9 +180,23 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
 
     processLogger.info({ responseLength: claudeResponse.length }, 'Received response from Claude');
 
+    // ── DEBUG: full Claude response ──────────────────────────────────────────
+    console.log('[MIRI-DEBUG] ===== CLAUDE RAW RESPONSE =====');
+    console.log(claudeResponse);
+    console.log('[MIRI-DEBUG] ===== END CLAUDE RESPONSE =====');
+
     // Parse action tags
     const actions = parseActions(claudeResponse);
-    processLogger.info({ actionCount: actions.length }, 'Action tags parsed');
+    processLogger.info({ actionCount: actions.length, actions }, 'Action tags parsed');
+
+    // ── DEBUG: lead context that was sent to Claude ──────────────────────────
+    console.log('[MIRI-DEBUG] Lead at time of Claude call:', JSON.stringify({
+      id: lead.id, status: lead.status,
+      parentName: lead.parentName, travelerName: lead.travelerName,
+      travelerAge: lead.travelerAge, schoolCode: lead.schoolCode,
+      leadType: lead.leadType, assignedAdvisor: lead.assignedAdvisor,
+    }));
+    console.log('[MIRI-DEBUG] Actions to execute:', JSON.stringify(actions));
 
     // Clean response (remove action tags)
     const cleanText = cleanResponse(claudeResponse);

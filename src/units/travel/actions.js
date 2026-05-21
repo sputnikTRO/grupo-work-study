@@ -568,6 +568,9 @@ async function assignAdvisorWithCarousel(schoolName, lead, actionLogger) {
 async function executeCaptureData(field, value, lead, conversation, actionLogger) {
   actionLogger.info({ field, value }, 'Capturing data');
 
+  // ── DEBUG ─────────────────────────────────────────────────────────────────
+  console.log(`[MIRI-DEBUG] CAPTURAR_DATO → field="${field}" value="${value}" leadId=${lead.id}`);
+
   try {
     const leadFields = ['parent_name', 'traveler_name', 'traveler_age', 'school_code', 'program_interest', 'budget_range', 'destination', 'lead_type'];
 
@@ -609,8 +612,10 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
         }
       }
 
+      console.log(`[MIRI-DEBUG] CAPTURAR_DATO updateData:`, JSON.stringify(updateData));
       await leadService.updateTravelLead(lead.id, updateData);
       actionLogger.info({ mappedField }, 'Lead updated');
+      console.log(`[MIRI-DEBUG] CAPTURAR_DATO ✅ lead ${lead.id} updated OK`);
 
       if (field === 'parent_name') {
         await contactService.update(conversation.contactId, { name: value });
@@ -618,10 +623,12 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
       }
     } else {
       actionLogger.warn({ field }, 'Unknown field, ignoring');
+      console.log(`[MIRI-DEBUG] CAPTURAR_DATO ⚠️ field "${field}" NOT in leadFields list`);
     }
 
   } catch (error) {
     actionLogger.error({ err: error }, 'Error capturing data');
+    console.log(`[MIRI-DEBUG] CAPTURAR_DATO ❌ ERROR: ${error.message}`);
   }
 }
 

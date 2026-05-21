@@ -26,6 +26,12 @@ export async function findOrCreateTravelLead(contactId) {
       orderBy: { createdAt: 'desc' },
     });
 
+    // ── DEBUG ───────────────────────────────────────────────────────────────
+    console.log('[MIRI-DEBUG] findOrCreateTravelLead:', lead
+      ? `REUSING lead ${lead.id} status=${lead.status} parentName=${lead.parentName}`
+      : 'No reusable lead found — will CREATE NEW'
+    );
+
     if (lead) {
       serviceLogger.debug({ leadId: lead.id, status: lead.status }, 'Reusable travel lead found');
       return lead;
