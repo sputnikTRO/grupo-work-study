@@ -447,49 +447,81 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
 }
 
 /**
+ * Formats a 10-digit Mexican phone number with spaces: 5535305000 → 55 3530 5000
+ */
+function formatPhoneReadable(phone) {
+  // Strip everything except digits
+  const digits = phone.replace(/\D/g, '');
+  // Take last 10 digits (local Mexican number)
+  const local = digits.slice(-10);
+  if (local.length === 10) {
+    return `${local.slice(0, 2)} ${local.slice(2, 6)} ${local.slice(6)}`;
+  }
+  return phone; // fallback: return as-is
+}
+
+/**
+ * Builds a 1-2 line natural language summary of the conversation
+ * using lead data — no extra Claude call needed.
+ */
+function buildConversationSummary(lead, reason, schoolName) {
+  const destino = lead.destination || lead.programInterest || 'destino por definir';
+
+  if (lead.leadType === 'institucion') {
+    return `Representante de ${schoolName} preguntando por ${reason}.`;
+  }
+
+  const nombre   = lead.parentName  || 'Prospecto';
+  const viajero  = lead.travelerName || 'su hijo/a';
+  const edad     = lead.travelerAge  ? `${lead.travelerAge} años` : 'edad no capturada';
+
+  return `${nombre} interesado/a en E4L ${destino} para ${viajero} (${edad}). ${reason}.`;
+}
+
+/**
  * Sends WhatsApp notification to advisor when lead is handed off
  */
 async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reason, phoneNumberId, actionLogger) {
   try {
     actionLogger.info({ advisorWhatsApp: advisor.whatsapp }, 'Sending notification to advisor');
 
-    // Get conversation history for summary
-    const history = await conversation.getHistory(conv.id);
-    const recentMessages = history.slice(-6); // Last 3 exchanges (6 messages)
-
-    // Build conversation summary
-    let conversationSummary = '';
-    if (recentMessages.length > 0) {
-      conversationSummary = '\n\n📝 *Últimos intercambios:*\n';
-      for (const msg of recentMessages) {
-        const prefix = msg.role === 'user' ? '👤' : '🤖';
-        const text = msg.content.substring(0, 100); // Truncate long messages
-        conversationSummary += `${prefix} ${text}${msg.content.length > 100 ? '...' : ''}\n`;
-      }
-    }
-
-    // Get school info
+    // School display name
     const school = lead.schoolCode ? await sheetsCache.getSchool(lead.schoolCode) : null;
+    const schoolName = school
+      ? (school['Nombre Colegio'] || school.nombre || lead.schoolCode)
+      : (lead.schoolCode || 'Colegio no detectado');
 
-    // Build notification message
-    // New structure uses 'Nombre Colegio' column instead of 'nombre'
-    const ticketLine = lead.ticketNumber ? `🎫 Ticket: #${lead.ticketNumber}` : '';
-    const notification = `🔔 *Nuevo lead* — responde *LISTO ${lead.ticketNumber || '?'}* cuando lo atiendas
+    // Lead type label
+    const leadTypeLabel = lead.leadType === 'institucion' ? 'institución' : 'padre/madre';
 
-${ticketLine}
-${lead.parentName ? `👤 ${lead.parentName}` : '👤 Nombre no capturado'}
-${lead.travelerName ? `👨‍🎓 ${lead.travelerName}` : ''}
-${lead.travelerAge ? `📅 ${lead.travelerAge} años` : ''}
+    // Destination label
+    const destinoLabel = lead.destination || (lead.programInterest ? lead.programInterest.replace('English 4 Life ', '') : null) || 'destino no definido';
 
-🏫 ${school ? (school['Nombre Colegio'] || school.nombre) : lead.schoolCode || 'Colegio no detectado'}
+    // Formatted phone (last 10 digits with spaces)
+    const phoneFormatted = formatPhoneReadable(prospectPhone);
 
+    // Natural language summary (no extra Claude call)
+    const summary = buildConversationSummary(lead, reason, schoolName);
+
+    const ticket = lead.ticketNumber || '?';
+
+    const notification = `🔔 *Nuevo lead #${ticket}*
+
+👤 ${lead.parentName || 'No capturado'} (${leadTypeLabel})
+👨‍🎓 ${lead.travelerName || 'No capturado'}, ${lead.travelerAge ? `${lead.travelerAge} años` : 'edad no capturada'}
+🏫 ${schoolName} — ${destinoLabel}
 📊 Interés: ${conv.interestScore}/10
+📱 ${phoneFormatted}
+
 📌 Razón: ${reason}
 
-📱 WhatsApp: ${prospectPhone}
-${conversationSummary}
+💬 *Resumen:*
+${summary}
+
 ---
-Escribe *PENDIENTES* para ver todos tus leads activos.`;
+Responde aquí:
+✅ *LISTO ${ticket}* → cuando termines de atenderlo
+🔄 *REGRESA ${ticket}* → si quieres que Miri retome`;
 
     // Send notification to advisor's WhatsApp
     await sendTextMessage(advisor.whatsapp, notification, phoneNumberId);
