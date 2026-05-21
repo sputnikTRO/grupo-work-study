@@ -130,18 +130,18 @@ async function handleListo(ticketNumber, advisor, replyTo, phoneNumberId, cmdLog
 
   await prisma.conversation.update({
     where: { id: conv.id },
-    data: { status: 'closed', closedAt: new Date() },
+    data: { status: 'atendido' },
   });
 
-  await leadService.updateTravelLead(lead.id, { status: 'cerrado_por_asesor' });
+  await leadService.updateTravelLead(lead.id, { status: 'atendido_asesor' });
 
   const name = lead.parentName || lead.contact.name || lead.contact.phone;
   await sendTextMessage(
     replyTo,
-    `✅ Lead #${ticketNumber} (${name}) cerrado. ¡Gracias ${advisor.apodo}!`,
+    `✅ Lead #${ticketNumber} (${name}) atendido. Si vuelve a escribir, retomo con todo el contexto.`,
     phoneNumberId
   );
-  cmdLogger.info({ ticketNumber, name }, 'Lead closed by advisor');
+  cmdLogger.info({ ticketNumber, name }, 'Lead marked as attended by advisor');
 }
 
 // ---------------------------------------------------------------------------

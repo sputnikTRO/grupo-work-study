@@ -25,7 +25,7 @@ export async function findActiveOrCreate(contactId, unit, channel = 'whatsapp') 
         contactId,
         unit,
         status: {
-          in: ['active', 'waiting_human'],
+          in: ['active', 'waiting_human', 'atendido'],
         },
       },
       orderBy: {

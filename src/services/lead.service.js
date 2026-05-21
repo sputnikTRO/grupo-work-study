@@ -19,7 +19,7 @@ export async function findOrCreateTravelLead(contactId) {
   try {
     // Look for existing lead — skip closed/handled ones so a returning contact
     // always gets a fresh lead instead of inheriting stale data
-    const REUSABLE_STATUSES = ['nuevo', 'contactado', 'interesado', 'materiales_enviados', 'en_proceso_pago'];
+    const REUSABLE_STATUSES = ['nuevo', 'contactado', 'interesado', 'materiales_enviados', 'en_proceso_pago', 'derivado_asesor', 'atendido_asesor'];
 
     let lead = await prisma.travelLead.findFirst({
       where: { contactId, status: { in: REUSABLE_STATUSES } },

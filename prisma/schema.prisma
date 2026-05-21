@@ -26,6 +26,7 @@ enum Channel {
 enum ConversationStatus {
   active
   waiting_human
+  atendido
   closed
   follow_up
 }
@@ -123,6 +124,7 @@ enum TravelLeadStatus {
   inscrito
   no_interesado
   cerrado_por_asesor
+  atendido_asesor
 }
 
 model TravelLead {

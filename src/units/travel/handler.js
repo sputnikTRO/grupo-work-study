@@ -81,6 +81,13 @@ export async function handleMessage(message, phoneNumberId) {
         return; // Bot remains silent
       }
 
+      // If conversation was previously attended by an advisor ('atendido'),
+      // reactivate it so Miri resumes with full context.
+      if (conv.status === 'atendido') {
+        msgLogger.info('Conversation returning after advisor attended — reactivating');
+        conv = await conversationService.update(conv.id, { status: 'active' });
+      }
+
       // Get or create travel lead
       const lead = await leadService.findOrCreateTravelLead(contact.id);
 
