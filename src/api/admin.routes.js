@@ -362,5 +362,26 @@ export async function registerAdminRoutes(fastify) {
     }
   });
 
+  /**
+   * GET /admin/lead-status/:phone
+   * Returns full lead data for a phone number (diagnostic)
+   */
+  fastify.get('/admin/lead-status/:phone', async (request, reply) => {
+    try {
+      const normalizedPhone = normalizePhone(request.params.phone);
+      const contact = await prisma.contact.findUnique({ where: { phone: normalizedPhone } });
+      if (!contact) return reply.code(404).send({ error: 'Contact not found', phone: normalizedPhone });
+
+      const leads = await prisma.travelLead.findMany({
+        where: { contactId: contact.id },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return reply.send({ phone: normalizedPhone, contactName: contact.name, leads });
+    } catch (error) {
+      return reply.code(500).send({ error: error.message });
+    }
+  });
+
   logger.info('Admin routes registered');
 }
