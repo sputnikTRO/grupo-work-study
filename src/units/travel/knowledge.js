@@ -36,8 +36,10 @@ export async function buildDynamicKnowledge(schoolCode = null) {
     }
 
     // Get active trips
+    // Only include prices if the school is registered (found in Sheets).
+    // For unregistered schools, prices are omitted so Claude cannot share them.
     const trips = await sheetsCache.getActiveTrips();
-    sections.push(await buildTripsSection(trips, schoolCode));
+    sections.push(await buildTripsSection(trips, schoolCode, !!school));
 
     // Get activities
     if (trips.length > 0) {
@@ -115,7 +117,7 @@ ${school['Zona'] ? `Zona: ${school['Zona']}` : ''}`;
  * New structure: Código, Destino, Descripción, Fecha Salida, Fecha Regreso, Estado
  * Prices come from separate "Precios" sheet with fallback to "TODOS"
  */
-async function buildTripsSection(trips, schoolCode) {
+async function buildTripsSection(trips, schoolCode, schoolIsRegistered = false) {
   if (trips.length === 0) {
     return '## VIAJES DISPONIBLES\n\nNo hay viajes activos en este momento.';
   }
@@ -141,8 +143,10 @@ async function buildTripsSection(trips, schoolCode) {
       text += `- Fecha de regreso: ${trip['Fecha Regreso']}\n`;
     }
 
-    // Get price for this school (with fallback to TODOS)
-    if (trip['Código']) {
+    // Only include prices for registered schools.
+    // For unregistered schools, prices are intentionally omitted so Claude
+    // cannot quote them — the human advisor handles pricing for those schools.
+    if (trip['Código'] && schoolIsRegistered) {
       const price = await sheetsCache.getPrice(trip['Código'], schoolCode);
       if (price) {
         text += `\n**INFORMACIÓN DE PRECIOS:**\n`;

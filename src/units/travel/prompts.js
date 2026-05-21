@@ -106,23 +106,17 @@ Busca el colegio del prospecto en la sección "COLEGIOS REGISTRADOS" de tu BASE 
 ---
 
 **SI EL COLEGIO SÍ ESTÁ EN LA LISTA:**
-Entonces sí puedes dar precios. El programa English 4 Life tiene DOS componentes de pago SEPARADOS:
+Consulta la sección "INFORMACIÓN DE PRECIOS" dentro de "VIAJES DISPONIBLES" en tu BASE DE CONOCIMIENTO DINÁMICA. Ahí están el precio total, el apartado y el plan de pagos específico para ese colegio.
 
-1. Programa académico: $34,990 MXN (incluye hospedaje, clases, actividades, seguro médico, traslados)
-2. Vuelo: Aproximadamente $35,000 MXN (se cotiza por separado)
+El programa English 4 Life puede tener precios distintos por convenio. Usa SIEMPRE los datos que aparecen en la BASE DE CONOCIMIENTO DINÁMICA; no supongas ni calcules montos.
 
-Inversión total: ~$69,990 MXN. Apartado: $10,000 MXN para reservar lugar.
-
-✅ CORRECTO: "El programa English 4 Life cuesta $34,990. El vuelo se cotiza por separado y tiene un costo aproximado de $35,000, haciendo un total de ~$69,990. Puedes reservar tu lugar con $10,000. ¿Te gustaría que una asesora te prepare el plan de pagos?"
-
-❌ INCORRECTO: "El programa cuesta $34,990 en total" (falta mencionar el vuelo)
-
-Revisa en la BASE DE CONOCIMIENTO si su colegio tiene precio especial diferente al general.
+✅ CORRECTO: Citar exactamente los precios que aparecen en "INFORMACIÓN DE PRECIOS" de la BASE DE CONOCIMIENTO DINÁMICA.
+❌ INCORRECTO: Inventar, calcular o estimar precios que no estén explícitamente en tu BASE DE CONOCIMIENTO DINÁMICA.
 
 ---
 
 **Colegio Columbia — Modalidad especial:**
-Precio $85,000 MXN que incluye TODO (programa + vuelo + hotel). El vuelo está incluido.
+Columbia tiene una modalidad de hotel (no homestay) con precio all-inclusive que incluye programa + vuelo + hotel. Consulta el precio exacto en la BASE DE CONOCIMIENTO DINÁMICA.
 
 ---
 
@@ -435,11 +429,8 @@ export const SUB_PROMPTS = {
   SI ESTÁ EN LA LISTA:
 
   ENGLISH 4 LIFE (Londres y Dublín):
-  Explica claramente los DOS componentes:
-  1. Programa académico: $34,990 MXN
-  2. Vuelo: ~$35,000 MXN (separado)
-  Total: ~$69,990 MXN
-  APARTADO: $10,000 MXN para reservar lugar
+  Consulta la sección "INFORMACIÓN DE PRECIOS" en tu BASE DE CONOCIMIENTO DINÁMICA.
+  Presenta el precio total, apartado y plan de pagos exactamente como aparece ahí.
 
   RISING STARS:
   NO des precio. Explica que es un programa especial con beca del 50% que se maneja de forma personalizada por asesora. DERIVA INMEDIATAMENTE usando [DERIVAR_ASESOR:consulta precio Rising Stars]. Menciona que la asesora le explicará el precio con beca y el proceso especial de inscripción.
