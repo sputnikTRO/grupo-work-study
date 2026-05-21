@@ -142,19 +142,24 @@ export async function executeActions(actions, lead, conversation, phone, phoneNu
 
   if (actions.length === 0) {
     actionsLogger.debug('No actions to execute');
-    return;
+    return { handoffOccurred: false };
   }
 
   actionsLogger.info({ actions }, 'Executing actions');
 
+  let handoffOccurred = false;
+
   for (const action of actions) {
     try {
-      await executeAction(action, lead, conversation, phone, phoneNumberId);
+      const result = await executeAction(action, lead, conversation, phone, phoneNumberId);
+      if (action.type === 'DERIVAR_ASESOR') handoffOccurred = true;
     } catch (error) {
       actionsLogger.error({ err: error, action }, 'Error executing action');
       // Continue with other actions even if one fails
     }
   }
+
+  return { handoffOccurred };
 }
 
 /**
@@ -417,8 +422,9 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
 
     // Mensaje de despedida al prospecto
     const esInstitucion = lead.leadType === 'institucion';
+    const titulo = esInstitucion ? 'nuestro ejecutivo especializado' : 'nuestra asesora especializada';
     let farewellMessage = advisor
-      ? `Con gusto te comunico con ${advisor.nombre}, nuestro${esInstitucion ? ' ejecutivo' : 'a asesora'} especializado${esInstitucion ? '' : 'a'} que te dará una atención personalizada 😊`
+      ? `Con gusto te comunico con ${advisor.nombre}, ${titulo} que te dará una atención personalizada 😊`
       : `Con gusto te comunico con uno de nuestros asesores que te dará una atención personalizada 😊`;
     farewellMessage += '\n\nTe contactará en breve por este mismo medio. ¡Gracias por tu interés!';
 

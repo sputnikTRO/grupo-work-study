@@ -209,19 +209,22 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     const cleanText = cleanResponse(claudeResponse);
 
     // Execute actions with REAL implementation
-    await executeActions(actions, lead, conv, phone, phoneNumberId);
+    const { handoffOccurred } = await executeActions(actions, lead, conv, phone, phoneNumberId);
 
     // Reload lead from DB so syncLeadToSheet gets fresh data
     // (CAPTURAR_DATO inside executeActions updates the DB but not the in-memory lead object)
     const freshLead = await leadService.getTravelLeadById(lead.id);
     if (freshLead) lead = freshLead;
 
-    // Send response to WhatsApp
-    await sendTextMessage(phone, cleanText, phoneNumberId);
-    processLogger.info('Response sent to WhatsApp');
-
-    // Save outbound message to database
-    await messageService.createOutbound(conv.id, cleanText);
+    // When a handoff occurred, the farewell message was already sent inside executeActions.
+    // Skip sending Claude's text to avoid a double message to the prospect.
+    if (!handoffOccurred) {
+      await sendTextMessage(phone, cleanText, phoneNumberId);
+      processLogger.info('Response sent to WhatsApp');
+      await messageService.createOutbound(conv.id, cleanText);
+    } else {
+      processLogger.info('Handoff occurred — skipping Claude text send (farewell already sent)');
+    }
 
     // Add both messages to conversation history in Redis
     await conversation.addMessage(conv.id, 'user', content.text);
