@@ -204,6 +204,11 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     // Execute actions with REAL implementation
     await executeActions(actions, lead, conv, phone, phoneNumberId);
 
+    // Reload lead from DB so syncLeadToSheet gets fresh data
+    // (CAPTURAR_DATO inside executeActions updates the DB but not the in-memory lead object)
+    const freshLead = await leadService.getTravelLeadById(lead.id);
+    if (freshLead) lead = freshLead;
+
     // Send response to WhatsApp
     await sendTextMessage(phone, cleanText, phoneNumberId);
     processLogger.info('Response sent to WhatsApp');
