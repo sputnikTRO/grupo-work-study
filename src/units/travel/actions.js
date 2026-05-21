@@ -473,8 +473,10 @@ async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reaso
 
     // Build notification message
     // New structure uses 'Nombre Colegio' column instead of 'nombre'
-    const notification = `🔔 Nuevo lead de alta prioridad
+    const ticketLine = lead.ticketNumber ? `🎫 Ticket: #${lead.ticketNumber}` : '';
+    const notification = `🔔 *Nuevo lead* — responde *LISTO ${lead.ticketNumber || '?'}* cuando lo atiendas
 
+${ticketLine}
 ${lead.parentName ? `👤 ${lead.parentName}` : '👤 Nombre no capturado'}
 ${lead.travelerName ? `👨‍🎓 ${lead.travelerName}` : ''}
 ${lead.travelerAge ? `📅 ${lead.travelerAge} años` : ''}
@@ -487,7 +489,7 @@ ${lead.travelerAge ? `📅 ${lead.travelerAge} años` : ''}
 📱 WhatsApp: ${prospectPhone}
 ${conversationSummary}
 ---
-Este lead fue derivado por Miri. Contáctalo lo antes posible 😊`;
+Escribe *PENDIENTES* para ver todos tus leads activos.`;
 
     // Send notification to advisor's WhatsApp
     await sendTextMessage(advisor.whatsapp, notification, phoneNumberId);

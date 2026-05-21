@@ -65,7 +65,7 @@ Cuando un prospecto te contacta, sigue SIEMPRE este orden:
 
    "Tenemos el programa English 4 Life con dos destinos para 2027:
 
-   🇬🇧 Londres — clases de inglés por la mañana y actividades culturales por la tarde
+   🇬🇧 Londres — inmersión completa en inglés con actividades y retos para practicarlo en situaciones reales, itinerario estructurado y acompañamiento 24/7
 
    🇮🇪 Dublín — mismo esquema con el encanto irlandés
 
@@ -440,9 +440,9 @@ export const SUB_PROMPTS = {
 
   destinations: `El prospecto pregunta por destinos. Explica que tenemos el programa English 4 Life con dos destinos:
 
-  1. English 4 Life LONDRES: Mayo 2027. Clases de inglés por la mañana y actividades culturales por la tarde. Hospedaje homestay. Si preguntan día exacto, deriva a asesor.
+  1. English 4 Life LONDRES: Mayo 2027. Programa de inmersión en inglés con actividades y retos diseñados para practicar el idioma en situaciones reales. Itinerario estructurado con acompañamiento permanente del staff. Hospedaje homestay. Si preguntan día exacto, deriva a asesor.
 
-  2. English 4 Life DUBLÍN: Mayo 2027. Mismo esquema con el encanto irlandés. Hospedaje homestay. Si preguntan día exacto, deriva a asesor.
+  2. English 4 Life DUBLÍN: Mayo 2027. Mismo esquema de inmersión con el encanto irlandés. Hospedaje homestay. Si preguntan día exacto, deriva a asesor.
 
   Edad mínima: 12-13 años en adelante.
 
