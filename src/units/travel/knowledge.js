@@ -143,12 +143,14 @@ async function buildTripsSection(trips, schoolCode, schoolIsRegistered = false) 
       text += `- Fecha de regreso: ${trip['Fecha Regreso']}\n`;
     }
 
-    // Only include prices for registered schools.
-    // For unregistered schools, prices are intentionally omitted so Claude
-    // cannot quote them — the human advisor handles pricing for those schools.
-    if (trip['Código'] && schoolIsRegistered) {
+    // Only include prices when the school has a SPECIFIC price row in Precios.
+    // If the school is not in Colegios, or is in Colegios but only the generic
+    // TODOS row applies, prices are omitted — the human advisor handles pricing.
+    if (trip['Código'] && schoolIsRegistered && schoolCode) {
       const price = await sheetsCache.getPrice(trip['Código'], schoolCode);
-      if (price) {
+      const hasSpecificPrice = price && price['Colegio']?.toUpperCase() !== 'TODOS';
+
+      if (hasSpecificPrice) {
         text += `\n**INFORMACIÓN DE PRECIOS:**\n`;
         if (price['Precio Total']) {
           text += `- Precio total: $${price['Precio Total']} MXN\n`;
