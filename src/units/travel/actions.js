@@ -3,6 +3,7 @@ import prisma from '../../core/database/client.js';
 import * as sheetsCache from '../../core/sheets/cache.js';
 import * as leadService from '../../services/lead.service.js';
 import * as contactService from '../../services/contact.service.js';
+import { normalizePhone } from '../../utils/phone.js';
 import * as conversationService from '../../services/conversation.service.js';
 import * as messageService from '../../services/message.service.js';
 import { sendTextMessage, sendMediaMessage, sendMediaMessageByUrl } from '../../core/whatsapp/client.js';
@@ -530,7 +531,9 @@ Responde aquí:
 🔄 *REGRESA ${ticket}* → si quieres que Miri retome`;
 
     // Send notification to advisor's WhatsApp
-    await sendTextMessage(advisor.whatsapp, notification, phoneNumberId);
+    // normalizePhone adds +521 prefix, then strip '+' for WhatsApp Cloud API (E.164 without +)
+    const advisorPhone = normalizePhone(advisor.whatsapp).replace('+', '');
+    await sendTextMessage(advisorPhone, notification, phoneNumberId);
 
     actionLogger.info('Advisor notification sent successfully');
 
