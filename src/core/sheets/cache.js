@@ -158,6 +158,18 @@ export async function getAllSchools() {
   return await getCachedSheet('Colegios');
 }
 
+export async function getAllViajes() {
+  return await getCachedSheet('Viajes');
+}
+
+export async function getAllInfoGeneral() {
+  return await getInfoGeneral(null, null);
+}
+
+export async function getCachedSheetRaw(sheetName) {
+  return await getCachedSheet(sheetName);
+}
+
 /**
  * Gets materials filtered by trip and/or school with FALLBACK logic
  *

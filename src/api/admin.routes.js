@@ -370,13 +370,16 @@ export async function registerAdminRoutes(fastify) {
     try {
       const faq = await sheetsCache.getFAQ();
       const trips = await sheetsCache.getActiveTrips();
+      // Also get raw Viajes sheet to see all rows regardless of Estado
+      const allViajes = await sheetsCache.getAllViajes();
+      const allInfoGeneral = await sheetsCache.getAllInfoGeneral();
       const infoByTrip = {};
       for (const trip of trips) {
         if (trip['Código']) {
           infoByTrip[trip['Código']] = await sheetsCache.getInfoGeneral(trip['Código']);
         }
       }
-      return reply.send({ faq, trips, infoByTrip });
+      return reply.send({ faq, trips, allViajes, allInfoGeneral, infoByTrip });
     } catch (error) {
       return reply.code(500).send({ error: error.message });
     }
