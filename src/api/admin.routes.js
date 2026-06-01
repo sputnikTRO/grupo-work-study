@@ -10,6 +10,8 @@ import { normalizePhone } from '../utils/phone.js';
 import logger from '../utils/logger.js';
 import redis from '../core/database/redis.js';
 import * as sheetsCache from '../core/sheets/cache.js';
+import { readSheet, appendRow, updateRange } from '../core/sheets/client.js';
+import { env } from '../config/env.js';
 
 const prisma = new PrismaClient();
 
@@ -359,6 +361,56 @@ export async function registerAdminRoutes(fastify) {
         success: false,
         error: error.message,
       });
+    }
+  });
+
+  /**
+   * POST /admin/update-info-general
+   * One-time: update FAQ security row + append accompaniment entry
+   */
+  fastify.post('/admin/update-info-general', async (request, reply) => {
+    try {
+      const spreadsheetId = env.GOOGLE_SHEETS_ID;
+      const sheetName = 'Info General';
+
+      // Read all rows to find the security question row
+      const rows = await readSheet(spreadsheetId, sheetName);
+
+      // rows[0] is header, rows[1..] are data
+      let securityRowIndex = -1;
+      for (let i = 0; i < rows.length; i++) {
+        const titulo = (rows[i][2] || '').toString();
+        if (titulo.includes('seguro para los estudiantes')) {
+          securityRowIndex = i + 1; // 1-indexed spreadsheet row
+          break;
+        }
+      }
+
+      const results = {};
+
+      // Update security row if found
+      if (securityRowIndex > 0) {
+        const newContent = 'Los estudiantes están supervisados durante las actividades del programa. Se hospedan en familias anfitrionas y se trasladan en transporte público local como parte del aprendizaje. Cuentan con Group Leaders y equipo local que pueden asistirles cuando sea necesario.';
+        await updateRange(spreadsheetId, `${sheetName}!D${securityRowIndex}`, [[newContent]]);
+        results.securityRowUpdated = { row: securityRowIndex, success: true };
+      } else {
+        results.securityRowUpdated = { success: false, reason: 'Row not found' };
+      }
+
+      // Append new accompaniment entry
+      const newRow = [
+        'TODOS',
+        'FAQ',
+        '¿Cómo funciona el acompañamiento y los traslados?',
+        'Los estudiantes se hospedan con familias anfitrionas seleccionadas, entre 2 y 4 estudiantes por hogar. Cada mañana, tras el desayuno, se trasladan al meeting point donde se reúne todo el grupo para las actividades del día. Al terminar, regresan juntos al mismo punto y de ahí a sus hogares.\n\nLos trayectos se hacen en transporte público local como parte del aprendizaje cultural y desarrollo de autonomía. Antes del viaje y durante los primeros días, los estudiantes reciben orientación detallada sobre rutas, uso de la tarjeta de transporte, normas de seguridad y protocolos ante imprevistos.\n\nLas rutas son supervisadas por el equipo del programa. Los estudiantes nunca hacen desplazamientos improvisados y cuentan con el apoyo de sus Group Leaders y el equipo local cuando sea necesario.',
+        '10',
+      ];
+      await appendRow(spreadsheetId, sheetName, newRow);
+      results.newRowAppended = { success: true };
+
+      return reply.send({ success: true, results });
+    } catch (error) {
+      return reply.code(500).send({ success: false, error: error.message });
     }
   });
 
