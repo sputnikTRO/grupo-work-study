@@ -376,25 +376,31 @@ export async function registerAdminRoutes(fastify) {
       // Read all rows to find the security question row
       const rows = await readSheet(spreadsheetId, sheetName);
 
-      // rows[0] is header, rows[1..] are data
+      // Find header row to determine column indices
+      const headerRow = rows[0] || [];
+      const tituloIdx = headerRow.findIndex(h => h.toString().toLowerCase().includes('título') || h.toString().toLowerCase().includes('titulo'));
+      const contenidoIdx = headerRow.findIndex(h => h.toString().toLowerCase().includes('contenido'));
+
+      const results = { debug: { headerRow, tituloIdx, contenidoIdx, totalRows: rows.length } };
+
+      // Find security row using detected column index
       let securityRowIndex = -1;
-      for (let i = 0; i < rows.length; i++) {
-        const titulo = (rows[i][2] || '').toString();
-        if (titulo.includes('seguro para los estudiantes')) {
+      for (let i = 1; i < rows.length; i++) {
+        const titulo = (rows[i][tituloIdx >= 0 ? tituloIdx : 2] || '').toString();
+        if (titulo.toLowerCase().includes('seguro')) {
           securityRowIndex = i + 1; // 1-indexed spreadsheet row
           break;
         }
       }
 
-      const results = {};
-
       // Update security row if found
       if (securityRowIndex > 0) {
+        const colLetter = String.fromCharCode(65 + (contenidoIdx >= 0 ? contenidoIdx : 3));
         const newContent = 'Los estudiantes están supervisados durante las actividades del programa. Se hospedan en familias anfitrionas y se trasladan en transporte público local como parte del aprendizaje. Cuentan con Group Leaders y equipo local que pueden asistirles cuando sea necesario.';
-        await updateRange(spreadsheetId, `${sheetName}!D${securityRowIndex}`, [[newContent]]);
-        results.securityRowUpdated = { row: securityRowIndex, success: true };
+        await updateRange(spreadsheetId, `${sheetName}!${colLetter}${securityRowIndex}`, [[newContent]]);
+        results.securityRowUpdated = { row: securityRowIndex, col: colLetter, success: true };
       } else {
-        results.securityRowUpdated = { success: false, reason: 'Row not found' };
+        results.securityRowUpdated = { success: false, reason: 'Row not found', searched: 'seguro' };
       }
 
       // Append new accompaniment entry
