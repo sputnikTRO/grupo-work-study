@@ -363,6 +363,26 @@ export async function registerAdminRoutes(fastify) {
   });
 
   /**
+   * GET /admin/sheets-content
+   * Returns raw FAQ + Info General content from Sheets cache (diagnostic)
+   */
+  fastify.get('/admin/sheets-content', async (request, reply) => {
+    try {
+      const faq = await sheetsCache.getFAQ();
+      const trips = await sheetsCache.getActiveTrips();
+      const infoByTrip = {};
+      for (const trip of trips) {
+        if (trip['Código']) {
+          infoByTrip[trip['Código']] = await sheetsCache.getInfoGeneral(trip['Código']);
+        }
+      }
+      return reply.send({ faq, trips, infoByTrip });
+    } catch (error) {
+      return reply.code(500).send({ error: error.message });
+    }
+  });
+
+  /**
    * GET /admin/lead-status/:phone
    * Returns full lead data for a phone number (diagnostic)
    */
