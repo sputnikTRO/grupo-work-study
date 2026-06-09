@@ -38,6 +38,14 @@ export const REDIS_KEYS = {
   RATE_LIMIT: 'rate_limit',
 };
 
+// Oxford Education Redis namespace — mantiene los datos de la unidad Oxford
+// completamente separados de Miri/Travel (locks, historial e índice de leads).
+export const OXED_REDIS_KEYS = {
+  CONVERSATION_HISTORY: 'oxed:conversation:history',
+  CONTACT_LOCK: 'oxed:lock:contact',
+  RATE_LIMIT: 'oxed:rate_limit',
+};
+
 // Action Tags (used in Claude responses)
 export const ACTION_TAGS = {
   SEND_MATERIAL: 'ENVIAR_MATERIAL',

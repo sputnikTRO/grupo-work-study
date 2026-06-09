@@ -5,6 +5,7 @@ import logger from './utils/logger.js';
 import prisma from './core/database/client.js';
 import redis from './core/database/redis.js';
 import webhookRoutes from './routes/webhook.js';
+import oxfordWebhookRoutes from './routes/oxford-webhook.js';
 import { registerAdminRoutes } from './api/admin.routes.js';
 import * as sheetsSyncJob from './jobs/sheets-sync.job.js';
 import * as followUpJob from './jobs/followup.job.js';
@@ -110,8 +111,11 @@ fastify.get('/', async (request, reply) => {
   };
 });
 
-// Register WhatsApp webhook routes
+// Register WhatsApp webhook routes (Travel)
 await fastify.register(webhookRoutes);
+
+// Register Oxford Education webhook routes (isolated /webhook/oxford)
+await fastify.register(oxfordWebhookRoutes);
 
 // Register admin routes
 await registerAdminRoutes(fastify);

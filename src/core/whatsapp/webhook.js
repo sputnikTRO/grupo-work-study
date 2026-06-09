@@ -188,8 +188,7 @@ async function getUnitHandler(unit) {
       // TODO: Implement in Fase 2
       throw new Error('Work & Study unit not yet implemented');
     case 'oxford_education':
-      // TODO: Implement in Fase 3
-      throw new Error('Oxford Education unit not yet implemented');
+      return await import('../../units/oxford-education/handler.js');
     default:
       throw new Error(`Unknown unit: ${unit}`);
   }
