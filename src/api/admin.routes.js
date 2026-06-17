@@ -12,6 +12,7 @@ import redis from '../core/database/redis.js';
 import * as sheetsCache from '../core/sheets/cache.js';
 import { readSheet, appendRow, updateRange } from '../core/sheets/client.js';
 import { env } from '../config/env.js';
+import { getCircuitBreakerStatus, resetCircuitBreakerExternal } from '../core/ai/claude.js';
 
 const prisma = new PrismaClient();
 
@@ -362,6 +363,23 @@ export async function registerAdminRoutes(fastify) {
         error: error.message,
       });
     }
+  });
+
+  /**
+   * GET /admin/circuit-breaker
+   * Returns Claude circuit breaker status
+   */
+  fastify.get('/admin/circuit-breaker', async (request, reply) => {
+    return reply.send(getCircuitBreakerStatus());
+  });
+
+  /**
+   * POST /admin/circuit-breaker/reset
+   * Manually resets the Claude circuit breaker
+   */
+  fastify.post('/admin/circuit-breaker/reset', async (request, reply) => {
+    resetCircuitBreakerExternal();
+    return reply.send({ success: true, message: 'Circuit breaker reset', status: getCircuitBreakerStatus() });
   });
 
   /**

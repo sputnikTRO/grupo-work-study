@@ -234,6 +234,14 @@ export function getCircuitBreakerStatus() {
   };
 }
 
+export function resetCircuitBreakerExternal() {
+  circuitBreakerState.failureCount = 0;
+  circuitBreakerState.lastFailureTime = null;
+  circuitBreakerState.isOpen = false;
+  logger.info('Circuit breaker manually reset via admin');
+}
+}
+
 /**
  * Manually resets circuit breaker (for admin commands)
  */
