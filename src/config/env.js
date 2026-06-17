@@ -68,7 +68,7 @@ export const env = {
 
   // Claude API
   ANTHROPIC_API_KEY: requireEnv('ANTHROPIC_API_KEY'),
-  ANTHROPIC_MODEL: optionalEnv('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514'),
+  ANTHROPIC_MODEL: optionalEnv('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
 
   // Google Sheets
   GOOGLE_SHEETS_ID: requireEnv('GOOGLE_SHEETS_ID'),
