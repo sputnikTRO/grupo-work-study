@@ -63,7 +63,7 @@ export async function handleMessage(message, phoneNumberId) {
       const contact = await contactService.findOrCreate(phone, 'travel');
 
       // Get or create conversation
-      const conv = await conversationService.findActiveOrCreate(contact.id, 'travel');
+      let conv = await conversationService.findActiveOrCreate(contact.id, 'travel');
 
       // CHECK: If conversation status is "waiting_human", bot should NOT respond
       if (conv.status === 'waiting_human') {
