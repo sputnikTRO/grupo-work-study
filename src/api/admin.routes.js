@@ -366,6 +366,39 @@ export async function registerAdminRoutes(fastify) {
   });
 
   /**
+   * GET /admin/claude-test
+   * Makes a minimal Claude API call and returns result or error details
+   */
+  fastify.get('/admin/claude-test', async (request, reply) => {
+    try {
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+      const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+      const model = env.ANTHROPIC_MODEL;
+
+      const response = await client.messages.create({
+        model,
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Di solo "ok"' }],
+      });
+
+      return reply.send({
+        success: true,
+        model,
+        response: response.content[0]?.text,
+        usage: response.usage,
+      });
+    } catch (error) {
+      return reply.send({
+        success: false,
+        model: env.ANTHROPIC_MODEL,
+        errorStatus: error.status,
+        errorMessage: error.message,
+        errorType: error.constructor?.name,
+      });
+    }
+  });
+
+  /**
    * GET /admin/circuit-breaker
    * Returns Claude circuit breaker status
    */
