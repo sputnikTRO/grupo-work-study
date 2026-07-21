@@ -1,4 +1,5 @@
 import { PHONE } from '../config/constants.js';
+import logger from './logger.js';
 
 /**
  * Phone Number Utilities
@@ -46,12 +47,15 @@ export function normalizePhone(phone) {
     return `${PHONE.MEXICO_COUNTRY_CODE}${cleaned}`;
   }
 
-  // If starts with 1 followed by 10 digits (WhatsApp format)
-  if (cleaned.startsWith('1') && cleaned.length === 11) {
-    return `+52${cleaned}`;
+  // International passthrough: ≥11 digits without a Mexican prefix already carry
+  // their own country code (e.g. +1 US/CA, +58 VE, +44 UK). Adding +521 here
+  // would corrupt the number and cause Meta to reject the outbound message.
+  if (cleaned.length >= 11) {
+    logger.info({ phone: cleaned, prefix: cleaned.slice(0, 2) }, 'Non-Mexican phone detected — preserving country code');
+    return `+${cleaned}`;
   }
 
-  // If none of the above, assume it's a Mexican number without country code
+  // Short number with no country code — assume Mexican mobile
   return `${PHONE.MEXICO_COUNTRY_CODE}${cleaned}`;
 }
 
