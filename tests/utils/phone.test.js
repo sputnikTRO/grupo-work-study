@@ -67,4 +67,9 @@ describe('normalizePhone — international numbers (the bug fix)', () => {
   it('Spain +34', () => {
     assert.equal(normalizePhone('34612345678'), '+34612345678');
   });
+
+  it('US E.164 with + prefix (admin caller) must not produce ++', () => {
+    // +17866332282 already has +; the new branch must return it as-is, not ++17866332282
+    assert.equal(normalizePhone('+17866332282'), '+17866332282');
+  });
 });

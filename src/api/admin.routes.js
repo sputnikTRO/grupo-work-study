@@ -515,58 +515,5 @@ export async function registerAdminRoutes(fastify) {
     }
   });
 
-  /**
-   * POST /admin/fix-international-phones
-   * One-shot: corrects the known corrupt US contact + lists all contacts whose
-   * stored phone has ≥16 chars (VE/UK/etc. that were corrupted by the old +521 fallback).
-   * Safe to call multiple times (idempotent).
-   */
-  fastify.post('/admin/fix-international-phones', async (request, reply) => {
-    const results = {};
-
-    // 1. Fix the known US contact (the Miami incident)
-    const KNOWN_FIX = {
-      id: '097e9024-0652-4bc9-af73-e6b0df08a7ce',
-      correctPhone: '+17866332282',
-    };
-    try {
-      const before = await prisma.contact.findUnique({
-        where: { id: KNOWN_FIX.id },
-        select: { id: true, phone: true },
-      });
-      if (before && before.phone !== KNOWN_FIX.correctPhone) {
-        const updated = await prisma.contact.update({
-          where: { id: KNOWN_FIX.id },
-          data: { phone: KNOWN_FIX.correctPhone },
-          select: { id: true, phone: true },
-        });
-        results.miamiContact = { status: 'updated', before: before.phone, after: updated.phone };
-      } else if (before?.phone === KNOWN_FIX.correctPhone) {
-        results.miamiContact = { status: 'already_correct', phone: before.phone };
-      } else {
-        results.miamiContact = { status: 'not_found', id: KNOWN_FIX.id };
-      }
-    } catch (err) {
-      results.miamiContact = { status: 'error', error: err.message };
-    }
-
-    // 2. Scan all oxford_education conversations → find contacts with phone ≥16 chars
-    // (corrupted non-MX numbers: +521 + 12+ digits = at least 16 chars with +)
-    try {
-      const oxfordConvs = await prisma.conversation.findMany({
-        where: { unit: 'oxford_education' },
-        select: { contact: { select: { id: true, phone: true, name: true } } },
-      });
-      const suspicious = oxfordConvs
-        .map(c => c.contact)
-        .filter(c => c && c.phone && c.phone.length >= 16);
-      results.suspiciousInternational = suspicious.length > 0 ? suspicious : 'none found';
-    } catch (err) {
-      results.suspiciousInternational = { error: err.message };
-    }
-
-    return reply.send({ success: true, results });
-  });
-
   logger.info('Admin routes registered');
 }

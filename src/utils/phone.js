@@ -50,9 +50,12 @@ export function normalizePhone(phone) {
   // International passthrough: ≥11 digits without a Mexican prefix already carry
   // their own country code (e.g. +1 US/CA, +58 VE, +44 UK). Adding +521 here
   // would corrupt the number and cause Meta to reject the outbound message.
+  // Guard: if cleaned already starts with + (admin callers passing E.164), return as-is.
   if (cleaned.length >= 11) {
-    logger.info({ phone: cleaned, prefix: cleaned.slice(0, 2) }, 'Non-Mexican phone detected — preserving country code');
-    return `+${cleaned}`;
+    if (!cleaned.startsWith('+')) {
+      logger.info({ phone: cleaned, prefix: cleaned.slice(0, 2) }, 'Non-Mexican phone detected — preserving country code');
+    }
+    return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
   }
 
   // Short number with no country code — assume Mexican mobile
