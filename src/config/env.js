@@ -65,6 +65,7 @@ export const env = {
   // separate the file (must be shared with the service account).
   OXED_SHEETS_ID: optionalEnv('OXED_SHEETS_ID', requireEnv('GOOGLE_SHEETS_ID')),
   OXED_LEADS_SHEET_NAME: optionalEnv('OXED_LEADS_SHEET_NAME', 'Leads Oxford'),
+  OXED_HANDOFF_MEETING_URL: optionalEnv('OXED_HANDOFF_MEETING_URL', 'https://meetings.hubspot.com/camila-serafin-jimenez/'),
 
   // Claude API
   ANTHROPIC_API_KEY: requireEnv('ANTHROPIC_API_KEY'),

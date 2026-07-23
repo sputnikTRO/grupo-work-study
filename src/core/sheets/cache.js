@@ -26,6 +26,7 @@ const SHEET_NAMES = [
   'Info General',
   'Materiales',
   'Leads',
+  'FAQ Oxford',
 ];
 
 let lastSuccessfulCache = {}; // Backup in-memory cache
@@ -370,6 +371,31 @@ export async function getInfoGeneral(tripCode = null, category = null) {
  */
 export async function getFAQ() {
   return await getInfoGeneral('TODOS', 'FAQ');
+}
+
+/**
+ * Gets Oxford Education FAQ rows from cache.
+ *
+ * Schema: Programa | Categoría | Pregunta | Respuesta | Orden
+ * Programa values mirror the primary_product enum plus 'TODOS' for cross-product entries.
+ *
+ * @param {string|null} programa - Filter by program code, or null for all rows
+ * @returns {Promise<Array>} Sorted FAQ rows; empty array on cache miss
+ */
+export async function getOxfordFAQ(programa = null) {
+  const rows = await getCachedSheet('FAQ Oxford');
+
+  let filtered = programa
+    ? rows.filter(r => r['Programa'] === programa || r['Programa'] === 'TODOS')
+    : rows;
+
+  filtered.sort((a, b) => {
+    const oA = parseInt(a['Orden']) || 999;
+    const oB = parseInt(b['Orden']) || 999;
+    return oA - oB;
+  });
+
+  return filtered;
 }
 
 /**
