@@ -148,20 +148,27 @@ export async function registerAdminRoutes(fastify) {
         });
         deletedConversations++;
 
-        // Clear Redis history (key format matches redis.js: CONVERSATION_HISTORY:conversationId)
-        const historyKey = `conversation:history:${conv.id}`;
-        await redis.getClient().del(historyKey);
+        // Clear Redis history — both Miri and Oxford Education namespaces.
+        const client = redis.getClient();
+        await client.del(`conversation:history:${conv.id}`);
+        await client.del(`oxed:conversation:history:${conv.id}`);
       }
 
-      // Delete leads
+      // Delete Travel leads
       const deletedLeads = await prisma.travelLead.deleteMany({
+        where: { contactId: contact.id }
+      });
+
+      // Delete Oxford leads (captured data: name, role, product, etc.)
+      const deletedOxfordLeads = await prisma.oxfordLead.deleteMany({
         where: { contactId: contact.id }
       });
 
       adminLogger.info({
         deletedConversations,
         deletedMessages,
-        deletedLeads: deletedLeads.count
+        deletedLeads: deletedLeads.count,
+        deletedOxfordLeads: deletedOxfordLeads.count,
       }, 'Conversation deleted successfully');
 
       return reply.send({
@@ -171,6 +178,7 @@ export async function registerAdminRoutes(fastify) {
         deletedConversations,
         deletedMessages,
         deletedLeads: deletedLeads.count,
+        deletedOxfordLeads: deletedOxfordLeads.count,
       });
 
     } catch (error) {
