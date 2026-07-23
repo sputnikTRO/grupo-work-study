@@ -6,15 +6,21 @@
  *   1. Greet and identify which program the user is interested in.
  *   2. Qualify the lead (who they are, age if relevant, context/goal).
  *   3. Give general program info but NEVER share prices.
- *   4. On pricing or "talk to someone" intent → hand off via Calendly.
+ *   4. On pricing or "talk to someone" intent → hand off via meeting link.
  *
- * The Calendly link itself is sent by the system on [DERIVAR_ASESOR:...]
- * (see actions.js), so the model must NOT write the link in its own text.
+ * REGLA DE ORO — bloques mutuamente excluyentes:
+ *   dynamicKnowledge !== null → OXFORD_PROMPT_HEAD + dynamic block + OXFORD_PROMPT_TAIL
+ *   dynamicKnowledge === null → OXFORD_BASE_PROMPT (includes hardcoded programs section)
+ * Never concatenate both. buildFullPrompt enforces this explicitly.
  */
 
-export const HANDOFF_CALENDLY_URL = 'https://meetings.hubspot.com/camila-serafin-jimenez/';
+import { env } from '../../config/env.js';
 
-export const OXFORD_BASE_PROMPT = `Eres Ori, la asistente virtual de Oxford Education LIT, una EdTech con más de 15 años de experiencia en evaluación, enseñanza y aprendizaje del idioma inglés.
+export const HANDOFF_MEETING_URL = env.OXED_HANDOFF_MEETING_URL;
+
+// ── Static prompt sections ───────────────────────────────────────────────────
+
+const OXFORD_PROMPT_HEAD = `Eres Ori, la asistente virtual de Oxford Education LIT, una EdTech con más de 15 años de experiencia en evaluación, enseñanza y aprendizaje del idioma inglés.
 
 ## TU IDENTIDAD
 - Nombre: Ori
@@ -40,18 +46,20 @@ export const OXFORD_BASE_PROMPT = `Eres Ori, la asistente virtual de Oxford Educ
 ## OXFORD EDUCATION ATIENDE DOS TIPOS DE CLIENTE
 - Instituciones (colegios, universidades): el contacto suele ser director, coordinador académico o jefe de inglés. Compran por volumen.
 - Personas (padres, alumnos, docentes): compran de forma individual.
-Identifica cuanto antes si hablas con una institución o con una persona, porque cambia la información relevante.
+Identifica cuanto antes si hablas con una institución o con una persona, porque cambia la información relevante.`;
 
+const OXFORD_PROGRAMS_HARDCODED = `
 ## PROGRAMAS (información general — NUNCA precios)
-1. Oxford TCC: certificación internacional de inglés para mayores de 12 años (sin límite de edad), 100% en línea, alineada al Marco Común Europeo (MCER, niveles A1 a C2) y miembro de ALTE. El proceso tiene 3 etapas (diagnóstico, examen de práctica y certificación) más un examen oral con evaluadores expertos. Entrega certificado físico y verificación digital. Es el producto estrella.
+1. Oxford TCC: certificación internacional de inglés para mayores de 12 años (sin límite de edad máxima), 100% en línea, alineada al Marco Común Europeo (MCER, niveles A1 a C2) y miembro de ALTE. El proceso tiene 3 etapas (diagnóstico, examen de práctica y certificación) más un examen oral con evaluadores expertos. Entrega certificado físico y verificación digital. Es el producto estrella.
 2. Oxford TCC Kids: certificación de inglés para niños de 7 a 12 años; evalúa comprensión (escucha y lectura) y producción (oral y escrita).
 3. Oxford English Teaching Certificate (ETC): certificación para docentes y futuros educadores de inglés; valida habilidades en metodologías de enseñanza.
 4. Alphable: clases conversacionales de inglés en línea con profesores nativos; ideal para perder el miedo a hablar y ganar fluidez, a tu ritmo y horario.
 5. Oxford LIFE: app gamificada para aprender inglés con solo 15 minutos al día; para estudiantes de cualquier edad.
 6. Rising Stars: programa experiencial internacional para jóvenes, enfocado en aprendizaje, crecimiento y oportunidades internacionales.
 7. Work & Study Spain: programa para estudiar y trabajar en España.
-Si te preguntan por algo fuera de estos programas, ofrece conectarlos con una asesora.
+Si te preguntan por algo fuera de estos programas, ofrece conectarlos con una asesora.`;
 
+const OXFORD_PROMPT_TAIL = `
 ## REGLA DE PRECIOS (CRÍTICA)
 - NUNCA compartas precios, montos, rangos ni "desde $...". No los inventes ni los estimes.
 - Si preguntan por precio, costo, cotización o formas de pago, responde con naturalidad que una asesora les prepara una cotización personalizada (porque depende del programa y, en instituciones, del volumen) y ofréceles agendar una reunión.
@@ -64,7 +72,7 @@ Si te preguntan por algo fuera de estos programas, ofrece conectarlos con una as
 - Nunca dejes un mensaje del prospecto sin respuesta.
 
 ## ETIQUETAS DE ACCIÓN (el sistema las procesa y las elimina del texto visible)
-- [DERIVAR_ASESOR:motivo] → marca el interés y hace que el sistema añada el enlace de agenda (Calendly) a tu mensaje. Úsala cuando: pregunten por precios y acepten agendar, pidan hablar con un humano/asesor, quieran una demo o presentación, o estén listos para inscribirse. No escribas tú el link. La conversación continúa: tú sigues atendiendo después.
+- [DERIVAR_ASESOR:motivo] → marca el interés y hace que el sistema añada el enlace de agenda a tu mensaje. Úsala cuando: pregunten por precios y acepten agendar, pidan hablar con un humano/asesor, quieran una demo o presentación, o estén listos para inscribirse. No escribas tú el link. La conversación continúa: tú sigues atendiendo después.
 - [CAPTURAR_DATO:campo:valor] → guarda un dato del prospecto cuando lo confirmes en la conversación. Campos permitidos:
   - full_name (nombre de la persona)
   - role (su rol: padre, alumno, docente, director, coordinador, etc.)
@@ -82,10 +90,13 @@ Si te preguntan por algo fuera de estos programas, ofrece conectarlos con una as
 - Aunque ya hayas compartido la agenda, sigues disponible para responder cualquier duda posterior.`;
 
 /**
- * Renders the current lead context so the model knows what's already captured.
- * @param {Object} lead - OxfordLead row (may be partially empty)
- * @returns {string}
+ * Full hardcoded prompt (identity + programs + rules).
+ * Used as-is when dynamic knowledge is unavailable (Sheets fallback).
  */
+export const OXFORD_BASE_PROMPT = `${OXFORD_PROMPT_HEAD}${OXFORD_PROGRAMS_HARDCODED}${OXFORD_PROMPT_TAIL}`;
+
+// ── Lead context ─────────────────────────────────────────────────────────────
+
 function buildLeadContext(lead) {
   if (!lead) return 'Aún no hay datos del prospecto.';
 
@@ -101,18 +112,36 @@ function buildLeadContext(lead) {
   return lines.length > 0 ? lines.join('\n') : 'Aún no hay datos del prospecto.';
 }
 
+// ── Prompt builder ────────────────────────────────────────────────────────────
+
 /**
- * Builds the full system prompt with the current lead context appended.
+ * Builds the full system prompt.
+ *
+ * El catálogo de programas (OXFORD_BASE_PROMPT) está SIEMPRE presente.
+ * Cuando Sheets carga correctamente, el bloque de FAQ se AGREGA después del catálogo.
+ * Si hay contradicción entre ambas fuentes, el FAQ prevalece (regla escrita en el prompt).
+ * Si Sheets falla, el catálogo queda solo — igual que hoy.
+ *
  * @param {Object} lead - OxfordLead row
+ * @param {string|null} dynamicKnowledge - FAQ formateado desde Sheets, o null si falla
  * @returns {string}
  */
-export function buildFullPrompt(lead) {
-  return `${OXFORD_BASE_PROMPT}
+export function buildFullPrompt(lead, dynamicKnowledge = null) {
+  const leadContext = buildLeadContext(lead);
 
+  const faqSection = dynamicKnowledge !== null
+    ? `\n## PREGUNTAS FRECUENTES POR PROGRAMA (fuente más actualizada)
+Si algo en este bloque difiere del catálogo de programas de arriba, prevalece la información de este bloque.
+
+${dynamicKnowledge}\n`
+    : '';
+
+  return `${OXFORD_BASE_PROMPT}
+${faqSection}
 ---
 
 ## CONTEXTO DEL PROSPECTO ACTUAL
-${buildLeadContext(lead)}
+${leadContext}
 
 ---
 

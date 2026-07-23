@@ -8,7 +8,8 @@ import * as messageService from '../../services/message.service.js';
 import * as oxfordLeadService from './lead.service.js';
 import * as store from './store.js';
 import { sendTextMessage, markMessageAsRead } from './whatsapp.js';
-import { buildFullPrompt, HANDOFF_CALENDLY_URL } from './prompts.js';
+import { buildFullPrompt, HANDOFF_MEETING_URL } from './prompts.js';
+import { buildOxfordKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
 
@@ -92,7 +93,8 @@ export async function handleMessage(message, phoneNumberId) {
  */
 async function processWithAI(phone, content, conv, lead, contact, log) {
   const history = await store.getHistory(conv.id);
-  const systemPrompt = buildFullPrompt(lead);
+  const dynamicKnowledge = await buildOxfordKnowledge(lead);
+  const systemPrompt = buildFullPrompt(lead, dynamicKnowledge);
   const formattedHistory = store.formatForClaude(history);
 
   log.info({ historyLength: formattedHistory.length }, 'Sending Oxford request to Claude');
@@ -162,11 +164,11 @@ function buildConversationSummary(history, userText, botReply) {
  */
 function composeReply(cleanText, handoffOccurred) {
   if (handoffOccurred) {
-    const linkLine = `Puedes agendar con una asesora aquí 👉 ${HANDOFF_CALENDLY_URL}`;
+    const linkLine = `Puedes agendar con una asesora aquí 👉 ${HANDOFF_MEETING_URL}`;
     const base = cleanText
       || 'Con gusto 😊 Una asesora puede darte una cotización personalizada y resolver todas tus dudas sobre precios y detalles.';
     // Avoid duplicating the link if the model somehow already included it.
-    return base.includes(HANDOFF_CALENDLY_URL) ? base : `${base}\n\n${linkLine}`;
+    return base.includes(HANDOFF_MEETING_URL) ? base : `${base}\n\n${linkLine}`;
   }
   return cleanText || 'Con gusto te ayudo. ¿Sobre qué programa te gustaría saber más? 😊';
 }
