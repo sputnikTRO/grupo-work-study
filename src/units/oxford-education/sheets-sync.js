@@ -1,4 +1,4 @@
-import { appendRow, updateRow, findRowByColumn, sheetExists, createSheet } from '../../core/sheets/client.js';
+import { appendRow, updateRow, findRowByColumn, sheetExists, createSheet, updateRange, readRange } from '../../core/sheets/client.js';
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 
@@ -16,7 +16,11 @@ import logger from '../../utils/logger.js';
 const SPREADSHEET_ID = env.OXED_SHEETS_ID;
 const SHEET_NAME = env.OXED_LEADS_SHEET_NAME;
 
-// Column order (A..K). Column A (ID) is the upsert key.
+// Column order (A..M). Column A (ID) is the upsert key.
+// IMPORTANTE: las 11 primeras columnas (A..K) son las HISTÓRICAS de la hoja ya
+// desplegada (Resumen queda en K). Las 2 nuevas (Zona, Asesor) van AL FINAL (L, M)
+// para no desalinear los datos previos. El orden aquí DEBE coincidir con
+// formatLeadRow y con la reconciliación de encabezado (reconcileHeader).
 const COLUMNS = { ID: 0 };
 
 const HEADERS = [
@@ -30,7 +34,9 @@ const HEADERS = [
   'No. de alumnos',           // H - estimated students (B2B)
   'Temperatura',              // I - hot/warm/cold
   'Derivación',               // J - handoff Sí/No
-  'Resumen conversación',     // K - short summary
+  'Resumen conversación',     // K - short summary (HISTÓRICA, se queda en K)
+  'Zona (Estado/Municipio)',  // L - NUEVA: geo for advisor routing
+  'Asesor asignado',          // M - NUEVA: advisor from the zone dupla
 ];
 
 // Map enum-ish product codes to human labels for the sheet.
@@ -90,14 +96,33 @@ function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }
     lead.estimatedStudents?.toString() || '',                            // H No. alumnos
     deriveTemperature(lead, handoffOccurred),                             // I Temperatura
     handoffOccurred ? 'Sí' : 'No',                                        // J Derivación
-    (summary || '').slice(0, 480),                                        // K Resumen
+    (summary || '').slice(0, 480),                                        // K Resumen (histórica)
+    [lead.municipality, lead.state].filter(Boolean).join(', '),          // L Zona (Estado/Municipio)
+    lead.assignedAdvisor || '',                                           // M Asesor asignado
   ];
 }
 
 let sheetReady = false;
 
+/** Índice de columna 0-based → letra A1 (0→A, 11→L, 12→M, 26→AA). */
+function colLetter(index) {
+  let n = index;
+  let letter = '';
+  do {
+    letter = String.fromCharCode(65 + (n % 26)) + letter;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return letter;
+}
+
 /**
- * Ensures the dedicated tab exists with a header row (runs once per process).
+ * Ensures the dedicated tab exists AND that its header row has every column.
+ *
+ * Self-healing y ADITIVO: si la pestaña ya existe pero al encabezado le faltan las
+ * columnas nuevas (Zona, Asesor), las AGREGA AL FINAL (posiciones 12+), escribiendo
+ * solo esas celdas de encabezado. Nunca reordena, sobrescribe ni borra columnas o
+ * datos existentes. Idempotente: si ya están completas, no hace nada.
+ * Corre una vez por proceso.
  */
 async function ensureSheet() {
   if (sheetReady) return;
@@ -107,7 +132,25 @@ async function ensureSheet() {
     await createSheet(SPREADSHEET_ID, SHEET_NAME);
     await appendRow(SPREADSHEET_ID, SHEET_NAME, HEADERS);
     logger.info({ unit: 'oxford_education', sheet: SHEET_NAME }, 'Created Oxford leads sheet with headers');
+    sheetReady = true;
+    return;
   }
+
+  // Pestaña existente: reconciliar encabezado de forma aditiva.
+  const headerRows = await readRange(SPREADSHEET_ID, `'${SHEET_NAME}'!1:1`);
+  const current = headerRows[0] || [];
+
+  if (current.length < HEADERS.length) {
+    const missing = HEADERS.slice(current.length); // solo las columnas que faltan, al final
+    const startCol = colLetter(current.length);    // primera columna libre (p.ej. L si había 11)
+    const endCol = colLetter(HEADERS.length - 1);  // última (M)
+    await updateRange(SPREADSHEET_ID, `'${SHEET_NAME}'!${startCol}1:${endCol}1`, [missing]);
+    logger.info(
+      { unit: 'oxford_education', sheet: SHEET_NAME, added: missing, range: `${startCol}1:${endCol}1` },
+      'Reconciled Oxford leads header (additive)',
+    );
+  }
+
   sheetReady = true;
 }
 

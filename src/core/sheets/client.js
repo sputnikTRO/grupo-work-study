@@ -434,3 +434,23 @@ export async function updateRange(spreadsheetId, range, values) {
     throw error;
   }
 }
+
+/**
+ * Reads raw values for an A1 range (2D array, trailing empties trimmed by the API).
+ *
+ * @param {string} spreadsheetId - Google Sheets ID
+ * @param {string} range - A1 notation range (e.g., "'Leads Oxford'!1:1")
+ * @returns {Promise<Array<Array>>} Rows of cell values (empty array if none)
+ */
+export async function readRange(spreadsheetId, range) {
+  const sheetsLogger = logger.child({ spreadsheetId, range, function: 'sheets.readRange' });
+
+  try {
+    const client = getClient();
+    const response = await client.spreadsheets.values.get({ spreadsheetId, range });
+    return response.data.values || [];
+  } catch (error) {
+    sheetsLogger.error({ err: error }, 'Error reading range from sheet');
+    throw error;
+  }
+}

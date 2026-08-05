@@ -8,7 +8,7 @@ import * as messageService from '../../services/message.service.js';
 import * as oxfordLeadService from './lead.service.js';
 import * as store from './store.js';
 import { sendTextMessage, markMessageAsRead } from './whatsapp.js';
-import { buildFullPrompt, HANDOFF_MEETING_URL } from './prompts.js';
+import { buildFullPrompt } from './prompts.js';
 import { buildOxfordKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
@@ -103,17 +103,27 @@ async function processWithAI(phone, content, conv, lead, contact, log) {
   const actions = parseActions(claudeResponse);
   const cleanText = cleanResponse(claudeResponse);
 
-  const { handoffOccurred } = await executeActions(actions, lead);
-
-  // Always send exactly one reply and keep the conversation ACTIVE. On a soft
-  // handoff we append the Calendly link to Ori's own message (she never writes
-  // the link herself), so she keeps responding to follow-ups afterwards.
-  const reply = composeReply(cleanText, handoffOccurred);
-
-  await sendTextMessage(phone, reply);
-  await messageService.createOutbound(conv.id, reply);
+  // Record the user turn first so history order stays correct even when the
+  // handoff appends an assistant (farewell) turn inside executeActions.
   await store.addMessage(conv.id, 'user', content.text);
-  await store.addMessage(conv.id, 'assistant', reply);
+
+  const { handoffOccurred } = await executeActions(actions, lead, conv, contact);
+
+  // On an ACTIVE handoff, executeActions already sent + persisted the farewell
+  // and parked the conversation, so Ori does NOT send another reply this turn.
+  if (!handoffOccurred) {
+    // Fallback si el modelo no produjo texto: si ya hay asesor asignado (guard),
+    // difiere con gracia; si no, invita a seguir la conversación.
+    let reply = cleanText;
+    if (!reply) {
+      reply = lead.assignedAdvisor
+        ? `Ese detalle lo verá directamente ${lead.assignedAdvisor}, que ya está en contacto contigo 😊 ¿Te ayudo con algo más mientras tanto?`
+        : 'Con gusto te ayudo. ¿Sobre qué programa te gustaría saber más? 😊';
+    }
+    await sendTextMessage(phone, reply);
+    await messageService.createOutbound(conv.id, reply);
+    await store.addMessage(conv.id, 'assistant', reply);
+  }
 
   log.info({ handoffOccurred, actionCount: actions.length }, 'Oxford message processed');
 
@@ -152,23 +162,4 @@ function buildConversationSummary(history, userText, botReply) {
     .slice(-6)
     .map((m) => `${m.role === 'user' ? 'Cliente' : 'Ori'}: ${String(m.content).replace(/\s+/g, ' ').trim()}`)
     .join(' | ');
-}
-
-/**
- * Builds the outgoing message. On handoff, appends the Calendly link to Ori's
- * text (or a reinforcing default if she produced no prose).
- *
- * @param {string} cleanText - Ori's reply with action tags stripped
- * @param {boolean} handoffOccurred - Whether a DERIVAR_ASESOR action ran
- * @returns {string}
- */
-function composeReply(cleanText, handoffOccurred) {
-  if (handoffOccurred) {
-    const linkLine = `Puedes agendar con una asesora aquí 👉 ${HANDOFF_MEETING_URL}`;
-    const base = cleanText
-      || 'Con gusto 😊 Una asesora puede darte una cotización personalizada y resolver todas tus dudas sobre precios y detalles.';
-    // Avoid duplicating the link if the model somehow already included it.
-    return base.includes(HANDOFF_MEETING_URL) ? base : `${base}\n\n${linkLine}`;
-  }
-  return cleanText || 'Con gusto te ayudo. ¿Sobre qué programa te gustaría saber más? 😊';
 }

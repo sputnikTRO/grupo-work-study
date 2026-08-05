@@ -66,6 +66,10 @@ export const env = {
   OXED_SHEETS_ID: optionalEnv('OXED_SHEETS_ID', requireEnv('GOOGLE_SHEETS_ID')),
   OXED_LEADS_SHEET_NAME: optionalEnv('OXED_LEADS_SHEET_NAME', 'Leads Oxford'),
   OXED_HANDOFF_MEETING_URL: optionalEnv('OXED_HANDOFF_MEETING_URL', 'https://meetings.hubspot.com/camila-serafin-jimenez/'),
+  // TODO(cliente): manejo definitivo de leads internacionales (fuera de México).
+  // 'A'|'B'|'C'|'D' → deriva a esa dupla default (handoff activo).
+  // 'meeting_link' (default) → comparte el link de agenda y deja la conversación activa (pasivo).
+  OXED_FOREIGN_LEAD_FALLBACK: optionalEnv('OXED_FOREIGN_LEAD_FALLBACK', 'meeting_link'),
 
   // Claude API
   ANTHROPIC_API_KEY: requireEnv('ANTHROPIC_API_KEY'),
