@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import * as oxfordHandler from '../../units/oxford-education/handler.js';
+import { isOxfordAdvisorPhone, handleOxfordAdvisorCommand } from '../../units/oxford-education/advisor-commands.js';
 
 /**
  * Oxford Education Webhook Handler
@@ -82,6 +83,12 @@ async function processOxfordChange(value) {
   for (const message of messages || []) {
     if (message.type && message.from) {
       try {
+        // Advisor sending a command (LISTO/REGRESA/PENDIENTES) → route to command handler.
+        if (isOxfordAdvisorPhone(message.from)) {
+          logger.info({ from: message.from, unit: 'oxford_education' }, 'Message from Oxford advisor, routing to command handler');
+          await handleOxfordAdvisorCommand(message);
+          continue;
+        }
         await oxfordHandler.handleMessage(message, phoneNumberId);
       } catch (error) {
         logger.error({ err: error, from: message.from, unit: 'oxford_education' }, 'Error handling Oxford inbound message');

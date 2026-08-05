@@ -7,7 +7,7 @@ import assert from 'node:assert';
 import Fastify from 'fastify';
 import oxfordWebhookRoutes from '../src/routes/oxford-webhook.js';
 import { parseActions, cleanResponse } from '../src/units/oxford-education/actions.js';
-import { buildFullPrompt, HANDOFF_CALENDLY_URL } from '../src/units/oxford-education/prompts.js';
+import { buildFullPrompt, HANDOFF_MEETING_URL } from '../src/units/oxford-education/prompts.js';
 import { env } from '../src/config/env.js';
 
 let passed = 0;
@@ -54,8 +54,8 @@ for (const program of ['Oxford TCC', 'Alphable', 'Oxford LIFE', 'Rising Stars', 
 ok('System prompt lists all 7 programs');
 assert.ok(/NUNCA compartas precios/i.test(prompt));
 ok('System prompt forbids sharing prices');
-assert.strictEqual(HANDOFF_CALENDLY_URL, 'https://meetings.hubspot.com/camila-serafin-jimenez/');
-ok('Handoff Calendly link matches spec');
+assert.strictEqual(HANDOFF_MEETING_URL, 'https://meetings.hubspot.com/camila-serafin-jimenez/');
+ok('Handoff meeting link matches spec');
 
 console.log(`\nAll ${passed} checks passed ✅`);
 process.exit(0);

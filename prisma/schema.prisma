@@ -256,6 +256,8 @@ enum OxfordLeadStatus {
   primer_contacto
   en_calificacion
   interesado
+  derivado_asesor
+  atendido_asesor
   demo_agendada
   demo_completada
   propuesta_enviada
@@ -294,6 +296,11 @@ model OxfordLead {
   currentCert       String?            @map("current_cert")
   schoolCycle       String?            @map("school_cycle")
 
+  // Ubicación (ruteo geográfico de asesor)
+  state             String?            @map("state")          // Estado de la república
+  municipality      String?            @map("municipality")   // Alcaldía/municipio (si CDMX o Edo. México)
+  zoneKey           String?            @map("zone_key")       // Dupla asignada: A/B/C/D
+
   // Productos de interés
   productsInterest  OxfordProduct[]    @map("products_interest")
   primaryProduct    OxfordProduct?     @map("primary_product")
@@ -302,9 +309,11 @@ model OxfordLead {
   temperature       String             @default("nuevo")
   score             Int                @default(0)
   status            OxfordLeadStatus   @default(nuevo)
+  ticketNumber      Int                @default(autoincrement()) @unique @map("ticket_number")
 
   // Seguimiento
   assignedAgent     String?            @map("assigned_agent")
+  assignedAdvisor   String?            @map("assigned_advisor") // Asesor humano de la dupla (handoff)
   nurturingSequence String?            @map("nurturing_sequence")
   nurturingStep     Int                @default(0) @map("nurturing_step")
   nextFollowUp      DateTime?          @map("next_follow_up")
