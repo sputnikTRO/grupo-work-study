@@ -109,12 +109,18 @@ async function processWithAI(phone, content, conv, lead, contact, log) {
 
   const { handoffOccurred } = await executeActions(actions, lead, conv, contact);
 
+  // `reply` se declara a nivel de función (no dentro del if) porque se usa más
+  // abajo al armar el resumen para sheets-sync (buildConversationSummary). En el
+  // camino con handoff queda '' (el mensaje de conexión ya lo envió/persistió
+  // executeActions); en el resumen eso se ve como un turno vacío de Ori (cosmético).
+  let reply = '';
+
   // On an ACTIVE handoff, executeActions already sent + persisted the farewell
   // and parked the conversation, so Ori does NOT send another reply this turn.
   if (!handoffOccurred) {
     // Fallback si el modelo no produjo texto: si ya hay asesor asignado (guard),
     // difiere con gracia; si no, invita a seguir la conversación.
-    let reply = cleanText;
+    reply = cleanText;
     if (!reply) {
       reply = lead.assignedAdvisor
         ? `Ese detalle lo verá directamente ${lead.assignedAdvisor}, que ya está en contacto contigo 😊 ¿Te ayudo con algo más mientras tanto?`
