@@ -127,28 +127,38 @@ function buildLeadUpdate(field, value) {
 export async function executeActions(actions, lead, conv, contact) {
   let handoffOccurred = false;
 
-  for (const action of actions) {
-    try {
-      if (action.type === 'CAPTURAR_DATO') {
-        const update = buildLeadUpdate(action.field, action.value);
-        if (update) {
-          await oxfordLeadService.updateOxfordLead(lead.id, update);
-          Object.assign(lead, update);
-          logger.info({ unit: 'oxford_education', leadId: lead.id, update }, 'Oxford lead data captured');
-        } else {
-          logger.warn({ unit: 'oxford_education', field: action.field, value: action.value }, 'Ignored invalid CAPTURAR_DATO');
-        }
-      }
+  // IMPORTANTE: aplicar TODAS las capturas ANTES de cualquier derivación. Si el
+  // modelo captura y deriva en el MISMO mensaje (p.ej. [CAPTURAR_DATO:municipality:
+  // Xochimilco] + [DERIVAR_ASESOR:...]), el handoff debe ver el lead ya actualizado
+  // para resolver la zona; de lo contrario resolveDupla no encuentra la alcaldía y
+  // cae al fallback pasivo (link de agenda) en vez del handoff tibio de zona.
+  const captures = actions.filter((a) => a.type === 'CAPTURAR_DATO');
+  const handoffs = actions.filter((a) => a.type === 'DERIVAR_ASESOR');
 
-      if (action.type === 'DERIVAR_ASESOR') {
-        const { handedOff } = await executeHandoffToAdvisor(lead, conv, contact, action.reason);
-        // Solo cuenta como handoff (y silencia el reply normal de Ori este turno)
-        // cuando REALMENTE se derivó. Si el lead ya tenía asesor, handedOff=false
-        // y Ori responde con su texto (difiriendo el precio al asesor).
-        if (handedOff) handoffOccurred = true;
+  for (const action of captures) {
+    try {
+      const update = buildLeadUpdate(action.field, action.value);
+      if (update) {
+        await oxfordLeadService.updateOxfordLead(lead.id, update);
+        Object.assign(lead, update);
+        logger.info({ unit: 'oxford_education', leadId: lead.id, update }, 'Oxford lead data captured');
+      } else {
+        logger.warn({ unit: 'oxford_education', field: action.field, value: action.value }, 'Ignored invalid CAPTURAR_DATO');
       }
     } catch (error) {
-      logger.error({ err: error, unit: 'oxford_education', action }, 'Error executing Oxford action');
+      logger.error({ err: error, unit: 'oxford_education', action }, 'Error executing Oxford CAPTURAR_DATO');
+    }
+  }
+
+  for (const action of handoffs) {
+    try {
+      const { handedOff } = await executeHandoffToAdvisor(lead, conv, contact, action.reason);
+      // Solo cuenta como handoff (y silencia el reply normal de Ori este turno)
+      // cuando REALMENTE se derivó. Si el lead ya tenía asesor, handedOff=false
+      // y Ori responde con su texto (difiriendo el precio al asesor).
+      if (handedOff) handoffOccurred = true;
+    } catch (error) {
+      logger.error({ err: error, unit: 'oxford_education', action }, 'Error executing Oxford DERIVAR_ASESOR');
     }
   }
 
