@@ -94,6 +94,10 @@ export const env = {
   // Travel Bot Configuration (moved from Google Sheets "Configuración" tab)
   HANDOFF_SCORE_THRESHOLD: parseInt(optionalEnv('HANDOFF_SCORE_THRESHOLD', '8'), 10),
   MAX_FOLLOW_UPS: parseInt(optionalEnv('MAX_FOLLOW_UPS', '3'), 10),
+  // Notificación al asesor de Travel por PLANTILLA aprobada (entrega fuera de la
+  // ventana de 24h). Debe existir/aprobarse en la WABA de Travel. Si falla, cae a texto.
+  TRAVEL_ADVISOR_TEMPLATE_NAME: optionalEnv('TRAVEL_ADVISOR_TEMPLATE_NAME', 'nuevo_lead_travel'),
+  TRAVEL_ADVISOR_TEMPLATE_LANG: optionalEnv('TRAVEL_ADVISOR_TEMPLATE_LANG', 'es_MX'),
 
   // Zoho CRM (optional - Fase 2 y 3)
   ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
