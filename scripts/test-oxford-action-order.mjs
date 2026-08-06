@@ -36,7 +36,10 @@ mock.module('../src/units/oxford-education/lead.service.js', {
 });
 mock.module('../src/units/oxford-education/store.js', { namedExports: { addMessage: async () => {} } });
 mock.module('../src/units/oxford-education/whatsapp.js', {
-  namedExports: { sendTextMessage: async (_to, text) => { SENT.push(text); } },
+  namedExports: {
+    sendTextMessage: async (_to, text) => { SENT.push(text); },
+    sendTemplateMessage: async (_to, name, _lang, params) => { SENT.push(`[TEMPLATE ${name}] ${JSON.stringify(params)}`); },
+  },
 });
 mock.module('../src/units/oxford-education/prompts.js', {
   namedExports: { HANDOFF_MEETING_URL: 'https://meetings.hubspot.com/camila-serafin-jimenez/' },

@@ -66,6 +66,11 @@ export const env = {
   OXED_SHEETS_ID: optionalEnv('OXED_SHEETS_ID', requireEnv('GOOGLE_SHEETS_ID')),
   OXED_LEADS_SHEET_NAME: optionalEnv('OXED_LEADS_SHEET_NAME', 'Leads Oxford'),
   OXED_HANDOFF_MEETING_URL: optionalEnv('OXED_HANDOFF_MEETING_URL', 'https://meetings.hubspot.com/camila-serafin-jimenez/'),
+  // Notificación al asesor por PLANTILLA aprobada (se entrega fuera de la ventana
+  // de 24h, a diferencia del texto libre). Si el envío por plantilla falla
+  // (p.ej. aún no aprobada), notifyAdvisor cae a texto libre como respaldo.
+  OXED_ADVISOR_TEMPLATE_NAME: optionalEnv('OXED_ADVISOR_TEMPLATE_NAME', 'nuevo_lead_oxford'),
+  OXED_ADVISOR_TEMPLATE_LANG: optionalEnv('OXED_ADVISOR_TEMPLATE_LANG', 'es_MX'),
   // TODO(cliente): manejo definitivo de leads internacionales (fuera de México).
   // 'A'|'B'|'C'|'D' → deriva a esa dupla default (handoff activo).
   // 'meeting_link' (default) → comparte el link de agenda y deja la conversación activa (pasivo).

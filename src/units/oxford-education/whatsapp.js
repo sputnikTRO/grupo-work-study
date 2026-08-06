@@ -127,6 +127,37 @@ export async function sendTextMessage(to, text) {
 }
 
 /**
+ * Sends an approved WhatsApp template message from the Oxford number.
+ *
+ * Se usa para notificar a los asesores: al ser un mensaje iniciado por el negocio,
+ * el texto libre solo se entrega dentro de la ventana de 24h; una plantilla
+ * aprobada se entrega siempre. Ver notifyAdvisor en actions.js.
+ *
+ * @param {string} to - Recipient phone (E.164, sin '+')
+ * @param {string} templateName - Nombre de la plantilla aprobada en Meta
+ * @param {string} languageCode - Código de idioma (p.ej. 'es_MX')
+ * @param {Array<string|number>} bodyParams - Valores para {{1}}..{{n}} del BODY
+ * @returns {Promise<Object>} API response
+ */
+export async function sendTemplateMessage(to, templateName, languageCode, bodyParams = []) {
+  const components = bodyParams.length
+    ? [{ type: 'body', parameters: bodyParams.map((p) => ({ type: 'text', text: String(p ?? '—') })) }]
+    : [];
+
+  return await sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      components,
+    },
+  });
+}
+
+/**
  * Marks an inbound message as read (best-effort, never throws).
  * @param {string} messageId - WhatsApp message ID
  */
