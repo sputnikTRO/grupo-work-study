@@ -154,7 +154,10 @@ export async function executeActions(actions, lead, conversation, phone, phoneNu
   for (const action of actions) {
     try {
       const result = await executeAction(action, lead, conversation, phone, phoneNumberId);
-      if (action.type === 'DERIVAR_ASESOR') handoffOccurred = true;
+      // Solo cuenta como handoff (silencia el texto de Miri este turno) cuando el
+      // handoff REALMENTE ocurrió. Si el guard lo saltó (lead ya derivado), result=false
+      // y Miri responde con su texto normal.
+      if (action.type === 'DERIVAR_ASESOR' && result === true) handoffOccurred = true;
     } catch (error) {
       actionsLogger.error({ err: error, action }, 'Error executing action');
       // Continue with other actions even if one fails
@@ -183,8 +186,7 @@ async function executeAction(action, lead, conversation, phone, phoneNumberId) {
       break;
 
     case 'DERIVAR_ASESOR':
-      await executeHandoffToAdvisor(action.reason, lead, conversation, phone, phoneNumberId, actionLogger);
-      break;
+      return await executeHandoffToAdvisor(action.reason, lead, conversation, phone, phoneNumberId, actionLogger);
 
     case 'CAPTURAR_DATO':
       await executeCaptureData(action.field, action.value, lead, conversation, actionLogger);
@@ -388,9 +390,16 @@ function resolveAdvisorByName(name) {
  * 5. ¿Sin colegio? → carrusel Cecy/Cami (familia es el default)
  */
 async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId, actionLogger) {
-  actionLogger.info({ reason, leadType: lead.leadType }, 'Handing off to advisor');
+  actionLogger.info({ reason, leadType: lead.leadType }, 'Handing off to advisor (warm)');
 
   try {
+    // Guard anti-redisparo: si el lead ya está derivado, NO re-notificamos ni
+    // duplicamos ticket. Miri sigue activa (handoff tibio) y responde otras dudas.
+    if (lead.status === 'derivado_asesor') {
+      actionLogger.info({ assignedAdvisor: lead.assignedAdvisor }, 'Lead already handed off — skipping re-notify (warm handoff)');
+      return false; // no fue un handoff nuevo → el handler enviará el texto normal de Miri
+    }
+
     let advisor = null;
 
     // 1. Ya tiene asesora asignada desde antes
@@ -422,25 +431,25 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
       await leadService.updateTravelLead(lead.id, { assignedAdvisor: advisor.nombre });
     }
 
-    // Mensaje de despedida al prospecto
+    // Mensaje al prospecto: la asesora lo contacta desde SU propio número; Miri
+    // sigue disponible en este chat para otras dudas (handoff tibio).
     const esInstitucion = lead.leadType === 'institucion';
     const titulo = esInstitucion ? 'nuestro ejecutivo especializado' : 'nuestra asesora especializada';
     let farewellMessage = advisor
-      ? `Con gusto te comunico con ${advisor.nombre}, ${titulo} que te dará una atención personalizada 😊`
-      : `Con gusto te comunico con uno de nuestros asesores que te dará una atención personalizada 😊`;
-    farewellMessage += '\n\nTe contactará en breve por este mismo medio. ¡Gracias por tu interés!';
+      ? `¡Con gusto! 😊 Te conecto con ${advisor.nombre}, ${titulo}. Te contactará en breve por WhatsApp para una atención personalizada.`
+      : `¡Con gusto! 😊 Te conecto con uno de nuestros asesores, que te contactará en breve por WhatsApp.`;
+    farewellMessage += '\n\nMientras tanto, aquí sigo para cualquier otra duda. 🙌';
 
     await sendTextMessage(phone, farewellMessage, phoneNumberId);
-    actionLogger.info('Farewell message sent to prospect');
+    actionLogger.info('Warm handoff message sent to prospect');
 
-    // Actualizar status de conversación
-    await conversationService.update(conv.id, {
-      status: 'waiting_human',
-      assignedAgent: advisor?.nombre || 'Sin asignar',
-    });
+    // Handoff TIBIO: la conversación queda ACTIVA (NO waiting_human), así Miri
+    // sigue respondiendo. Solo marcamos el asesor asignado en la conversación.
+    await conversationService.update(conv.id, { assignedAgent: advisor?.nombre || 'Sin asignar' });
 
-    // Actualizar status del lead
+    // Marcar el lead como derivado (tracking + guard anti-redisparo).
     await leadService.updateTravelLeadStatus(lead.id, 'derivado_asesor');
+    lead.status = 'derivado_asesor';
 
     // Notificar al asesor por WhatsApp
     if (advisor?.whatsapp) {
@@ -449,8 +458,11 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
       actionLogger.warn('No advisor WhatsApp found, notification not sent');
     }
 
+    return true; // handoff nuevo realizado (despedida enviada) → el handler NO manda otro texto
+
   } catch (error) {
     actionLogger.error({ err: error }, 'Error during handoff');
+    return false; // en error, deja que Miri responda con su texto (no la silencies)
   }
 }
 

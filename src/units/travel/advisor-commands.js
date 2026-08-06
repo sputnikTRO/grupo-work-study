@@ -45,8 +45,12 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
       await handleListo(ticketNumber, advisor, message.from, phoneNumberId, cmdLogger);
 
     } else if (text.startsWith('REGRESA ') || text === 'REGRESA') {
-      const ticketNumber = parseTicket(text, 'REGRESA');
-      await handleRegresa(ticketNumber, advisor, message.from, phoneNumberId, cmdLogger);
+      // No-op: con el handoff tibio Miri nunca se silencia, no hay nada que "regresar".
+      await sendTextMessage(
+        message.from,
+        'ℹ️ Ya no hace falta REGRESA: Miri nunca deja de atender al prospecto tras derivar. Usa *LISTO #* cuando cierres el lead.',
+        phoneNumberId,
+      );
 
     } else if (text === 'AYUDA' || text === 'HELP' || text === 'HOLA') {
       await sendTextMessage(message.from, getHelpMessage(advisor), phoneNumberId);
@@ -70,37 +74,32 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
 // ---------------------------------------------------------------------------
 
 async function handlePendientes(advisor, replyTo, phoneNumberId, cmdLogger) {
+  // Con el handoff tibio la conversación queda 'active'; los pendientes se rastrean
+  // por el LEAD (status 'derivado_asesor', sin cerrar por LISTO).
   const where = advisor.role === 'admin'
-    ? { status: 'waiting_human', unit: 'travel' }
-    : { status: 'waiting_human', unit: 'travel', assignedAgent: advisor.nombre };
+    ? { status: 'derivado_asesor' }
+    : { status: 'derivado_asesor', assignedAdvisor: advisor.nombre };
 
-  const conversations = await prisma.conversation.findMany({
+  const leads = await prisma.travelLead.findMany({
     where,
-    orderBy: { lastMessageAt: 'asc' },
+    orderBy: { updatedAt: 'asc' },
     include: { contact: true },
   });
 
-  if (conversations.length === 0) {
+  if (leads.length === 0) {
     await sendTextMessage(replyTo, '✅ No tienes leads pendientes en este momento.', phoneNumberId);
     return;
   }
 
-  const contactIds = conversations.map(c => c.contact.id);
-  const leads = await prisma.travelLead.findMany({
-    where: { contactId: { in: contactIds } },
-  });
-  const leadByContactId = Object.fromEntries(leads.map(l => [l.contactId, l]));
-
   const now = Date.now();
-  const lines = conversations.map(conv => {
-    const lead      = leadByContactId[conv.contact.id];
-    const ticket    = lead?.ticketNumber ? `#${lead.ticketNumber}` : '(sin #)';
-    const name      = lead?.parentName || conv.contact.name || conv.contact.phone;
-    const school    = lead?.schoolCode ? ` (${lead.schoolCode})` : '';
-    const typeEmoji = lead?.leadType === 'institucion' ? '🏫' : '👨‍👩‍👧';
-    const assigned  = conv.assignedAgent ? ` → ${conv.assignedAgent}` : '';
+  const lines = leads.map(lead => {
+    const ticket    = lead.ticketNumber ? `#${lead.ticketNumber}` : '(sin #)';
+    const name      = lead.parentName || lead.contact?.name || lead.contact?.phone;
+    const school    = lead.schoolCode ? ` (${lead.schoolCode})` : '';
+    const typeEmoji = lead.leadType === 'institucion' ? '🏫' : '👨‍👩‍👧';
+    const assigned  = lead.assignedAdvisor ? ` → ${lead.assignedAdvisor}` : '';
 
-    const diffMin = Math.floor((now - new Date(conv.lastMessageAt).getTime()) / 60000);
+    const diffMin = Math.floor((now - new Date(lead.updatedAt).getTime()) / 60000);
     const timeAgo = diffMin < 60
       ? `hace ${diffMin} min`
       : `hace ${Math.floor(diffMin / 60)}h ${diffMin % 60}min`;
@@ -108,16 +107,12 @@ async function handlePendientes(advisor, replyTo, phoneNumberId, cmdLogger) {
     return `${ticket} — ${name}${school} ${typeEmoji}${assigned} — ${timeAgo}`;
   });
 
-  const footer = advisor.role === 'admin'
-    ? '\n\nUsa: *LISTO #* · *REGRESA #* · *ASIGNAR # cecy/cami/miguel*'
-    : '\n\nUsa: *LISTO #* para cerrar · *REGRESA #* para devolver a Miri';
-
   await sendTextMessage(
     replyTo,
-    `📋 *Leads pendientes (${conversations.length})*\n` + lines.join('\n') + footer,
+    `📋 *Leads pendientes (${leads.length})*\n` + lines.join('\n') + '\n\nUsa *LISTO #* cuando cierres/atiendas el lead.',
     phoneNumberId
   );
-  cmdLogger.info({ count: conversations.length }, 'Pendientes sent');
+  cmdLogger.info({ count: leads.length }, 'Pendientes sent');
 }
 
 // ---------------------------------------------------------------------------
@@ -126,44 +121,17 @@ async function handlePendientes(advisor, replyTo, phoneNumberId, cmdLogger) {
 
 async function handleListo(ticketNumber, advisor, replyTo, phoneNumberId, cmdLogger) {
   const lead = await findLeadByTicket(ticketNumber, advisor);
-  const conv = await findWaitingConversation(lead, ticketNumber);
 
-  await prisma.conversation.update({
-    where: { id: conv.id },
-    data: { status: 'atendido' },
-  });
-
+  // Solo tracking: cierra el lead. NO toca la conversación (Miri nunca se silencia).
   await leadService.updateTravelLead(lead.id, { status: 'atendido_asesor' });
 
   const name = lead.parentName || lead.contact.name || lead.contact.phone;
   await sendTextMessage(
     replyTo,
-    `✅ Lead #${ticketNumber} (${name}) atendido. Si vuelve a escribir, retomo con todo el contexto.`,
+    `✅ Lead #${ticketNumber} (${name}) marcado como atendido. Miri sigue disponible para el prospecto.`,
     phoneNumberId
   );
-  cmdLogger.info({ ticketNumber, name }, 'Lead marked as attended by advisor');
-}
-
-// ---------------------------------------------------------------------------
-// REGRESA #
-// ---------------------------------------------------------------------------
-
-async function handleRegresa(ticketNumber, advisor, replyTo, phoneNumberId, cmdLogger) {
-  const lead = await findLeadByTicket(ticketNumber, advisor);
-  const conv = await findWaitingConversation(lead, ticketNumber);
-
-  await prisma.conversation.update({
-    where: { id: conv.id },
-    data: { status: 'active', assignedAgent: null },
-  });
-
-  const name = lead.parentName || lead.contact.name || lead.contact.phone;
-  await sendTextMessage(
-    replyTo,
-    `🔄 Lead #${ticketNumber} (${name}) devuelto a Miri. Retomo la atención automática.`,
-    phoneNumberId
-  );
-  cmdLogger.info({ ticketNumber, name }, 'Lead returned to bot');
+  cmdLogger.info({ ticketNumber, name }, 'Lead marked attended (tracking) by advisor');
 }
 
 // ---------------------------------------------------------------------------
@@ -206,29 +174,13 @@ async function findLeadByTicket(ticketNumber, advisor) {
   return lead;
 }
 
-async function findWaitingConversation(lead, ticketNumber) {
-  const conv = await prisma.conversation.findFirst({
-    where: { contactId: lead.contactId, status: 'waiting_human' },
-  });
-
-  if (!conv) {
-    const any = await prisma.conversation.findFirst({
-      where: { contactId: lead.contactId },
-      orderBy: { lastMessageAt: 'desc' },
-    });
-    const currentStatus = any?.status || 'desconocido';
-    throw new UserError(`El lead #${ticketNumber} no está en espera. Estado actual: ${currentStatus}`);
-  }
-
-  return conv;
-}
-
 function getHelpMessage(advisor) {
   return `Hola ${advisor.apodo} 👋 Soy Miri. Comandos disponibles:
 
-✅ *LISTO #* → Cerrar un lead que ya atendiste
-🔄 *REGRESA #* → Devolver un lead para que yo lo atienda
-📋 *PENDIENTES* → Ver tus leads activos
+✅ *LISTO #* → Marcar como cerrado/atendido un lead (tracking)
+📋 *PENDIENTES* → Ver tus leads derivados sin cerrar
+
+Nota: Miri nunca deja de atender al prospecto tras derivar, así que ya no existe REGRESA.
 
 Ejemplo: LISTO 47`;
 }
