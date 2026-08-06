@@ -1,12 +1,13 @@
 import logger from '../../utils/logger.js';
 import prisma from '../../core/database/client.js';
+import { env } from '../../config/env.js';
 import * as sheetsCache from '../../core/sheets/cache.js';
 import * as leadService from '../../services/lead.service.js';
 import * as contactService from '../../services/contact.service.js';
 import { normalizePhone } from '../../utils/phone.js';
 import * as conversationService from '../../services/conversation.service.js';
 import * as messageService from '../../services/message.service.js';
-import { sendTextMessage, sendMediaMessage, sendMediaMessageByUrl } from '../../core/whatsapp/client.js';
+import { sendTextMessage, sendTemplateMessage, sendMediaMessage, sendMediaMessageByUrl } from '../../core/whatsapp/client.js';
 import * as conversation from '../../core/ai/conversation.js';
 import { getOrUploadMedia, getMimeType } from '../../core/whatsapp/media-uploader.js';
 
@@ -512,6 +513,34 @@ async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reaso
 
     const ticket = lead.ticketNumber || '?';
 
+    // normalizePhone adds +521 prefix, then strip '+' for WhatsApp Cloud API (E.164 without +)
+    const advisorPhone = normalizePhone(advisor.whatsapp).replace('+', '');
+
+    // 1) PLANTILLA aprobada: se entrega SIEMPRE, aun fuera de la ventana de 24h.
+    // Los avisos de lead son mensajes iniciados por el negocio; el texto libre solo
+    // se entrega si el asesor escribió al número en las últimas 24h.
+    try {
+      const clean = (s, n) => String(s ?? '—').replace(/\s+/g, ' ').trim().slice(0, n) || '—';
+      const params = [
+        ticket,                                                                          // {{1}}
+        clean(lead.parentName || 'No capturado', 60),                                    // {{2}}
+        leadTypeLabel,                                                                   // {{3}}
+        clean(`${lead.travelerName || 'No capturado'}, ${lead.travelerAge ? `${lead.travelerAge} años` : 'edad no capturada'}`, 80), // {{4}}
+        clean(`${schoolName} — ${destinoLabel}`, 100),                                   // {{5}}
+        `${conv.interestScore ?? 0}`,                                                    // {{6}}
+        phoneFormatted,                                                                  // {{7}}
+        clean(reason, 300),                                                              // {{8}}
+        clean(summary, 400),                                                             // {{9}}
+      ];
+      const components = [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: String(p) })) }];
+      await sendTemplateMessage(advisorPhone, env.TRAVEL_ADVISOR_TEMPLATE_NAME, env.TRAVEL_ADVISOR_TEMPLATE_LANG, components, phoneNumberId);
+      actionLogger.info({ advisorPhone, via: 'template' }, 'Advisor notification sent');
+      return;
+    } catch (tplErr) {
+      actionLogger.warn({ err: tplErr, template: env.TRAVEL_ADVISOR_TEMPLATE_NAME }, 'Template notification failed, falling back to free-form text');
+    }
+
+    // 2) RESPALDO: texto libre (solo entrega dentro de la ventana de 24h).
     const notification = `🔔 *Nuevo lead #${ticket}*
 
 👤 ${lead.parentName || 'No capturado'} (${leadTypeLabel})
@@ -529,13 +558,8 @@ ${summary}
 Responde aquí:
 ✅ *LISTO ${ticket}* → cuando termines de atenderlo
 🔄 *REGRESA ${ticket}* → si quieres que Miri retome`;
-
-    // Send notification to advisor's WhatsApp
-    // normalizePhone adds +521 prefix, then strip '+' for WhatsApp Cloud API (E.164 without +)
-    const advisorPhone = normalizePhone(advisor.whatsapp).replace('+', '');
     await sendTextMessage(advisorPhone, notification, phoneNumberId);
-
-    actionLogger.info('Advisor notification sent successfully');
+    actionLogger.info({ advisorPhone, via: 'text' }, 'Advisor notification sent (fallback text)');
 
   } catch (error) {
     actionLogger.error({ err: error }, 'Error sending advisor notification');
