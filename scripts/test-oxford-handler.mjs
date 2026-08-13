@@ -67,10 +67,26 @@ mock.module('../src/units/oxford-education/actions.js', {
     parseActions: () => [],
     cleanResponse: (r) => r,
     executeActions: async () => ({ handoffOccurred: state.handoff }),
+    // buildLeadUpdate/executeHandoffToAdvisor: agregados por feature/ori-flow-redesign
+    // — flow-engine.js (nuevo, importado por handler.js) también los toma de
+    // actions.js. No los ejercita este test (ver mock de cache.js abajo: "Flujo
+    // Ori" vacío → flujo determinístico deshabilitado → camino LLM puro, igual
+    // que antes), pero el import estático de handler.js exige que el nombre
+    // exista en el mock o el módulo no resuelve.
+    buildLeadUpdate: () => null,
+    executeHandoffToAdvisor: async () => ({ handedOff: false }),
   },
 });
 mock.module('../src/units/oxford-education/sheets-sync.js', {
   namedExports: { syncOxfordLeadToSheet: async () => {}, deriveTemperature: () => 'warm' },
+});
+// feature/ori-flow-redesign: handler.js ahora también importa flow-engine.js →
+// flow-content.js → core/sheets/cache.js (Redis real). Sin este stub, este test
+// golpearía un Redis real inexistente en CI. "Flujo Ori" vacío → loadFlowGraph()
+// devuelve null → tryDeterministicFlow() → {handled:false} SIEMPRE → el turno cae
+// íntegro en processWithAI, exactamente el comportamiento que este archivo prueba.
+mock.module('../src/core/sheets/cache.js', {
+  namedExports: { getOxfordFlowRows: async () => [] },
 });
 
 const { handleMessage } = await import('../src/units/oxford-education/handler.js');
