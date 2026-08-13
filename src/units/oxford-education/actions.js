@@ -87,9 +87,16 @@ export function cleanResponse(response) {
 
 /**
  * Maps a captured tag field/value to a validated Prisma update fragment.
+ *
+ * Exported (además de usarse internamente en executeActions) para que
+ * flow-engine.js aplique EXACTAMENTE la misma validación/mapeo cuando el paso
+ * `solicitud_datos` del flujo determinístico extrae state/municipality — así el
+ * ruteo geográfico (advisor-zones.js) recibe datos con la misma forma sin
+ * importar si los capturó el LLM vía [CAPTURAR_DATO] o el flujo determinístico.
+ *
  * @returns {Object|null} e.g. { primaryProduct: 'oxford_tcc' } or null if invalid
  */
-function buildLeadUpdate(field, value) {
+export function buildLeadUpdate(field, value) {
   const column = CAPTURE_FIELD_MAP[field];
   if (!column) return null;
 
@@ -202,8 +209,13 @@ async function pickAdvisorRoundRobin(duplaKey) {
  *  3. Elige asesor por round-robin dentro de la dupla.
  *  4. Persiste asesor/zona en el lead, avisa al prospecto (mensaje tibio),
  *     notifica al asesor por WhatsApp con ticket y DEJA la conversación ACTIVA.
+ *
+ * Exportada (antes privada) para que el CTA "¿hablar con un asesor?" del flujo
+ * determinístico (flow-engine.js) dispare el MISMO handoff tibio + ruteo
+ * geográfico, sin reimplementar ni un guard, en vez de duplicar esta lógica.
+ * El comportamiento de la función NO cambió — solo se agregó `export`.
  */
-async function executeHandoffToAdvisor(lead, conv, contact, reason) {
+export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
   const log = logger.child({ unit: 'oxford_education', leadId: lead.id, fn: 'oxford.handoff' });
 
   // Guard anti-redisparo: si el lead YA tiene asesor asignado, no re-derivamos,

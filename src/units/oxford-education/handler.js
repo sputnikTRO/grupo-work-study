@@ -12,6 +12,7 @@ import { buildFullPrompt } from './prompts.js';
 import { buildOxfordKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
+import { tryDeterministicFlow } from './flow-engine.js';
 
 /**
  * Oxford Education Unit Message Handler
@@ -72,7 +73,27 @@ export async function handleMessage(message, phoneNumberId) {
 
     const lead = await oxfordLeadService.findOrCreateOxfordLead(contact.id);
 
-    await processWithAI(phone, content, conv, lead, contact, log);
+    // Capa determinística (feature/ori-flow-redesign): recorre el grafo de la
+    // pestaña "Flujo Ori" con textos VERBATIM. Si no aplica (Sheet caído, modo
+    // libre, o el mensaje no es número/"Menú"/respuesta clara a un CTA), cede el
+    // turno COMPLETO al camino LLM de siempre (processWithAI, sin cambios) — el
+    // ruteo geográfico y el handoff tibio existentes quedan intactos en ambos
+    // caminos (el flujo determinístico los REUTILIZA, nunca los reimplementa).
+    const flowResult = await tryDeterministicFlow({ phone, content, conv, lead, contact, log });
+
+    if (!flowResult.handled) {
+      await processWithAI(phone, content, conv, lead, contact, log);
+
+      // El flujo seguía activo (flowNode no cambió) pero el mensaje no matcheó
+      // número/menú/CTA claro → el LLM ya respondió la duda; lo reencauzamos al
+      // menú con un recordatorio corto, SIN tocar flowNode (no rompe el estado).
+      if (flowResult.midFlowFallback) {
+        const reminder = "Escribe *Menú* cuando quieras ver las opciones de nuevo 😊";
+        await sendTextMessage(phone, reminder);
+        await messageService.createOutbound(conv.id, reminder);
+        await store.addMessage(conv.id, 'assistant', reminder);
+      }
+    }
   } catch (error) {
     log.error({ err: error }, 'Error handling Oxford message');
     try {

@@ -27,6 +27,7 @@ const SHEET_NAMES = [
   'Materiales',
   'Leads',
   'FAQ Oxford',
+  'Flujo Ori',
 ];
 
 let lastSuccessfulCache = {}; // Backup in-memory cache
@@ -396,6 +397,27 @@ export async function getOxfordFAQ(programa = null) {
   });
 
   return filtered;
+}
+
+/**
+ * Gets the raw "Flujo Ori" rows from cache (schema: ID | Estado | Texto |
+ * Destino opción 1..5 | Notas | Orden — sembrado por scripts/seed-ori-flow.js).
+ *
+ * Same TTL/fallback contract as getOxfordFAQ(): Redis cache → in-memory backup →
+ * empty array. The caller (flow-content.js) is responsible for turning this into
+ * a graph and for treating an empty result as "flow unavailable" (safe fallback
+ * to the LLM-only path — never throws, never blocks the bot).
+ *
+ * @returns {Promise<Array>} Rows sorted by Orden; empty array on total cache miss.
+ */
+export async function getOxfordFlowRows() {
+  const rows = await getCachedSheet('Flujo Ori');
+
+  return [...rows].sort((a, b) => {
+    const oA = parseInt(a['Orden']) || 999;
+    const oB = parseInt(b['Orden']) || 999;
+    return oA - oB;
+  });
 }
 
 /**

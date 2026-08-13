@@ -79,6 +79,13 @@ model Conversation {
   status         ConversationStatus @default(active)
   assignedAgent  String?            @map("assigned_agent")
   interestScore  Int                @default(0) @map("interest_score")
+  // flowNode: nodo actual del guion determinístico de Ori ("Flujo Ori" en Sheets),
+  // p.ej. 'filtro_previo', 'menu_principal', 'cat_1', 'n_1_2'. NULL = conversación
+  // aún no entró al flujo (arranca en bienvenida→filtro_previo) o el flujo terminó
+  // y quedó en modo libre con el LLM ('llm_freeform'). Solo lo usa oxford_education;
+  // Travel y Work & Study lo dejan NULL siempre (columna aditiva, no afecta nada
+  // existente).
+  flowNode       String?            @map("flow_node")
   metadata       Json?              @default("{}")
   startedAt      DateTime           @default(now()) @map("started_at")
   lastMessageAt  DateTime           @default(now()) @map("last_message_at")
