@@ -264,7 +264,9 @@ enum OxfordLeadStatus {
   en_calificacion
   interesado
   derivado_asesor
+  en_atencion       // NUEVO (feature/ori-advisor-sla): asesor confirmó con ATIENDO, aún sin cerrar (LISTO)
   atendido_asesor
+  sin_confirmar     // NUEVO (feature/ori-advisor-sla): se agotaron las 8 asesoras sin confirmación — requiere atención manual
   demo_agendada
   demo_completada
   propuesta_enviada
@@ -325,6 +327,17 @@ model OxfordLead {
   nurturingStep     Int                @default(0) @map("nurturing_step")
   nextFollowUp      DateTime?          @map("next_follow_up")
   followUpCount     Int                @default(0) @map("follow_up_count")
+
+  // SLA de confirmación del asesor (feature/ori-advisor-sla) — ver advisor-sla.js.
+  // Todo aditivo/nullable; Travel y Work & Study nunca lo tocan.
+  assignedAt        DateTime?          @map("assigned_at")           // cuándo se asignó el INTENTO actual (se sobreescribe en cada reasignación)
+  confirmedAt       DateTime?          @map("confirmed_at")          // cuándo el asesor confirmó con ATIENDO (una sola vez)
+  responseSeconds   Int?               @map("response_seconds")      // confirmedAt - assignedAt del intento que confirmó
+  slaDueAt          DateTime?          @map("sla_due_at")            // assignedAt + OXED_ADVISOR_SLA_MINUTES; el job de reasignación hace poll aquí
+  currentAttempt    Int                @default(0) @map("current_attempt")   // se incrementa en cada (re)asignación; evita que un job viejo actúe sobre una asignación nueva
+  reassignCount     Int                @default(0) @map("reassign_count")    // cuenta SOLO reasignaciones (no la asignación inicial)
+  triedAdvisorKeys  String[]           @default([]) @map("tried_advisor_keys") // keys de advisor-zones.ADVISORS ya intentados en esta cadena
+  advisorAttempts   Json?              @default("[]") @map("advisor_attempts") // rastro: [{advisor, assignedAt, result}], result: esperando|confirmo|no_confirmo
 
   // Reunión/Demo
   meetingDate       DateTime?          @map("meeting_date")

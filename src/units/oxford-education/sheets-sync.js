@@ -16,11 +16,12 @@ import logger from '../../utils/logger.js';
 const SPREADSHEET_ID = env.OXED_SHEETS_ID;
 const SHEET_NAME = env.OXED_LEADS_SHEET_NAME;
 
-// Column order (A..M). Column A (ID) is the upsert key.
+// Column order (A..R). Column A (ID) is the upsert key.
 // IMPORTANTE: las 11 primeras columnas (A..K) son las HISTÓRICAS de la hoja ya
-// desplegada (Resumen queda en K). Las 2 nuevas (Zona, Asesor) van AL FINAL (L, M)
-// para no desalinear los datos previos. El orden aquí DEBE coincidir con
-// formatLeadRow y con la reconciliación de encabezado (reconcileHeader).
+// desplegada (Resumen queda en K). Las nuevas van SIEMPRE AL FINAL para no
+// desalinear los datos previos — L/M (Zona, Asesor) de feature/ori-flow-redesign,
+// N..R (tiempos de SLA) de feature/ori-advisor-sla. El orden aquí DEBE coincidir
+// con formatLeadRow y con la reconciliación de encabezado (ensureSheet).
 const COLUMNS = { ID: 0 };
 
 const HEADERS = [
@@ -35,8 +36,14 @@ const HEADERS = [
   'Temperatura',              // I - hot/warm/cold
   'Derivación',               // J - handoff Sí/No
   'Resumen conversación',     // K - short summary (HISTÓRICA, se queda en K)
-  'Zona (Estado/Municipio)',  // L - NUEVA: geo for advisor routing
-  'Asesor asignado',          // M - NUEVA: advisor from the zone dupla
+  'Zona (Estado/Municipio)',  // L - geo for advisor routing
+  'Asesor asignado',          // M - advisor from the zone dupla (= "asesor final": se sobreescribe en cada reasignación)
+  // ── feature/ori-advisor-sla — visibilidad de tiempos por asesora ───────────
+  'Hora asignación inicial',  // N - NUEVA: assignedAt del PRIMER intento (advisorAttempts[0])
+  'Hora confirmación',        // O - NUEVA: confirmedAt (ATIENDO)
+  'Minutos de respuesta',     // P - NUEVA: responseSeconds del intento que confirmó, en minutos
+  '# Reasignaciones',         // Q - NUEVA: reassignCount
+  'Asesoras intentadas',      // R - NUEVA: cadena completa del rastro (advisorAttempts)
 ];
 
 // Map enum-ish product codes to human labels for the sheet.
@@ -79,10 +86,32 @@ export function deriveTemperature(lead, handoffOccurred = false) {
 }
 
 /**
+ * Formatea el rastro de intentos (advisorAttempts) como una cadena legible para
+ * la columna "Asesoras intentadas", p. ej.:
+ *   "Enrique Ruiz (no confirmó) → Oriana Pullas (confirmó)"
+ * @param {Array|null|undefined} attempts
+ * @returns {string}
+ */
+function formatAttemptsChain(attempts) {
+  if (!Array.isArray(attempts) || attempts.length === 0) return '';
+  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó' };
+  return attempts
+    .map((a) => `${a.advisor}${a.result ? ` (${RESULT_LABELS[a.result] || a.result})` : ''}`)
+    .join(' → ');
+}
+
+/**
  * Builds the row array in column order.
  */
 function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }) {
   const roleParts = [lead.role, lead.leadType ? LEAD_TYPE_LABELS[lead.leadType] : null].filter(Boolean);
+
+  // feature/ori-advisor-sla: "hora de asignación inicial" es el PRIMER intento
+  // del rastro (assignedAt se sobreescribe en cada reasignación; advisorAttempts[0]
+  // no se toca nunca), a diferencia de "Asesor asignado" (M) que sí es el actual/final.
+  const attempts = Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts : [];
+  const firstAssignedAt = attempts[0]?.assignedAt || '';
+  const responseMinutes = lead.responseSeconds != null ? (lead.responseSeconds / 60).toFixed(1) : '';
 
   return [
     lead.id?.toString() || '',                                            // A ID
@@ -98,7 +127,12 @@ function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }
     handoffOccurred ? 'Sí' : 'No',                                        // J Derivación
     (summary || '').slice(0, 480),                                        // K Resumen (histórica)
     [lead.municipality, lead.state].filter(Boolean).join(', '),          // L Zona (Estado/Municipio)
-    lead.assignedAdvisor || '',                                           // M Asesor asignado
+    lead.assignedAdvisor || '',                                           // M Asesor asignado (= final/actual)
+    firstAssignedAt,                                                      // N Hora asignación inicial
+    lead.confirmedAt ? new Date(lead.confirmedAt).toISOString() : '',    // O Hora confirmación
+    responseMinutes,                                                      // P Minutos de respuesta
+    (lead.reassignCount ?? 0).toString(),                                 // Q # Reasignaciones
+    formatAttemptsChain(attempts),                                        // R Asesoras intentadas
   ];
 }
 
