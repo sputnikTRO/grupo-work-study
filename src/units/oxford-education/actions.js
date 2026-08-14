@@ -1,13 +1,14 @@
 import logger from '../../utils/logger.js';
 import prisma from '../../core/database/client.js';
 import { env } from '../../config/env.js';
-import { normalizePhone } from '../../utils/phone.js';
 import * as oxfordLeadService from './lead.service.js';
 import * as messageService from '../../services/message.service.js';
 import * as store from './store.js';
-import { sendTextMessage, sendTemplateMessage } from './whatsapp.js';
+import { sendTextMessage } from './whatsapp.js';
 import { HANDOFF_MEETING_URL } from './prompts.js';
 import { resolveDupla, duplaAdvisors } from './advisor-zones.js';
+import { notifyAdvisor } from './advisor-notify.js';
+import { buildAssignmentFields } from './advisor-sla.js';
 
 /**
  * Oxford Education action tags
@@ -239,11 +240,16 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
 
   // Persistir asignación en el lead. Handoff "TIBIO": NO se marca waiting_human;
   // la conversación sigue ACTIVA y Ori sigue atendiendo dudas generales.
+  // feature/ori-advisor-sla: buildAssignmentFields agrega assignedAt/slaDueAt/
+  // currentAttempt/triedAdvisorKeys/advisorAttempts (intento #1) — el mismo
+  // shape que usa advisor-sla.js al reasignar, así el job de SLA los recoge
+  // igual sin importar si fue la asignación inicial o una reasignación.
   const leadUpdate = {
     status: 'derivado_asesor',
     assignedAdvisor: advisor.nombre,
     zoneKey: duplaKey,
     notes: reason ? `Derivación (${duplaKey}/${advisor.nombre}): ${reason}` : `Derivado a ${advisor.nombre} (${duplaKey})`,
+    ...buildAssignmentFields(lead, advisor),
   };
   await oxfordLeadService.updateOxfordLead(lead.id, leadUpdate);
   Object.assign(lead, leadUpdate);
@@ -288,6 +294,7 @@ async function handleForeignFallback(lead, conv, contact, reason, log) {
         assignedAdvisor: advisor.nombre,
         zoneKey: asDupla,
         notes: reason ? `Derivación FALLBACK ${asDupla}/${advisor.nombre}: ${reason}` : `Fallback → ${advisor.nombre} (${asDupla})`,
+        ...buildAssignmentFields(lead, advisor), // feature/ori-advisor-sla — mismo init que el camino normal
       };
       await oxfordLeadService.updateOxfordLead(lead.id, leadUpdate);
       Object.assign(lead, leadUpdate);
@@ -323,82 +330,6 @@ async function handleForeignFallback(lead, conv, contact, reason, log) {
   return { handedOff: true };
 }
 
-/** Etiquetas legibles del producto para el mensaje al asesor. */
-const PRODUCT_LABELS = {
-  oxford_tcc: 'Oxford TCC',
-  oxford_tcc_kids: 'Oxford TCC Kids',
-  english_teaching_certificate: 'English Teaching Certificate',
-  alphable: 'Alphable',
-  oxford_life: 'Oxford LIFE',
-  rising_stars: 'Rising Stars',
-  work_study_spain: 'Work & Study Spain',
-};
-
-/**
- * Formatea un número mexicano a "55 3530 5000" (últimos 10 dígitos).
- * Para internacionales (no empieza en 52) devuelve el número tal cual.
- */
-function formatPhoneReadable(phone) {
-  const digits = (phone || '').replace(/\D/g, '');
-  const local = digits.slice(-10);
-  if (digits.startsWith('52') && local.length === 10) {
-    return `${local.slice(0, 2)} ${local.slice(2, 6)} ${local.slice(6)}`;
-  }
-  return phone;
-}
-
-/**
- * Notifica al asesor del nuevo lead. Usa una PLANTILLA aprobada (se entrega fuera
- * de la ventana de 24h de WhatsApp); si el envío por plantilla falla (p.ej. aún no
- * aprobada), cae a texto libre como respaldo (solo entrega dentro de la ventana).
- */
-async function notifyAdvisor(advisor, lead, conv, contact, reason, duplaKey, log) {
-  const ticket = lead.ticketNumber || '?';
-  const zona = [lead.municipality, lead.state].filter(Boolean).join(', ') || 'no capturada';
-  const zonaDupla = `${zona} (dupla ${duplaKey})`;
-  const producto = PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct || 'no capturado';
-  const tipo = lead.leadType === 'b2b_institutional' ? 'institución' : 'individual';
-  const nombre = lead.fullName || contact.name || 'No capturado';
-  const phoneFormatted = formatPhoneReadable(contact.phone);
-  const motivo = (reason || '—').replace(/\s+/g, ' ').trim().slice(0, 300) || '—';
-
-  // normalizePhone respeta el passthrough internacional (Oriana +1); quitamos '+'.
-  const advisorPhone = normalizePhone(advisor.whatsapp).replace('+', '');
-
-  // 1) Plantilla aprobada (entrega garantizada fuera de la ventana de 24h).
-  try {
-    await sendTemplateMessage(
-      advisorPhone,
-      env.OXED_ADVISOR_TEMPLATE_NAME,
-      env.OXED_ADVISOR_TEMPLATE_LANG,
-      [ticket, nombre, tipo, lead.institutionName || '—', producto, zonaDupla, phoneFormatted, motivo],
-    );
-    log.info({ advisor: advisor.nombre, advisorPhone, via: 'template' }, 'Advisor notification sent');
-    return;
-  } catch (tplErr) {
-    log.warn({ err: tplErr, advisor: advisor.nombre, template: env.OXED_ADVISOR_TEMPLATE_NAME },
-      'Template notification failed, falling back to free-form text');
-  }
-
-  // 2) Respaldo: texto libre (solo entrega dentro de la ventana de 24h).
-  try {
-    const notification = `🔔 *Nuevo lead Oxford #${ticket}*
-
-👤 ${nombre} (${tipo})
-🏫 ${lead.institutionName || '—'}
-📚 Producto: ${producto}
-📍 Zona: ${zonaDupla}
-📱 ${phoneFormatted}
-
-📌 Motivo: ${motivo}
-
-ℹ️ El prospecto sigue conversando con Ori para dudas generales; tú tomas precio y cierre.
-
----
-✅ *LISTO ${ticket}* → cuando cierres/atiendas el lead (solo tracking; Ori nunca se silencia)`;
-    await sendTextMessage(advisorPhone, notification);
-    log.info({ advisor: advisor.nombre, advisorPhone, via: 'text' }, 'Advisor notification sent (fallback text)');
-  } catch (error) {
-    log.error({ err: error, advisor: advisor?.nombre }, 'Error notifying advisor (handoff continues)');
-  }
-}
+// notifyAdvisor (+ PRODUCT_LABELS/formatPhoneReadable) vivía aquí — se movió a
+// ./advisor-notify.js (feature/ori-advisor-sla) para romper un ciclo de imports
+// con advisor-sla.js. Mismo código, mismo comportamiento, ver el import arriba.

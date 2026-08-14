@@ -71,10 +71,24 @@ export const env = {
   // (p.ej. aún no aprobada), notifyAdvisor cae a texto libre como respaldo.
   OXED_ADVISOR_TEMPLATE_NAME: optionalEnv('OXED_ADVISOR_TEMPLATE_NAME', 'nuevo_lead_oxford'),
   OXED_ADVISOR_TEMPLATE_LANG: optionalEnv('OXED_ADVISOR_TEMPLATE_LANG', 'es_MX'),
+  // feature/ori-advisor-sla: plantilla nueva 'nuevo_lead_oxford_sla' (mismas 8
+  // variables que OXED_ADVISOR_TEMPLATE_NAME + instrucción ATIENDO), creada vía
+  // Graph API y enviada a revisión de Meta (status PENDING al momento de crearla).
+  // SIN DEFAULT a propósito: mientras esté vacía, notifyAdvisor sigue usando
+  // OXED_ADVISOR_TEMPLATE_NAME exactamente como hoy (cero cambio de
+  // comportamiento). Cuando Meta la apruebe, setear:
+  //   OXED_ADVISOR_SLA_TEMPLATE=nuevo_lead_oxford_sla
+  // El fallback a texto libre (que YA incluye la instrucción ATIENDO) se
+  // conserva sin cambios si el envío por cualquiera de las dos plantillas falla.
+  OXED_ADVISOR_SLA_TEMPLATE: optionalEnv('OXED_ADVISOR_SLA_TEMPLATE', ''),
   // TODO(cliente): manejo definitivo de leads internacionales (fuera de México).
   // 'A'|'B'|'C'|'D' → deriva a esa dupla default (handoff activo).
   // 'meeting_link' (default) → comparte el link de agenda y deja la conversación activa (pasivo).
   OXED_FOREIGN_LEAD_FALLBACK: optionalEnv('OXED_FOREIGN_LEAD_FALLBACK', 'meeting_link'),
+  // SLA de confirmación del asesor (feature/ori-advisor-sla): minutos que tiene el
+  // asesor asignado para responder ATIENDO antes de que advisor-sla.job.js lo
+  // reasigne automáticamente a la siguiente asesora. Ver src/units/oxford-education/advisor-sla.js.
+  OXED_ADVISOR_SLA_MINUTES: parseInt(optionalEnv('OXED_ADVISOR_SLA_MINUTES', '10'), 10),
 
   // Claude API
   ANTHROPIC_API_KEY: requireEnv('ANTHROPIC_API_KEY'),

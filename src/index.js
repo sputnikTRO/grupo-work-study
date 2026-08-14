@@ -9,6 +9,7 @@ import oxfordWebhookRoutes from './routes/oxford-webhook.js';
 import { registerAdminRoutes } from './api/admin.routes.js';
 import * as sheetsSyncJob from './jobs/sheets-sync.job.js';
 import * as followUpJob from './jobs/followup.job.js';
+import * as advisorSlaJob from './jobs/advisor-sla.job.js';
 
 /**
  * Main application entry point
@@ -70,6 +71,7 @@ fastify.get('/health', async (request, reply) => {
     // Get job statuses
     const syncJobStatus = sheetsSyncJob.getSyncJobStatus();
     const followUpJobStatus = followUpJob.getFollowUpJobStatus();
+    const advisorSlaJobStatus = advisorSlaJob.getAdvisorSlaJobStatus();
 
     return {
       status: 'ok',
@@ -80,6 +82,7 @@ fastify.get('/health', async (request, reply) => {
       jobs: {
         sheetsSync: syncJobStatus,
         followUp: followUpJobStatus,
+        oxfordAdvisorSla: advisorSlaJobStatus,
       },
     };
   } catch (error) {
@@ -131,6 +134,9 @@ const shutdown = async (signal) => {
 
     followUpJob.stopFollowUpJob();
     logger.info('Follow-up job stopped');
+
+    advisorSlaJob.stopAdvisorSlaJob();
+    logger.info('Oxford advisor SLA job stopped');
 
     // Stop accepting new requests
     await fastify.close();
@@ -189,6 +195,11 @@ const start = async () => {
     // Start follow-up job (every hour)
     followUpJob.startFollowUpJob();
     logger.info('Follow-up job started');
+
+    // Start Oxford advisor SLA job (poll every minute; reasigna leads sin
+    // confirmación de asesor tras OXED_ADVISOR_SLA_MINUTES)
+    advisorSlaJob.startAdvisorSlaJob();
+    logger.info('Oxford advisor SLA job started');
 
     logger.info('All background jobs started successfully');
 

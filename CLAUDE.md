@@ -51,6 +51,51 @@ aisladas de Travel a propósito.
 - `sheets-sync.js` — upsert de leads a la tab `Leads Oxford` (una fila por lead, keyed
   por ID en columna A). Patrón de referencia para escritura **aditiva/idempotente** a
   Sheets: nunca borra ni reordena, solo agrega columnas/filas faltantes al final.
+  Columnas N–R (feature/ori-advisor-sla): tiempos de asignación/confirmación por asesora.
+- `advisor-notify.js` (feature/ori-advisor-sla) — `notifyAdvisor` (extraído de
+  actions.js, mismo comportamiento) para romper un ciclo de imports con
+  `advisor-sla.js`. Notifica al asesor por plantilla aprobada de Meta, con
+  fallback a texto libre — el texto libre incluye la instrucción ATIENDO.
+  Plantillas de Oxford en la WABA (`OXED_WABA_ID`): `nuevo_lead_oxford`
+  (MARKETING, es_MX, APPROVED, 8 variables — la de siempre, **no se edita**:
+  cambiarla la re-manda a revisión y tumba las notificaciones mientras tanto) y
+  `nuevo_lead_oxford_sla` (misma categoría/idioma/8 variables + instrucción
+  ATIENDO en el copy, creada vía Graph API, **PENDING** de revisión de Meta).
+  Cuál se usa es configurable vía `OXED_ADVISOR_SLA_TEMPLATE` (vacía por
+  default → usa la de siempre; una vez aprobada, setear
+  `OXED_ADVISOR_SLA_TEMPLATE=nuevo_lead_oxford_sla`). El fallback a texto libre
+  se conserva sin cambios en ambos casos.
+- `advisor-sla.js` (feature/ori-advisor-sla) — SLA de confirmación de asesor: el
+  asesor asignado tiene `OXED_ADVISOR_SLA_MINUTES` (default 10) para responder
+  `ATIENDO`; si no, se reasigna automáticamente (pareja de dupla → A→B→C→D
+  saltando intentados → terminal `sin_confirmar` tras agotar las 8). Reutiliza
+  `ADVISORS`/`DUPLAS` de advisor-zones.js y `notifyAdvisor` de advisor-notify.js
+  SIN reimplementarlos. Usa `updateMany` condicional (`currentAttempt`/
+  `confirmedAt`) como guard de concurrencia — nunca doble-reasigna ni pisa una
+  confirmación real. **BullMQ NO está en el stack** (verificado, no instalado):
+  el "job diferido" se traduce a polling con `setInterval` (mismo patrón que
+  followup.job.js), leyendo `slaDueAt`/`currentAttempt` guardados en el propio
+  lead en vez de un payload de cola externa.
+- `advisor-commands.js` — comandos de asesor por WhatsApp: `PENDIENTES` ·
+  `ATIENDO [#]` (feature/ori-advisor-sla, confirma el lead) · `LISTO #` (cierra,
+  sin cambios) · `AYUDA`. `REGRESA` es no-op documentado.
+- `advisor-sla-sheet.js` (feature/ori-advisor-sla) — visibilidad de tiempos en 2
+  pestañas dedicadas del mismo spreadsheet (`OXED_SHEETS_ID`): **"Tiempos
+  asesores"** (detalle, una fila por lead derivado, upsert por Ticket) y
+  **"Resumen asesoras"** (una fila por asesora de las 8 de `advisor-zones.ADVISORS`,
+  RECALCULADA completa desde el detalle en cada escritura y aplicada con el MISMO
+  upsert por clave — nunca clear+rewrite masivo). Se escribe en 2 momentos nada
+  más: al confirmar (`ATIENDO`, en `advisor-commands.js`) y al llegar al terminal
+  `sin_confirmar` (en `advisor-sla.js`) — nunca en cada reasignación intermedia.
+  Trae su propia copia de `colLetter`/`PRODUCT_LABELS` (mismo patrón que
+  sheets-sync.js/advisor-notify.js) para no tocar esos archivos. Fallback
+  seguro: cualquier error de Sheets se loguea y nunca rompe el flujo.
+  **Ojo con el truco del apóstrofo** (`'${ticketNumber}` para forzar texto):
+  Sheets lo QUITA al guardar — el upsert debe buscar SIN el apóstrofo
+  (`findRowByColumn(..., String(ticketNumber))`), y cualquier mock de Sheets en
+  tests debe replicar ese stripping o el upsert por ticket numérico se rompe en
+  silencio (duplica filas en vez de actualizar) — ver el comentario en
+  `scripts/test-oxford-advisor-sla.mjs`.
 
 ### Grafo del flujo ("Flujo Ori")
 
@@ -119,12 +164,25 @@ Dos convenciones conviven en el repo:
 - Sin Redis real disponible (p. ej. este sandbox), `node --test` sobre archivos que
   tocan `core/sheets/cache.js`/`core/database/redis.js` sin mockear se queda colgado
   (ioredis reintenta infinito) — usar `--test-force-exit`.
-- `scripts/demo-oxford-flow.mjs` — imprime un recorrido de conversación legible
-  (mismos mocks, sin WhatsApp/DB/Claude real) para revisión humana, no hace asserts.
+- `scripts/demo-oxford-flow.mjs` / `scripts/demo-oxford-advisor-sla.mjs` — imprimen un
+  recorrido legible (mismos mocks, sin WhatsApp/DB/Claude real) para revisión humana,
+  no hacen asserts.
+- Los mocks de `mock.module` para `actions.js` deben incluir TODOS sus exports
+  usados transitivamente (`buildLeadUpdate`, `executeHandoffToAdvisor`) o el
+  import estático de `handler.js`/`flow-engine.js` no resuelve — ver el mock de
+  `test-oxford-handler.mjs` como referencia. Lo mismo aplica a mocks de
+  `advisor-sla.js`/`advisor-notify.js` si se agregan más consumidores.
 
 ## Qué NO tocar sin coordinar
 
 - `advisor-zones.js` (ruteo geográfico + handoff tibio) — ya en prod, no rehacer.
-  `flow-engine.js` lo reutiliza vía `executeHandoffToAdvisor`, nunca lo reimplementa.
+  `flow-engine.js`/`advisor-sla.js` lo reutilizan vía `executeHandoffToAdvisor`/
+  `ADVISORS`/`DUPLAS`, nunca lo reimplementan.
+- `advisor-commands.js` (`LISTO`/`PENDIENTES`/comandos existentes) y el guard
+  anti-redisparo de `executeHandoffToAdvisor` — la reasignación por SLA es un
+  camino aparte (updateMany condicional), nunca un nuevo `[DERIVAR_ASESOR]`.
 - Cambios de **contenido** de Ori (textos del flujo) van en la tab "Flujo Ori" de
   Sheets vía `scripts/seed-ori-flow.js`, no hardcodeados en `flow-engine.js`.
+- El copy de la plantilla aprobada de WhatsApp (`OXED_ADVISOR_TEMPLATE_NAME`) vive
+  en Meta Business Manager, fuera del repo — no se puede inyectar texto libre ahí
+  desde código (ver TODO en `advisor-notify.js`).
