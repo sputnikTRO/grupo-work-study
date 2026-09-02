@@ -28,6 +28,7 @@ const SHEET_NAMES = [
   'Leads',
   'FAQ Oxford',
   'Flujo Ori',
+  'Flujo Miri',
 ];
 
 let lastSuccessfulCache = {}; // Backup in-memory cache
@@ -412,6 +413,29 @@ export async function getOxfordFAQ(programa = null) {
  */
 export async function getOxfordFlowRows() {
   const rows = await getCachedSheet('Flujo Ori');
+
+  return [...rows].sort((a, b) => {
+    const oA = parseInt(a['Orden']) || 999;
+    const oB = parseInt(b['Orden']) || 999;
+    return oA - oB;
+  });
+}
+
+/**
+ * Gets the raw "Flujo Miri" rows from cache (schema: ID | Estado | Texto |
+ * Destino opción 1..5 | Notas | Orden | Material — sembrado por
+ * scripts/seed-miri-flow.js).
+ *
+ * Gemelo de getOxfordFlowRows() para la unidad Travel (Miri), con el mismo
+ * contrato de TTL/fallback: Redis cache → backup en memoria → arreglo vacío.
+ * El consumidor (units/travel/flow-content.js) es quien convierte esto en un
+ * grafo y quien trata el vacío como "flujo no disponible" (fallback seguro al
+ * camino LLM — nunca lanza, nunca tumba el bot).
+ *
+ * @returns {Promise<Array>} Filas ordenadas por Orden; vacío si no hay cache.
+ */
+export async function getTravelFlowRows() {
+  const rows = await getCachedSheet('Flujo Miri');
 
   return [...rows].sort((a, b) => {
     const oA = parseInt(a['Orden']) || 999;

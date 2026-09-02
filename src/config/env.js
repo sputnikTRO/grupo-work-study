@@ -90,6 +90,19 @@ export const env = {
   // reasigne automáticamente a la siguiente asesora. Ver src/units/oxford-education/advisor-sla.js.
   OXED_ADVISOR_SLA_MINUTES: parseInt(optionalEnv('OXED_ADVISOR_SLA_MINUTES', '10'), 10),
 
+  // Travel (Miri) — hoja VIVA de precios por colegio, mantenida por el equipo
+  // comercial: "Colegios Inscritos English 4 Life 2027", pestaña
+  // "CONDICIONES POLÍTICAS" (el nombre de la pestaña va hardcodeado en
+  // src/units/travel/prices.js, según la convención del repo). No es la pestaña
+  // `Precios` del spreadsheet principal, que trae un solo tier y quedó atrás.
+  // Travel (Miri) — hoja de INSCRITOS (alumnos + estatus de pago), la que el
+  // equipo mantiene al día. Dos mitades: "REGISTRO GENERAL " (tiene el WhatsApp
+  // del papá) y 17 pestañas "INSCRITOS …" (montos por alumno). Ver
+  // src/units/travel/enrollment.js.
+  TRAVEL_ENROLLMENT_SHEETS_ID: optionalEnv('TRAVEL_ENROLLMENT_SHEETS_ID', '10DV947ljsx1QYoa8-WwUfGBtYHam8FiU_5fvKqYLOJ4'),
+
+  TRAVEL_PRICES_SHEETS_ID: optionalEnv('TRAVEL_PRICES_SHEETS_ID', '1GggWKDSpg8IaAbUQtEtj03QKYRJY9d_lJmfFpq7hU0c'),
+
   // Claude API
   ANTHROPIC_API_KEY: requireEnv('ANTHROPIC_API_KEY'),
   ANTHROPIC_MODEL: optionalEnv('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
@@ -112,6 +125,12 @@ export const env = {
   // ventana de 24h). Debe existir/aprobarse en la WABA de Travel. Si falla, cae a texto.
   TRAVEL_ADVISOR_TEMPLATE_NAME: optionalEnv('TRAVEL_ADVISOR_TEMPLATE_NAME', 'nuevo_lead_travel'),
   TRAVEL_ADVISOR_TEMPLATE_LANG: optionalEnv('TRAVEL_ADVISOR_TEMPLATE_LANG', 'es_MX'),
+  // Plantilla NUEVA con el formato limpio de 8 campos (ticket · papá · viajero+edad ·
+  // colegio · producto · destino · teléfono · motivo). SIN DEFAULT a propósito:
+  // mientras esté vacía se sigue usando TRAVEL_ADVISOR_TEMPLATE_NAME con su mapeo
+  // de 9 variables, exactamente como hoy. Ver el copy a dar de alta en Meta en el
+  // comentario de sendAdvisorNotification (src/units/travel/actions.js).
+  TRAVEL_ADVISOR_TEMPLATE_V2: optionalEnv('TRAVEL_ADVISOR_TEMPLATE_V2', ''),
 
   // Zoho CRM (optional - Fase 2 y 3)
   ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,

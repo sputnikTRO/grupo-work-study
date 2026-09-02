@@ -3,28 +3,25 @@ import prisma from '../../core/database/client.js';
 import { sendTextMessage } from '../../core/whatsapp/client.js';
 import * as leadService from '../../services/lead.service.js';
 import { normalizePhone } from '../../utils/phone.js';
+import { advisorByPhone } from './advisors.js';
 
 /**
- * Registro de asesores autorizados.
- * Clave: número E.164 sin '+'. role 'admin' = Miguel (puede usar ASIGNAR y ve todos los leads).
+ * Los asesores autorizados viven en ./advisors.js (fuente única, igual que
+ * advisor-zones.js en Oxford). Antes había un registro duplicado aquí con los
+ * nombres acentuados y otro en actions.js: un lead asignado con el nombre del
+ * Sheet ("Camila Serafin") no matcheaba y no aparecía en PENDIENTES.
+ *
+ * No hay rol admin (igual que Ori): PENDIENTES siempre muestra a cada asesora
+ * solo sus propios leads. La vista completa del equipo vive en la pestaña Leads
+ * del Sheet.
  */
-const ADVISORS = {
-  '5651070832': { nombre: 'Miguel Rodríguez', apodo: 'Miguel', role: 'admin' },
-  '5544884437': { nombre: 'Cecilia Rodríguez', apodo: 'Cecy',  role: 'asesor' },
-  '5539771457': { nombre: 'Camila Serafín',    apodo: 'Cami',  role: 'asesor' },
-};
-
 
 // ---------------------------------------------------------------------------
 // Exports públicos
 // ---------------------------------------------------------------------------
 
 export function isAdvisorPhone(phone) {
-  // WhatsApp sends Mexican numbers as 521XXXXXXXXXX (13 digits).
-  // normalizePhone produces +52115XXXXXXXXX which strips to 14 chars.
-  // ADVISORS keys are 10-digit local numbers, so compare last 10 digits.
-  const normalized = normalizePhone(phone).replace('+', '');
-  return normalized.slice(-10) in ADVISORS;
+  return Boolean(advisorByPhone(normalizePhone(phone).replace('+', '')));
 }
 
 export async function handleAdvisorCommand(message, phoneNumberId) {
@@ -76,12 +73,11 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
 async function handlePendientes(advisor, replyTo, phoneNumberId, cmdLogger) {
   // Con el handoff tibio la conversación queda 'active'; los pendientes se rastrean
   // por el LEAD (status 'derivado_asesor', sin cerrar por LISTO).
-  const where = advisor.role === 'admin'
-    ? { status: 'derivado_asesor' }
-    : { status: 'derivado_asesor', assignedAdvisor: advisor.nombre };
-
+  // Cada asesora ve SOLO sus propios leads (mismo criterio que Ori: no hay rol
+  // admin ni vista de "todos"). La vista completa del equipo vive en la pestaña
+  // Leads del Sheet, que se sincroniza en cada turno.
   const leads = await prisma.travelLead.findMany({
-    where,
+    where: { status: 'derivado_asesor', assignedAdvisor: advisor.nombre },
     orderBy: { updatedAt: 'asc' },
     include: { contact: true },
   });
@@ -140,9 +136,8 @@ async function handleListo(ticketNumber, advisor, replyTo, phoneNumberId, cmdLog
 
 function getAdvisor(phone) {
   const normalized = normalizePhone(phone).replace('+', '');
-  const last10 = normalized.slice(-10);
-  const data = ADVISORS[last10];
-  return data ? { ...data, phone: normalized } : null;
+  const advisor = advisorByPhone(normalized);
+  return advisor ? { ...advisor, phone: normalized } : null;
 }
 
 function parseTicket(text, command) {
@@ -167,7 +162,7 @@ async function findLeadByTicket(ticketNumber, advisor) {
     throw new UserError(`No encontré el lead #${ticketNumber}. Escribe PENDIENTES para ver tus leads.`);
   }
 
-  if (advisor.role !== 'admin' && lead.assignedAdvisor !== advisor.nombre) {
+  if (lead.assignedAdvisor !== advisor.nombre) {
     throw new UserError(`El lead #${ticketNumber} no está asignado a ti.`);
   }
 

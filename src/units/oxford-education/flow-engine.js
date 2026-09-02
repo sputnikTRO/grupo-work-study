@@ -1,5 +1,4 @@
 import logger from '../../utils/logger.js';
-import { chat } from '../../core/ai/claude.js';
 import * as conversationService from '../../services/conversation.service.js';
 import * as messageService from '../../services/message.service.js';
 import * as store from './store.js';
@@ -7,6 +6,8 @@ import * as oxfordLeadService from './lead.service.js';
 import { sendTextMessage } from './whatsapp.js';
 import { buildLeadUpdate, executeHandoffToAdvisor } from './actions.js';
 import { loadFlowGraph, getNode, isMenuNode } from './flow-content.js';
+import { isMenuKeyword, classifyCta } from '../../core/flow/text.js';
+import { extractStructuredFields } from '../../core/flow/extract.js';
 import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from './office-hours.js';
 
 /**
@@ -294,81 +295,4 @@ async function applyExtractedFields(lead, extracted, log) {
     }
   }
   return applied;
-}
-
-// ── Extractor LLM estructurado (NO es la persona de Ori — solo extrae JSON) ─
-
-/**
- * Pide al LLM que extraiga campos puntuales de un texto libre y devuelve un
- * objeto plano { campo: valor|null }. Nunca lanza: si el LLM falla o responde
- * algo no parseable, devuelve {} (el caller reintenta sin romper el flujo).
- */
-async function extractStructuredFields(freeText, fields, log) {
-  const fieldList = fields.map((f) => `  - ${f.key}: ${f.label}`).join('\n');
-  const systemPrompt =
-    `Eres un extractor de datos, NO un asistente conversacional. A partir del mensaje del usuario, ` +
-    `identifica estos campos si están CLARAMENTE presentes:\n${fieldList}\n\n` +
-    `Responde ÚNICAMENTE con un objeto JSON plano (sin markdown, sin texto adicional, sin explicación) ` +
-    `con exactamente esas llaves. Usa null en cualquier campo que no esté presente. No inventes valores.`;
-
-  try {
-    const raw = await chat(systemPrompt, [], freeText);
-    return parseJsonLoose(raw, fields.map((f) => f.key));
-  } catch (error) {
-    log.error({ err: error }, 'Error extrayendo datos estructurados — se continúa sin datos (no rompe el flujo)');
-    return {};
-  }
-}
-
-/** Extrae el primer bloque {...} de la respuesta (tolera texto/markdown alrededor) y lo valida. */
-function parseJsonLoose(raw, keys) {
-  if (!raw) return {};
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return {};
-
-  try {
-    const obj = JSON.parse(match[0]);
-    const out = {};
-    for (const k of keys) {
-      const v = obj[k];
-      if (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null') out[k] = v.trim();
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-// ── Clasificadores deterministas (texto → intención) ────────────────────────
-
-function normalize(s) {
-  return (s || '')
-    .toString()
-    .normalize('NFD')
-    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '') // quita diacríticos (mismo enfoque que advisor-zones.js)
-    .toLowerCase()
-    .trim();
-}
-
-/** "Menú"/"menu"/"MENÚ!" → true. Solo dispara con el keyword solo (evita falsos positivos en frases). */
-function isMenuKeyword(text) {
-  const lettersOnly = normalize(text).replace(/[^a-z]/g, '');
-  return lettersOnly === 'menu';
-}
-
-const DECLINE_RE = /\b(no|nel|nop|negativo|ahorita no|ahora no|despues|mas tarde|luego|paso|todavia no)\b/;
-const ACCEPT_RE = /\b(si|claro|va|dale|ok|okay|vale|simon|yes|adelante|porfa|por favor)\b|hablar.*asesor|me interesa|conectame|conectenme|de acuerdo|esta bien/;
-
-/**
- * Clasifica una respuesta a un CTA "¿hablar con un asesor?" en 'accept' |
- * 'decline' | 'ambiguous'. Deliberadamente conservador: cualquier cosa que no
- * matchee claramente cae en 'ambiguous' → respaldo LLM (nunca dispara un
- * handoff por accidente).
- */
-function classifyCta(text) {
-  const n = normalize(text);
-  if (!n) return 'ambiguous';
-  if (DECLINE_RE.test(n)) return 'decline';
-  if (ACCEPT_RE.test(n)) return 'accept';
-  return 'ambiguous';
 }

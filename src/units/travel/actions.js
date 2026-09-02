@@ -10,6 +10,8 @@ import * as messageService from '../../services/message.service.js';
 import { sendTextMessage, sendTemplateMessage, sendMediaMessage, sendMediaMessageByUrl } from '../../core/whatsapp/client.js';
 import * as conversation from '../../core/ai/conversation.js';
 import { getOrUploadMedia, getMimeType } from '../../core/whatsapp/media-uploader.js';
+import { pickAdvisor, resolveTrack, advisorByName } from './advisors.js';
+import { findSchoolPrices } from './prices.js';
 
 /**
  * Action Tag Parser and Executor
@@ -157,7 +159,7 @@ export async function executeActions(actions, lead, conversation, phone, phoneNu
       // Solo cuenta como handoff (silencia el texto de Miri este turno) cuando el
       // handoff REALMENTE ocurrió. Si el guard lo saltó (lead ya derivado), result=false
       // y Miri responde con su texto normal.
-      if (action.type === 'DERIVAR_ASESOR' && result === true) handoffOccurred = true;
+      if (action.type === 'DERIVAR_ASESOR' && result?.handedOff === true) handoffOccurred = true;
     } catch (error) {
       actionsLogger.error({ err: error, action }, 'Error executing action');
       // Continue with other actions even if one fails
@@ -250,7 +252,7 @@ function convertGoogleDriveUrl(url) {
  * 2. Uploads to WhatsApp and gets media_id (cached for 29 days)
  * 3. Sends using media_id (more reliable than external URLs)
  */
-async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actionLogger) {
+export async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actionLogger = logger) {
   actionLogger.info({ materialId }, 'Sending material');
 
   try {
@@ -350,46 +352,25 @@ async function executeSendMaterial(materialId, lead, phone, phoneNumberId, actio
   }
 }
 
-// Catálogo centralizado de asesores
-const ADVISORS = {
-  cecilia: {
-    nombre: 'Cecilia Rodríguez',
-    whatsapp: '5544884437',
-    email: 'cecilia@oxfordeducationlit.org',
-    tipo: 'familia',
-  },
-  camila: {
-    nombre: 'Camila Serafín',
-    whatsapp: '5539771457',
-    email: 'camila.serafin@oxfordeducationlit.org',
-    tipo: 'familia',
-  },
-  miguel: {
-    nombre: 'Miguel Rodríguez',
-    whatsapp: '5651070832',
-    email: 'customer.experience@oxfordeducationlit.org',
-    tipo: 'institucion',
-  },
-};
-
 /**
- * Resuelve el objeto advisor a partir de un nombre guardado en BD
- */
-function resolveAdvisorByName(name) {
-  return Object.values(ADVISORS).find(a => a.nombre === name) || null;
-}
-
-/**
- * [DERIVAR_ASESOR:razón] - Handoff to human advisor
+ * [DERIVAR_ASESOR:razón] - Handoff TIBIO a asesora humana.
  *
- * Lógica de asignación (en orden):
- * 1. ¿Ya tiene assigned_advisor? → usar ese
- * 2. ¿Es institución? → Miguel siempre
- * 3. ¿Tiene colegio registrado en Sheets? → asesora del sheet
- * 4. ¿Colegio no registrado? → carrusel Cecy/Cami
- * 5. ¿Sin colegio? → carrusel Cecy/Cami (familia es el default)
+ * Ruteo por PRODUCTO (ver advisors.js), no por colegio del Sheet ni por zona:
+ *   1. ¿El lead ya está derivado? → guard anti-redisparo, no re-notifica.
+ *   2. ¿Ya tiene asesora asignada? → esa.
+ *   3. Si no → carrusel del track: 'colegio' (Alma/Victor/Cecilia),
+ *      'familia' (Camila) o 'rising_stars' (Miriana/Alejandra/Ericka).
+ *
+ * El track lo pasa el motor de flujo (según el nodo handoff_* que disparó); en el
+ * camino LLM se deduce de `reason` + datos del lead con resolveTrack().
+ *
+ * El MENSAJE de conexión lo genera este código (no el texto del Sheet), para que
+ * sea idéntico venga del menú determinístico o del LLM.
+ *
+ * @returns {Promise<{handedOff: boolean, advisor?: Object}>} handedOff=false cuando
+ *   el guard lo saltó o hubo error → el llamador manda su propio texto.
  */
-async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId, actionLogger) {
+export async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId, actionLogger = logger, options = {}) {
   actionLogger.info({ reason, leadType: lead.leadType }, 'Handing off to advisor (warm)');
 
   try {
@@ -397,47 +378,40 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
     // duplicamos ticket. Miri sigue activa (handoff tibio) y responde otras dudas.
     if (lead.status === 'derivado_asesor') {
       actionLogger.info({ assignedAdvisor: lead.assignedAdvisor }, 'Lead already handed off — skipping re-notify (warm handoff)');
-      return false; // no fue un handoff nuevo → el handler enviará el texto normal de Miri
+      return { handedOff: false };
     }
 
-    let advisor = null;
+    const track = options.track || resolveTrack(lead, reason);
 
-    // 1. Ya tiene asesora asignada desde antes
-    if (lead.assignedAdvisor) {
-      advisor = resolveAdvisorByName(lead.assignedAdvisor);
+    // 1. Asesora ya asignada de antes; 2. si no, carrusel del track.
+    let advisor = lead.assignedAdvisor ? advisorByName(lead.assignedAdvisor) : null;
+    if (advisor) {
       actionLogger.info({ assignedAdvisor: lead.assignedAdvisor }, 'Using pre-assigned advisor');
-    }
-
-    // 2. Institución → Miguel siempre
-    if (!advisor && lead.leadType === 'institucion') {
-      advisor = ADVISORS.miguel;
-      actionLogger.info('Institution lead → assigning Miguel Rodríguez');
-    }
-
-    // 3. Tiene colegio → buscar en Sheets
-    if (!advisor && lead.schoolCode) {
-      advisor = await sheetsCache.getAdvisor(lead.schoolCode);
-      if (advisor) actionLogger.info({ schoolCode: lead.schoolCode }, 'Using advisor from school registry');
-    }
-
-    // 4 y 5. Sin asesora aún (colegio no registrado o sin colegio) → carrusel Cecy/Cami
-    if (!advisor) {
-      advisor = await assignFamilyCarousel(actionLogger);
-      actionLogger.info({ advisor: advisor.nombre }, 'Assigned via family carousel');
+    } else {
+      advisor = await pickAdvisor(track, actionLogger);
+      actionLogger.info({ track, advisor: advisor?.nombre }, 'Advisor assigned from track carousel');
     }
 
     // Persistir asesora en el lead para futuros handoffs
     if (advisor && !lead.assignedAdvisor) {
       await leadService.updateTravelLead(lead.id, { assignedAdvisor: advisor.nombre });
+      lead.assignedAdvisor = advisor.nombre; // el llamador (motor de flujo) lo usa para {{asesora}}
     }
 
     // Mensaje al prospecto: la asesora lo contacta desde SU propio número; Miri
-    // sigue disponible en este chat para otras dudas (handoff tibio).
-    const esInstitucion = lead.leadType === 'institucion';
-    const titulo = esInstitucion ? 'nuestro ejecutivo especializado' : 'nuestra asesora especializada';
-    let farewellMessage = advisor
-      ? `¡Con gusto! 😊 Te conecto con ${advisor.nombre}, ${titulo}. Te contactará en breve por WhatsApp para una atención personalizada.`
-      : `¡Con gusto! 😊 Te conecto con uno de nuestros asesores, que te contactará en breve por WhatsApp.`;
+    // sigue disponible en este chat para otras dudas (handoff tibio). Este texto
+    // espeja los nodos handoff_* de "Flujo Miri" con {{asesora}} sustituida.
+    const nombre = advisor?.nombre;
+    let farewellMessage;
+    if (!nombre) {
+      farewellMessage = '¡Con gusto! 😊 Te conecto con una de nuestras asesoras, que te contactará en breve por WhatsApp.';
+    } else if (track === 'rising_stars') {
+      farewellMessage = `¡Va! 🌟 Te conecto con ${nombre}, asesora especializada en Rising Stars, que te escribe en breve para confirmar la beca y darte los siguientes pasos.`;
+    } else if (track === 'familia') {
+      farewellMessage = `¡Con gusto! 😊 Te conecto con ${nombre}, que atiende a las familias y te escribe en breve por WhatsApp para ver la inversión y los siguientes pasos.`;
+    } else {
+      farewellMessage = `¡Perfecto! 😊 Te conecto con ${nombre}, nuestra asesora educativa, que te escribe en breve por WhatsApp para ver la inversión y los siguientes pasos.`;
+    }
     farewellMessage += '\n\nMientras tanto, aquí sigo para cualquier otra duda. 🙌';
 
     await sendTextMessage(phone, farewellMessage, phoneNumberId);
@@ -453,16 +427,16 @@ async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNumberId,
 
     // Notificar al asesor por WhatsApp
     if (advisor?.whatsapp) {
-      await sendAdvisorNotification(advisor, lead, conv, phone, reason, phoneNumberId, actionLogger);
+      await sendAdvisorNotification(advisor, lead, conv, phone, reason, phoneNumberId, actionLogger, track, options.ticketKind);
     } else {
       actionLogger.warn('No advisor WhatsApp found, notification not sent');
     }
 
-    return true; // handoff nuevo realizado (despedida enviada) → el handler NO manda otro texto
+    return { handedOff: true, advisor }; // despedida ya enviada → el llamador NO manda otro texto
 
   } catch (error) {
     actionLogger.error({ err: error }, 'Error during handoff');
-    return false; // en error, deja que Miri responda con su texto (no la silencies)
+    return { handedOff: false }; // en error, deja que Miri responda con su texto (no la silencies)
   }
 }
 
@@ -481,95 +455,152 @@ function formatPhoneReadable(phone) {
 }
 
 /**
- * Builds a 1-2 line natural language summary of the conversation
- * using lead data — no extra Claude call needed.
+ * Producto del lead para el ticket de la asesora.
+ * Prioriza lo capturado por el flujo (program_interest, que el motor fija al
+ * entrar a cat_e4l/cat_wb/cat_rs); si no hay, lo deduce del track y del motivo.
  */
-function buildConversationSummary(lead, reason, schoolName) {
-  const destino = lead.destination || lead.programInterest || 'destino por definir';
+function deriveProduct(lead, track, reason = '') {
+  if (lead.programInterest) return lead.programInterest;
+  if (track === 'rising_stars') return 'Rising Stars';
 
-  if (lead.leadType === 'institucion') {
-    return `Representante de ${schoolName} preguntando por ${reason}.`;
-  }
-
-  const nombre   = lead.parentName  || 'Prospecto';
-  const viajero  = lead.travelerName || 'su hijo/a';
-  const edad     = lead.travelerAge  ? `${lead.travelerAge} años` : 'edad no capturada';
-
-  return `${nombre} interesado/a en E4L ${destino} para ${viajero} (${edad}). ${reason}.`;
+  const hay = `${reason}`.toLowerCase();
+  if (hay.includes('rising') || hay.includes('_rs')) return 'Rising Stars';
+  if (hay.includes('wb_') || hay.includes('winter')) return 'Winter Break';
+  if (hay.includes('e4l')) return 'English 4 Life';
+  return 'Por definir';
 }
 
 /**
- * Sends WhatsApp notification to advisor when lead is handed off
+ * Arma los campos del ticket de la asesora: los mismos 8 en la plantilla y en el
+ * texto de respaldo, para que la asesora lea siempre lo mismo.
  */
-async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reason, phoneNumberId, actionLogger) {
+async function buildTicketFields(lead, conv, prospectPhone, reason, track) {
+  // Nombre canónico del colegio: se prefiere el de la hoja VIVA de precios (la
+  // misma que alimenta {{colegio}} en el nodo de precio, para que la asesora lea
+  // exactamente lo que vio el prospecto); si no está ahí, la pestaña Colegios.
+  const priced = lead.schoolCode ? await findSchoolPrices(lead.schoolCode) : null;
+  const school = !priced && lead.schoolCode ? await sheetsCache.getSchool(lead.schoolCode) : null;
+  const colegio = priced?.colegio
+    || school?.['Nombre Colegio']
+    || school?.nombre
+    || lead.schoolCode
+    || 'Sin colegio (familia)';
+
+  const producto = deriveProduct(lead, track, reason);
+  const destino = lead.destination
+    || (lead.programInterest?.includes('Rising') ? 'Windsor, UK' : null)
+    || priced?.destino
+    || 'Por definir';
+
+  return {
+    ticket: lead.ticketNumber || '?',
+    papa: lead.parentName || 'No capturado',
+    viajero: `${lead.travelerName || 'No capturado'}${lead.travelerAge ? `, ${lead.travelerAge} años` : ''}`,
+    colegio,
+    producto,
+    destino,
+    telefono: formatPhoneReadable(prospectPhone),
+    motivo: reason || 'Solicita hablar con una asesora',
+  };
+}
+
+/**
+ * Notifica a la asesora del lead derivado.
+ *
+ * Formato limpio (mismo estilo que Ori): ticket · papá · viajero+edad · colegio ·
+ * producto · destino · teléfono · motivo.
+ *
+ * `ticketKind: 'ya_inscrito'` cambia el encabezado del texto de respaldo a
+ * "🔁 YA INSCRITO #N" y prefija el motivo, para que la asesora distinga de un
+ * golpe un lead nuevo de alguien que ya está inscrito y pregunta por su proceso.
+ *
+ * Dos caminos, en este orden:
+ *   1. PLANTILLA aprobada de Meta — se entrega SIEMPRE, aun fuera de la ventana
+ *      de 24 h (los avisos de lead son mensajes iniciados por el negocio).
+ *      - Por defecto usa TRAVEL_ADVISOR_TEMPLATE_NAME (`nuevo_lead_travel`, la de
+ *        siempre, 9 variables) con EXACTAMENTE el mismo mapeo que hoy: no se
+ *        toca una plantilla ya aprobada, porque editarla la re-manda a revisión
+ *        de Meta y tumba las notificaciones mientras tanto.
+ *      - Si se setea TRAVEL_ADVISOR_TEMPLATE_V2 (vacía por default), se usa esa
+ *        plantilla con los 8 campos limpios. Copy que hay que dar de alta en Meta:
+ *          🔔 Nuevo lead #{{1}}
+ *          👤 Papá/mamá: {{2}}
+ *          🎒 Viajero: {{3}}
+ *          🏫 Colegio: {{4}}
+ *          ✈️ Programa: {{5}}
+ *          📍 Destino: {{6}}
+ *          📱 WhatsApp: {{7}}
+ *          📌 Motivo: {{8}}
+ *          Responde LISTO {{1}} cuando lo cierres.
+ *   2. RESPALDO: texto libre con los mismos 8 campos (solo se entrega dentro de
+ *      la ventana de 24 h).
+ */
+async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reason, phoneNumberId, actionLogger, track, ticketKind) {
   try {
     actionLogger.info({ advisorWhatsApp: advisor.whatsapp }, 'Sending notification to advisor');
 
-    // School display name
-    const school = lead.schoolCode ? await sheetsCache.getSchool(lead.schoolCode) : null;
-    const schoolName = school
-      ? (school['Nombre Colegio'] || school.nombre || lead.schoolCode)
-      : (lead.schoolCode || 'Colegio no detectado');
-
-    // Lead type label
-    const leadTypeLabel = lead.leadType === 'institucion' ? 'institución' : 'padre/madre';
-
-    // Destination label
-    const destinoLabel = lead.destination || (lead.programInterest ? lead.programInterest.replace('English 4 Life ', '') : null) || 'destino no definido';
-
-    // Formatted phone (last 10 digits with spaces)
-    const phoneFormatted = formatPhoneReadable(prospectPhone);
-
-    // Natural language summary (no extra Claude call)
-    const summary = buildConversationSummary(lead, reason, schoolName);
-
-    const ticket = lead.ticketNumber || '?';
+    const f = await buildTicketFields(lead, conv, prospectPhone, reason, track);
 
     // normalizePhone adds +521 prefix, then strip '+' for WhatsApp Cloud API (E.164 without +)
     const advisorPhone = normalizePhone(advisor.whatsapp).replace('+', '');
+    const clean = (v, n) => String(v ?? '—').replace(/\s+/g, ' ').trim().slice(0, n) || '—';
+    // El motivo ya viene prefijado con "YA INSCRITO — " desde el motor de flujo,
+    // así la asesora distingue el ticket también en la plantilla aprobada, que no
+    // se puede cambiar sin volver a pasar por revisión de Meta.
+    if (ticketKind === 'ya_inscrito' && !/^ya inscrito/i.test(f.motivo)) f.motivo = `YA INSCRITO — ${f.motivo}`;
 
-    // 1) PLANTILLA aprobada: se entrega SIEMPRE, aun fuera de la ventana de 24h.
-    // Los avisos de lead son mensajes iniciados por el negocio; el texto libre solo
-    // se entrega si el asesor escribió al número en las últimas 24h.
     try {
-      const clean = (s, n) => String(s ?? '—').replace(/\s+/g, ' ').trim().slice(0, n) || '—';
-      const params = [
-        ticket,                                                                          // {{1}}
-        clean(lead.parentName || 'No capturado', 60),                                    // {{2}}
-        leadTypeLabel,                                                                   // {{3}}
-        clean(`${lead.travelerName || 'No capturado'}, ${lead.travelerAge ? `${lead.travelerAge} años` : 'edad no capturada'}`, 80), // {{4}}
-        clean(`${schoolName} — ${destinoLabel}`, 100),                                   // {{5}}
-        `${conv.interestScore ?? 0}`,                                                    // {{6}}
-        phoneFormatted,                                                                  // {{7}}
-        clean(reason, 300),                                                              // {{8}}
-        clean(summary, 400),                                                             // {{9}}
-      ];
-      const components = [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: String(p) })) }];
-      await sendTemplateMessage(advisorPhone, env.TRAVEL_ADVISOR_TEMPLATE_NAME, env.TRAVEL_ADVISOR_TEMPLATE_LANG, components, phoneNumberId);
-      actionLogger.info({ advisorPhone, via: 'template' }, 'Advisor notification sent');
+      const v2 = (env.TRAVEL_ADVISOR_TEMPLATE_V2 || '').trim();
+
+      const params = v2
+        ? [
+            f.ticket,                 // {{1}} ticket
+            clean(f.papa, 60),        // {{2}} papá/mamá
+            clean(f.viajero, 80),     // {{3}} viajero + edad
+            clean(f.colegio, 80),     // {{4}} colegio
+            clean(f.producto, 40),    // {{5}} producto
+            clean(f.destino, 40),     // {{6}} destino
+            f.telefono,               // {{7}} teléfono
+            clean(f.motivo, 300),     // {{8}} motivo
+          ]
+        : [
+            // Mapeo LEGACY de `nuevo_lead_travel` (9 variables) — no se altera.
+            f.ticket,                                                             // {{1}}
+            clean(f.papa, 60),                                                    // {{2}}
+            lead.leadType === 'institucion' ? 'institución' : 'padre/madre',      // {{3}}
+            clean(f.viajero, 80),                                                 // {{4}}
+            clean(`${f.colegio} — ${f.destino}`, 100),                            // {{5}}
+            `${conv.interestScore ?? 0}`,                                         // {{6}}
+            f.telefono,                                                           // {{7}}
+            clean(f.motivo, 300),                                                 // {{8}}
+            clean(`${f.papa} interesado/a en ${f.producto} para ${f.viajero}.`, 400), // {{9}}
+          ];
+
+      const templateName = v2 || env.TRAVEL_ADVISOR_TEMPLATE_NAME;
+      const components = [{ type: 'body', parameters: params.map((x) => ({ type: 'text', text: String(x) })) }];
+      await sendTemplateMessage(advisorPhone, templateName, env.TRAVEL_ADVISOR_TEMPLATE_LANG, components, phoneNumberId);
+      actionLogger.info({ advisorPhone, via: 'template', template: templateName }, 'Advisor notification sent');
       return;
     } catch (tplErr) {
       actionLogger.warn({ err: tplErr, template: env.TRAVEL_ADVISOR_TEMPLATE_NAME }, 'Template notification failed, falling back to free-form text');
     }
 
     // 2) RESPALDO: texto libre (solo entrega dentro de la ventana de 24h).
-    const notification = `🔔 *Nuevo lead #${ticket}*
+    const esYaInscrito = ticketKind === 'ya_inscrito';
+    const encabezado = esYaInscrito ? `🔁 *YA INSCRITO #${f.ticket}*` : `🔔 *Nuevo lead #${f.ticket}*`;
+    const notification = `${encabezado}
 
-👤 ${lead.parentName || 'No capturado'} (${leadTypeLabel})
-👨‍🎓 ${lead.travelerName || 'No capturado'}, ${lead.travelerAge ? `${lead.travelerAge} años` : 'edad no capturada'}
-🏫 ${schoolName} — ${destinoLabel}
-📊 Interés: ${conv.interestScore}/10
-📱 ${phoneFormatted}
+👤 Papá/mamá: ${f.papa}
+🎒 Viajero: ${f.viajero}
+🏫 Colegio: ${f.colegio}
+✈️ Programa: ${f.producto}
+📍 Destino: ${f.destino}
+📱 WhatsApp: ${f.telefono}
 
-📌 Razón: ${reason}
-
-💬 *Resumen:*
-${summary}
+📌 Motivo: ${f.motivo}
 
 ---
-Responde aquí:
-✅ *LISTO ${ticket}* → cuando termines de atenderlo
-🔄 *REGRESA ${ticket}* → si quieres que Miri retome`;
+Responde *LISTO ${f.ticket}* cuando lo cierres.`;
     await sendTextMessage(advisorPhone, notification, phoneNumberId);
     actionLogger.info({ advisorPhone, via: 'text' }, 'Advisor notification sent (fallback text)');
 
@@ -580,75 +611,10 @@ Responde aquí:
 }
 
 /**
- * Carrusel de asesoras de FAMILIA: Cecilia ↔ Camila según carga actual
- * Se usa cuando no hay colegio registrado en Sheets o no hay colegio capturado.
- */
-async function assignFamilyCarousel(actionLogger) {
-  try {
-    const counts = await prisma.travelLead.groupBy({
-      by: ['assignedAdvisor'],
-      where: { assignedAdvisor: { in: [ADVISORS.cecilia.nombre, ADVISORS.camila.nombre] } },
-      _count: { assignedAdvisor: true },
-    });
-
-    const ceciliaCount = counts.find(r => r.assignedAdvisor === ADVISORS.cecilia.nombre)?._count.assignedAdvisor ?? 0;
-    const camilaCount  = counts.find(r => r.assignedAdvisor === ADVISORS.camila.nombre)?._count.assignedAdvisor ?? 0;
-
-    const advisor = ceciliaCount <= camilaCount ? ADVISORS.cecilia : ADVISORS.camila;
-
-    actionLogger.info({ ceciliaCount, camilaCount, assigned: advisor.nombre }, 'Family carousel assigned');
-    return advisor;
-
-  } catch (error) {
-    actionLogger.error({ err: error }, 'Error in family carousel, defaulting to Cecilia');
-    return ADVISORS.cecilia;
-  }
-}
-
-/**
- * Asigna asesora al capturar school_code.
- *
- * Lógica:
- * 1. Institución → Miguel
- * 2. Colegio registrado en Sheets → asesora del sheet
- * 3. Colegio nuevo → carrusel Cecy/Cami
- */
-async function assignAdvisorWithCarousel(schoolName, lead, actionLogger) {
-  try {
-    // 1. Institución → Miguel siempre
-    if (lead.leadType === 'institucion') {
-      actionLogger.info('Institution lead → assigning Miguel Rodríguez');
-      return ADVISORS.miguel;
-    }
-
-    // 2. Colegio registrado en Sheets
-    const school = await sheetsCache.getSchoolByName(schoolName);
-    if (school) {
-      const sheetAdvisor = await sheetsCache.getAdvisor(schoolName);
-      if (sheetAdvisor) {
-        actionLogger.info({ school: schoolName, advisor: sheetAdvisor.nombre }, 'Using advisor from school registry');
-        return sheetAdvisor;
-      }
-    }
-
-    // 3. Colegio nuevo → carrusel familia
-    actionLogger.info({ school: schoolName }, 'School not in registry, using family carousel');
-    return await assignFamilyCarousel(actionLogger);
-
-  } catch (error) {
-    actionLogger.error({ err: error, school: schoolName }, 'Error assigning advisor, defaulting to Cecilia');
-    return ADVISORS.cecilia;
-  }
-}
-
-/**
  * [CAPTURAR_DATO:campo:valor] - Captures lead data
  */
-async function executeCaptureData(field, value, lead, conversation, actionLogger) {
+export async function executeCaptureData(field, value, lead, conversation, actionLogger = logger) {
   actionLogger.info({ field, value }, 'Capturing data');
-
-  // ── DEBUG ─────────────────────────────────────────────────────────────────
-  console.log(`[MIRI-DEBUG] CAPTURAR_DATO → field="${field}" value="${value}" leadId=${lead.id}`);
 
   try {
     const leadFields = ['parent_name', 'traveler_name', 'traveler_age', 'school_code', 'program_interest', 'budget_range', 'destination', 'lead_type'];
@@ -675,26 +641,17 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
         updateData[mappedField] = value;
       }
 
-      // Al capturar lead_type=institucion → asignar Miguel de inmediato
-      if (mappedField === 'leadType' && value === 'institucion' && !lead.assignedAdvisor) {
-        updateData.assignedAdvisor = ADVISORS.miguel.nombre;
-        actionLogger.info('Institution detected → assigning Miguel Rodríguez');
-      }
+      // NOTA: capturar el colegio ya NO asigna asesora. Con el ruteo por producto
+      // (advisors.js) la asesora depende de si el prospecto va por English 4 Life /
+      // Winter Break o por Rising Stars, y eso todavía no se sabe en este punto:
+      // asignar aquí le daba a un lead de Rising Stars una asesora de E4L. La
+      // asignación ocurre en executeHandoffToAdvisor, que ya conoce el track.
 
-      // Al capturar school_code → asignar asesora según tipo y registro
-      if (mappedField === 'schoolCode') {
-        const updatedLead = { ...lead, ...updateData }; // incluye leadType recién capturado si aplica
-        const advisor = await assignAdvisorWithCarousel(value, updatedLead, actionLogger);
-        if (advisor) {
-          updateData.assignedAdvisor = advisor.nombre;
-          actionLogger.info({ school: value, advisor: advisor.nombre }, 'Advisor assigned to lead');
-        }
-      }
-
-      console.log(`[MIRI-DEBUG] CAPTURAR_DATO updateData:`, JSON.stringify(updateData));
       await leadService.updateTravelLead(lead.id, updateData);
+      // Sincroniza el objeto en memoria: el motor de flujo lo lee en el mismo turno
+      // (gate de precio, {{colegio}}, destino del material) sin volver a la DB.
+      Object.assign(lead, updateData);
       actionLogger.info({ mappedField }, 'Lead updated');
-      console.log(`[MIRI-DEBUG] CAPTURAR_DATO ✅ lead ${lead.id} updated OK`);
 
       if (field === 'parent_name') {
         await contactService.update(conversation.contactId, { name: value });
@@ -702,12 +659,10 @@ async function executeCaptureData(field, value, lead, conversation, actionLogger
       }
     } else {
       actionLogger.warn({ field }, 'Unknown field, ignoring');
-      console.log(`[MIRI-DEBUG] CAPTURAR_DATO ⚠️ field "${field}" NOT in leadFields list`);
     }
 
   } catch (error) {
     actionLogger.error({ err: error }, 'Error capturing data');
-    console.log(`[MIRI-DEBUG] CAPTURAR_DATO ❌ ERROR: ${error.message}`);
   }
 }
 

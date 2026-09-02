@@ -16,6 +16,7 @@ import * as messageService from '../../services/message.service.js';
 import * as leadService from '../../services/lead.service.js';
 import * as sheetsCache from '../../core/sheets/cache.js';
 import { syncLeadToSheet } from '../../core/sheets/leads-sync.js';
+import { tryDeterministicFlow } from './flow-engine.js';
 
 /**
  * Travel Unit Message Handler
@@ -48,6 +49,12 @@ export async function handleMessage(message, phoneNumberId) {
 
     msgLogger.info('Lock acquired, processing message');
 
+    // Declarados FUERA del try porque el finally (sync a Sheets) los usa; si se
+    // declaran dentro, el finally revienta con ReferenceError por block scoping.
+    let contact = null;
+    let conv = null;
+    let lead = null;
+
     try {
       // Extract message content
       const content = extractMessageContent(message);
@@ -60,10 +67,10 @@ export async function handleMessage(message, phoneNumberId) {
       msgLogger.info({ contentType: content.type, textLength: content.text?.length }, 'Message content extracted');
 
       // Get or create contact
-      const contact = await contactService.findOrCreate(phone, 'travel');
+      contact = await contactService.findOrCreate(phone, 'travel');
 
       // Get or create conversation
-      let conv = await conversationService.findActiveOrCreate(contact.id, 'travel');
+      conv = await conversationService.findActiveOrCreate(contact.id, 'travel');
 
       // CHECK: If conversation status is "waiting_human", bot should NOT respond
       if (conv.status === 'waiting_human') {
@@ -89,7 +96,7 @@ export async function handleMessage(message, phoneNumberId) {
       }
 
       // Get or create travel lead
-      const lead = await leadService.findOrCreateTravelLead(contact.id);
+      lead = await leadService.findOrCreateTravelLead(contact.id);
 
       // NOTE: Automatic school detection disabled to prevent false positives.
       // Claude will now explicitly ask for the school instead of auto-detecting from message text.
@@ -126,10 +133,43 @@ export async function handleMessage(message, phoneNumberId) {
 
       msgLogger.info({ conversationId: conv.id, leadId: lead.id }, 'Message saved to database');
 
-      // Process the message with Claude AI + full integration
-      await processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId);
+      // Capa determinística: recorre el grafo de la pestaña "Flujo Miri" con
+      // textos VERBATIM. Si no aplica (Sheet caído, modo libre, o el mensaje no
+      // es número/"Menú"/respuesta clara), cede el turno COMPLETO al camino LLM
+      // de siempre (processMessageWithAI, sin cambios). El handoff tibio y la
+      // captura son los MISMOS en ambos caminos: el flujo los reutiliza.
+      const flowResult = await tryDeterministicFlow({
+        phone, content, conv, lead, contact, phoneNumberId, log: msgLogger,
+      });
+
+      if (!flowResult.handled) {
+        await processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId);
+
+        // El flujo seguía activo (flowNode intacto) pero el mensaje no matcheó
+        // número/menú → el LLM ya respondió; lo reencauzamos al menú con un
+        // recordatorio corto, SIN tocar flowNode.
+        if (flowResult.midFlowFallback) {
+          const reminder = 'Escribe *Menú* cuando quieras ver las opciones de nuevo 😊';
+          await sendTextMessage(phone, reminder, phoneNumberId);
+          await messageService.createOutbound(conv.id, reminder);
+          await conversation.addMessage(conv.id, 'assistant', reminder);
+        }
+      }
 
     } finally {
+      // SYNC A GOOGLE SHEETS: va en el finally para que los turnos del flujo
+      // determinístico (que no pasan por processMessageWithAI) TAMBIÉN actualicen
+      // la pestaña Leads. Nunca rompe el turno: syncLeadToSheet loguea sus errores.
+      try {
+        if (lead && contact && conv) {
+          const freshLead = await leadService.getTravelLeadById(lead.id);
+          await syncLeadToSheet(freshLead || lead, contact, conv);
+          msgLogger.debug('Lead synced to Google Sheets');
+        }
+      } catch (syncError) {
+        msgLogger.error({ err: syncError }, 'Error syncing lead to Sheets (no rompe el turno)');
+      }
+
       // Always release the lock
       await redis.releaseContactLock(phone);
       msgLogger.info('Lock released');
@@ -172,12 +212,6 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     const systemPrompt = buildFullPrompt(lead, dynamicKnowledge);
     processLogger.debug({ systemPromptLength: systemPrompt.length }, 'System prompt built');
 
-    // ── DEBUG: show lead context section injected into prompt ────────────────
-    const ctxStart = systemPrompt.indexOf('## CONTEXTO DEL PROSPECTO ACTUAL');
-    const ctxEnd   = systemPrompt.indexOf('\n\n---', ctxStart);
-    const ctxSnippet = ctxStart >= 0 ? systemPrompt.slice(ctxStart, ctxEnd > 0 ? ctxEnd : ctxStart + 500) : '(section not found)';
-    console.log('[MIRI-DEBUG] LEAD CONTEXT IN PROMPT:\n' + ctxSnippet);
-
     // Format history for Claude (remove timestamps)
     const formattedHistory = conversation.formatForClaude(history);
 
@@ -187,23 +221,9 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
 
     processLogger.info({ responseLength: claudeResponse.length }, 'Received response from Claude');
 
-    // ── DEBUG: full Claude response ──────────────────────────────────────────
-    console.log('[MIRI-DEBUG] ===== CLAUDE RAW RESPONSE =====');
-    console.log(claudeResponse);
-    console.log('[MIRI-DEBUG] ===== END CLAUDE RESPONSE =====');
-
     // Parse action tags
     const actions = parseActions(claudeResponse);
     processLogger.info({ actionCount: actions.length, actions }, 'Action tags parsed');
-
-    // ── DEBUG: lead context that was sent to Claude ──────────────────────────
-    console.log('[MIRI-DEBUG] Lead at time of Claude call:', JSON.stringify({
-      id: lead.id, status: lead.status,
-      parentName: lead.parentName, travelerName: lead.travelerName,
-      travelerAge: lead.travelerAge, schoolCode: lead.schoolCode,
-      leadType: lead.leadType, assignedAdvisor: lead.assignedAdvisor,
-    }));
-    console.log('[MIRI-DEBUG] Actions to execute:', JSON.stringify(actions));
 
     // Clean response (remove action tags)
     const cleanText = cleanResponse(claudeResponse);
@@ -259,11 +279,8 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
 
     processLogger.info('Conversation history updated in Redis');
 
-    // SYNC TO GOOGLE SHEETS: Sync lead data to Leads_Log sheet for dashboards/CRM
-    // This happens AFTER all updates to ensure we sync the latest data
-    // Failures here won't break the main flow (errors are logged but not thrown)
-    await syncLeadToSheet(lead, contact, conv);
-    processLogger.debug('Lead synced to Google Sheets');
+    // NOTA: el sync a Google Sheets se hace ahora en el finally de handleMessage,
+    // para que también corra en los turnos del flujo determinístico.
 
   } catch (error) {
     processLogger.error({ err: error }, 'Error processing message with AI');
