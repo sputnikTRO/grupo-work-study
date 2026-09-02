@@ -7,7 +7,7 @@ import { executeCaptureData, executeHandoffToAdvisor, executeSendMaterial } from
 import { loadFlowGraph, getNode, isMenuNode } from './flow-content.js';
 import { findSchoolPrices, isQuotable, isAllInclusiveHotel, isSinglePrice, isWinterBreakRow } from './prices.js';
 import { resolveEnrollment, resolveForStudent, findStudentsByPhone, formatMoney } from './enrollment.js';
-import { isMenuKeyword, classifyCta, normalize } from '../../core/flow/text.js';
+import { isMenuKeyword, classifyCta, normalize, matchMenuChoice, standaloneNumber } from '../../core/flow/text.js';
 import { extractStructuredFields } from '../../core/flow/extract.js';
 import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from '../../core/flow/office-hours.js';
 
@@ -191,16 +191,27 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
 
   // ── Nodo de menú (opciones numeradas) ─────────────────────────────────────
   if (isMenuNode(node)) {
-    const digitMatch = text.match(/(\d+)/);
-    if (!digitMatch) return { handled: false, midFlowFallback: true }; // texto libre → respaldo LLM
+    // Se acepta el número ("2") Y el texto de la opción ("Busco información"),
+    // porque la gente responde con palabras tan seguido como con dígitos. Un
+    // número suelto dentro de una frase ("José tiene 14 años") NO cuenta como
+    // elección: eso cae al respaldo LLM en vez de dar "opción no válida".
+    const choice = matchMenuChoice(text, node);
+    // Un número suelto FUERA de rango ("9" en un menú de 4) sí es un intento de
+    // elegir: se le vuelve a mostrar la lista. Una frase con un número dentro,
+    // no: eso va al respaldo LLM.
+    const intento = choice || standaloneNumber(text);
+    if (!intento) return { handled: false, midFlowFallback: true };
     await conversation.addMessage(conv.id, 'user', text);
-    return await handleMenuChoice(graph, node, digitMatch[1], ctx);
+    return await handleMenuChoice(graph, node, intento, ctx);
   }
 
   // Nodo de estatus sin sembrar en el Sheet: sus opciones 1/2 se resuelven aquí.
   if (currentFlowNode === 'ya_inscrito_estatus' && !isMenuNode(node)) {
     await conversation.addMessage(conv.id, 'user', text);
-    if (/1/.test(text) || classifyCta(text) === 'accept') {
+    // Solo se llega aquí si el cliente borró las opciones del nodo en el Sheet;
+    // se reconstruye el menú 1/2 implícito para poder interpretar la respuesta.
+    const menuImplicito = { texto: node.texto, opciones: { 1: 'handoff_colegio', 2: 'util_menu' } };
+    if (matchMenuChoice(text, menuImplicito) === '1' || classifyCta(text) === 'accept') {
       return await runHandoff('handoff_colegio', ctx, 'YA INSCRITO — pide fechas de sus siguientes pagos', { ticketKind: 'ya_inscrito' });
     }
     await sendNodeText('Sin problema 😊 Escribe *Menú* cuando quieras ver las demás opciones.', ctx);

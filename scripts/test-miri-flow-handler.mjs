@@ -27,6 +27,7 @@
  *   L. comandos de asesora sin rol admin: PENDIENTES solo muestra leads propios
  *   M. rama ya_inscrito: 3 desenlaces, varios hijos, match ambiguo, hoja caída
  *   N. tier único con vuelo incluido y colegios con varias filas (UMIN)
+ *   O. regresión del chat real: opción por texto, número en frase, nudge una vez
  *
  * Requiere: node --experimental-test-module-mocks
  */
@@ -51,7 +52,7 @@ function resetState() {
   MEDIA_SENT.length = 0;
   TEMPLATES_SENT.length = 0;
   SHEET_SYNCS.length = 0;
-  DB_CONV = { id: 'conv1', contactId: 'c1', status: 'active', flowNode: null, interestScore: 0 };
+  DB_CONV = { id: 'conv1', contactId: 'c1', status: 'active', flowNode: null, interestScore: 0, metadata: {} };
   DB_LEAD = {
     id: 'lead1', contactId: 'c1', status: 'nuevo', ticketNumber: 42,
     parentName: null, travelerName: null, travelerAge: null, schoolCode: null,
@@ -737,5 +738,81 @@ EXTRACT_RESULT = { parent_name: 'Ana Ruiz' };
 await handleMessage(msg('Ana Ruiz'), 'pnid');
 assert.ok(lastText().includes('Instituto Internacional') && lastText().includes('UMIN'), 'lista los colegios nuevos');
 ok('solicitud_colegio incluye Instituto Internacional y UMIN');
+
+
+// ============================================================================
+console.log('\n== O. Regresión del chat real: elegir por texto, número en frase, nudge repetido ==');
+
+// El usuario responde con la ETIQUETA, no con el número (caso del chat real).
+reset();
+DB_CONV.flowNode = 'filtro_previo';
+await handleMessage(msg('Busco información'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'solicitud_datos', '"Busco información" elige la opción 2');
+ok('el menú acepta el TEXTO de la opción, no solo el número');
+
+reset();
+DB_CONV.flowNode = 'menu_principal';
+await handleMessage(msg('winter break'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'cat_wb', 'match parcial por etiqueta');
+ok('match por etiqueta parcial ("winter break" → Winter Break)');
+
+// Un número DENTRO de una frase ya no se toma como elección.
+reset();
+DB_CONV.flowNode = 'filtro_previo';
+CHAT_REPLY = 'Con gusto, ¿me confirmas el colegio?';
+await handleMessage(msg('José Troncoso tiene 14 años'), 'pnid');
+assert.ok(!allText().includes('no es válida'), 'NO responde "esa opción no es válida"');
+assert.strictEqual(DB_CONV.flowNode, 'filtro_previo', 'flowNode intacto');
+assert.ok(allText().includes(CHAT_REPLY), 'lo atiende el respaldo LLM');
+ok('un número dentro de una frase ya no se interpreta como opción');
+
+// El número solo sigue funcionando, con o sin puntuación.
+for (const t of ['2', '2.', 'opción 2']) {
+  reset();
+  DB_CONV.flowNode = 'filtro_previo';
+  await handleMessage(msg(t), 'pnid');
+  assert.strictEqual(DB_CONV.flowNode, 'solicitud_datos', `"${t}" sigue eligiendo la opción 2`);
+}
+ok('el número suelto sigue funcionando ("2", "2.", "opción 2")');
+
+// El recordatorio de "Menú" sale UNA vez por nodo, no en cada mensaje.
+reset();
+DB_CONV.flowNode = 'filtro_previo';
+CHAT_REPLY = 'Claro que sí 😊';
+await handleMessage(msg('tengo una duda'), 'pnid');
+const nudges1 = SENT.filter((x) => x.text.includes('Escribe *Menú*')).length;
+await handleMessage(msg('otra duda más'), 'pnid');
+await handleMessage(msg('y una tercera'), 'pnid');
+const nudgesTotal = SENT.filter((x) => x.text.includes('Escribe *Menú*')).length;
+assert.strictEqual(nudges1, 1, 'el primer mensaje sin match sí lleva recordatorio');
+assert.strictEqual(nudgesTotal, 1, 'los siguientes YA NO lo repiten');
+ok('el recordatorio de "Menú" sale una sola vez por nodo');
+
+
+// El falso positivo que encontré revisando el diff: "sí" contiene las letras de
+// "ri(si)ng stars" y mandaba al prospecto a Rising Stars por escribir que sí.
+reset();
+DB_CONV.flowNode = 'menu_principal';
+CHAT_REPLY = 'Claro, ¿qué programa te interesa?';
+await handleMessage(msg('sí'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'menu_principal', '"sí" NO elige Rising Stars por contener "si"');
+ok('el match por etiqueta exige palabras completas (no "sí" ⊂ "rising")');
+
+// Pero en un menú sí/no, "sí" y "no" sí eligen — incluidas las etiquetas con coma.
+reset();
+DB_LEAD.schoolCode = 'The Hills';
+DB_CONV.flowNode = 'cat_e4l';
+await handleMessage(msg('1'), 'pnid');                    // → precio
+await handleMessage(msg('Sí, por favor'), 'pnid');        // etiqueta literal con coma
+assert.strictEqual(DB_LEAD.status, 'derivado_asesor', '"Sí, por favor" acepta y deriva');
+ok('las etiquetas con puntuación ("Sí, por favor") casan igual');
+
+reset();
+DB_LEAD.schoolCode = 'The Hills';
+DB_CONV.flowNode = 'cat_e4l';
+await handleMessage(msg('1'), 'pnid');
+await handleMessage(msg('todavía no'), 'pnid');
+assert.strictEqual(DB_LEAD.status, 'nuevo', '"todavía no" NO deriva');
+ok('"todavía no" elige la opción 2 y no deriva');
 
 console.log(`\n✅ ${pass} escenarios en verde\n`);

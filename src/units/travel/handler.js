@@ -146,13 +146,20 @@ export async function handleMessage(message, phoneNumberId) {
         await processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId);
 
         // El flujo seguía activo (flowNode intacto) pero el mensaje no matcheó
-        // número/menú → el LLM ya respondió; lo reencauzamos al menú con un
+        // ninguna opción → el LLM ya respondió; lo reencauzamos al menú con un
         // recordatorio corto, SIN tocar flowNode.
-        if (flowResult.midFlowFallback) {
+        //
+        // El recordatorio sale UNA SOLA VEZ por nodo: repetirlo en cada mensaje
+        // ensucia la conversación (se veía debajo de cada respuesta de Miri).
+        // Se recuerda en conversation.metadata, que ya existe y es Json libre.
+        const meta = conv.metadata || {};
+        if (flowResult.midFlowFallback && meta.nudgedNode !== conv.flowNode) {
           const reminder = 'Escribe *Menú* cuando quieras ver las opciones de nuevo 😊';
           await sendTextMessage(phone, reminder, phoneNumberId);
           await messageService.createOutbound(conv.id, reminder);
           await conversation.addMessage(conv.id, 'assistant', reminder);
+          await conversationService.update(conv.id, { metadata: { ...meta, nudgedNode: conv.flowNode } });
+          conv.metadata = { ...meta, nudgedNode: conv.flowNode };
         }
       }
 
