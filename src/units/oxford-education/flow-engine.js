@@ -229,9 +229,11 @@ async function handleYaInscrito(text, ctx) {
     'Lead marcado ya_inscrito/seguimiento_pendiente (ya_inscrito_stub) — visible para el equipo',
   );
 
+  // El copy NO debe sonar a confirmación: Ori no consultó ningún sistema de
+  // inscripciones ni de pagos (el cableado sigue siendo un TODO). Solo tomó datos.
   const nombre = ctx.lead.fullName ? `, ${ctx.lead.fullName}` : '';
-  const institucion = ctx.lead.institutionName ? ` con ${ctx.lead.institutionName}` : '';
-  const ack = `¡Gracias${nombre}! 🙌 Ya quedó registrado tu caso${institucion}. Una asesora te dará seguimiento pronto.`;
+  const institucion = ctx.lead.institutionName ? ` de ${ctx.lead.institutionName}` : '';
+  const ack = `¡Gracias${nombre}! 🙌 Ya tomé tus datos${institucion}. Una asesora va a revisar tu caso y te contacta para darte el detalle de tu proceso.`;
   await sendNodeText(ack, ctx);
   await persistFlowNode(ctx.conv, FREEFORM);
   return { handled: true };

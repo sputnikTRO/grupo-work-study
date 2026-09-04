@@ -131,8 +131,9 @@ const FLOW_NODES = [
   {
     id: 'cat_3',
     estado: 'Vigente',
-    texto: 'Plataformas para el aula. Por favor selecciona la plataforma de tu interés:\n1.- Smile and Learn\n2.- Visual Camp\n3.- iEduca\n4.- AINARA\n5.- KNOW BY STEAM TREKS',
-    opciones: { 1: 'n_3_1', 2: 'n_3_2', 3: 'n_3_3', 4: 'n_3_4', 5: 'n_3_5' },
+    texto: 'Plataformas para el aula. Por favor selecciona la plataforma de tu interés:\n1.- Smile and Learn\n2.- Visual Camp\n3.- AINARA\n4.- KNOW BY STEAM TREKS',
+    opciones: { 1: 'n_3_1', 2: 'n_3_2', 3: 'n_3_4', 4: 'n_3_5' },
+    notas: 'iEduca (n_3_3) se retiró del catálogo: ya no se distribuye. Los IDs n_3_4/n_3_5 NO se renumeraron a propósito — son llaves estables del grafo, no posiciones; el número que ve el usuario vive en el Texto.',
   },
   {
     id: 'n_3_1',
@@ -144,12 +145,6 @@ const FLOW_NODES = [
     id: 'n_3_2',
     estado: 'Vigente',
     texto: 'Visual Camp usa eye-tracking e inteligencia artificial para mejorar hábitos y comprensión lectora en inglés y español con métricas en tiempo real. ¿Te interesaría agendar una llamada o recorrido virtual con un asesor?',
-    opciones: {},
-  },
-  {
-    id: 'n_3_3',
-    estado: 'Vigente',
-    texto: 'iEduca es una plataforma integral de gestión y comunicación escolar, con control de pagos, asistencia, evaluaciones y conexión con familias. ¿Te interesaría agendar una llamada o recorrido virtual con un asesor?',
     opciones: {},
   },
   {
