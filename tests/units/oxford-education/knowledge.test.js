@@ -40,7 +40,7 @@ describe('buildFullPrompt — catálogo siempre presente + FAQ se apila encima',
   it('catálogo presente cuando hay FAQ (Sheets OK)', () => {
     const prompt = buildFullPrompt(fakeLead, FAKE_FAQ);
     assert.ok(
-      prompt.includes('## PROGRAMAS (información general'),
+      prompt.includes('## CATÁLOGO COMPLETO'),
       'El catálogo hardcodeado debe estar presente aunque haya FAQ dinámico',
     );
   });
@@ -49,7 +49,7 @@ describe('buildFullPrompt — catálogo siempre presente + FAQ se apila encima',
     const prompt = buildFullPrompt(fakeLead, FAKE_FAQ);
     assert.ok(prompt.includes('¿Qué es?'), 'El contenido del FAQ debe aparecer en el prompt');
     assert.ok(
-      prompt.includes('## PROGRAMAS (información general'),
+      prompt.includes('## CATÁLOGO COMPLETO'),
       'El catálogo también debe estar presente — ambas fuentes apiladas',
     );
   });
@@ -65,7 +65,7 @@ describe('buildFullPrompt — catálogo siempre presente + FAQ se apila encima',
   it('catálogo solo (sin FAQ) cuando Sheets falla — igual que hoy', () => {
     const prompt = buildFullPrompt(fakeLead, null);
     assert.ok(
-      prompt.includes('## PROGRAMAS (información general'),
+      prompt.includes('## CATÁLOGO COMPLETO'),
       'El catálogo debe estar cuando no hay FAQ',
     );
   });
@@ -185,7 +185,7 @@ describe('W&S-Q6 — recursos económicos confirmada e incluida', () => {
     assert.ok(prompt.includes('NUNCA compartas precios'), 'Price rule must not be displaced by FAQ data');
 
     // Catalog and FAQ are both present (stacking design) with explicit precedence note.
-    assert.ok(prompt.includes('## PROGRAMAS (información general'), 'Catalog must be present alongside FAQ');
+    assert.ok(prompt.includes('## CATÁLOGO COMPLETO'), 'Catalog must be present alongside FAQ');
     assert.ok(prompt.includes('prevalece la información de este bloque'), 'Precedence note must be present');
   });
 });

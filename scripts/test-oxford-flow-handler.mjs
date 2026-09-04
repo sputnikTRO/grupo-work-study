@@ -359,6 +359,15 @@ assert.strictEqual(DB_LEAD.zoneKey, undefined, 'NO se disparó ruteo geográfico
 assert.strictEqual(DB_CONV.flowNode, 'llm_freeform');
 ok('ya_inscrito_stub: extrae nombre/colegio, marca seguimiento pendiente (TODO), SIN handoff geográfico');
 
+// El ack NO debe sonar a confirmación de inscripción: Ori no consultó ningún
+// sistema (el cableado al Sheet de "por cobrar" sigue siendo un TODO). Solo tomó
+// datos. "Ya quedó registrado tu caso" leía como "ya estás inscrito".
+const ack = SENT[0].text;
+assert.ok(!/registrad|inscrit|confirmad|apartad/i.test(ack), `el ack no debe implicar inscripción confirmada: "${ack}"`);
+assert.ok(/tomé tus datos/i.test(ack), 'el ack dice explícitamente que solo tomó los datos');
+assert.ok(/asesora/i.test(ack) && /revisar/i.test(ack), 'el ack deja el caso en manos de la asesora, sin prometer estatus');
+ok('ya_inscrito_stub: el ack no implica inscripción confirmada (solo "tomé tus datos")');
+
 // ============================================================================
 // Escenario H — Fallback seguro: Sheet no disponible
 // ============================================================================
