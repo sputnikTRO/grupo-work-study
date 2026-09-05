@@ -68,7 +68,7 @@ mock.module('../src/units/oxford-education/whatsapp.js', {
 mock.module('../src/units/oxford-education/prompts.js', {
   namedExports: { buildFullPrompt: () => 'system prompt de Ori (mock)', HANDOFF_MEETING_URL: 'https://meetings.hubspot.com/camila-serafin-jimenez/' },
 });
-mock.module('../src/units/oxford-education/knowledge.js', { namedExports: { buildOxfordKnowledge: async () => null } });
+mock.module('../src/units/oxford-education/knowledge.js', { namedExports: { buildOxfordKnowledge: async () => null, buildFlowKnowledge: async () => null } });
 mock.module('../src/units/oxford-education/sheets-sync.js', { namedExports: { syncOxfordLeadToSheet: async () => {}, deriveTemperature: () => 'warm' } });
 mock.module('../src/units/oxford-education/office-hours.js', {
   namedExports: {

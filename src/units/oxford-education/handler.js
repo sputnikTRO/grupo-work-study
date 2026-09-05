@@ -9,7 +9,7 @@ import * as oxfordLeadService from './lead.service.js';
 import * as store from './store.js';
 import { sendTextMessage, markMessageAsRead } from './whatsapp.js';
 import { buildFullPrompt } from './prompts.js';
-import { buildOxfordKnowledge } from './knowledge.js';
+import { buildOxfordKnowledge, buildFlowKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
 import { tryDeterministicFlow } from './flow-engine.js';
@@ -114,8 +114,12 @@ export async function handleMessage(message, phoneNumberId) {
  */
 async function processWithAI(phone, content, conv, lead, contact, log) {
   const history = await store.getHistory(conv.id);
-  const dynamicKnowledge = await buildOxfordKnowledge(lead);
-  const systemPrompt = buildFullPrompt(lead, dynamicKnowledge);
+  // Ambas leen del cache de Sheets; en paralelo para no sumar latencias al turno.
+  const [dynamicKnowledge, flowKnowledge] = await Promise.all([
+    buildOxfordKnowledge(lead),
+    buildFlowKnowledge(),
+  ]);
+  const systemPrompt = buildFullPrompt(lead, dynamicKnowledge, flowKnowledge);
   const formattedHistory = store.formatForClaude(history);
 
   log.info({ historyLength: formattedHistory.length }, 'Sending Oxford request to Claude');

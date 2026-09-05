@@ -8,10 +8,10 @@
  *   3. Give general program info but NEVER share prices.
  *   4. On pricing or "talk to someone" intent → hand off via meeting link.
  *
- * REGLA DE ORO — bloques mutuamente excluyentes:
- *   dynamicKnowledge !== null → OXFORD_PROMPT_HEAD + dynamic block + OXFORD_PROMPT_TAIL
- *   dynamicKnowledge === null → OXFORD_BASE_PROMPT (includes hardcoded programs section)
- * Never concatenate both. buildFullPrompt enforces this explicitly.
+ * REGLA DE ORO — las fuentes de conocimiento se APILAN, no se sustituyen:
+ *   catálogo (siempre) → descripciones del menú "Flujo Ori" → FAQ "FAQ Oxford"
+ * Cada bloque de Sheets se agrega solo si cargó, y cuando dos se contradicen
+ * prevalece el más específico (el de más abajo). Ver buildFullPrompt.
  */
 
 import { env } from '../../config/env.js';
@@ -148,27 +148,42 @@ function buildLeadContext(lead) {
 /**
  * Builds the full system prompt.
  *
- * El catálogo de programas (OXFORD_BASE_PROMPT) está SIEMPRE presente.
- * Cuando Sheets carga correctamente, el bloque de FAQ se AGREGA después del catálogo.
- * Si hay contradicción entre ambas fuentes, el FAQ prevalece (regla escrita en el prompt).
- * Si Sheets falla, el catálogo queda solo — igual que hoy.
+ * Tres fuentes apiladas, de menos a más específica:
+ *   1. OXFORD_BASE_PROMPT — catálogo con los NOMBRES de todo lo que ofrecemos.
+ *   2. flowKnowledge      — descripciones de producto de la pestaña "Flujo Ori"
+ *                           (las mismas que el menú determinístico envía verbatim).
+ *   3. dynamicKnowledge   — FAQ de la pestaña "FAQ Oxford", la más detallada.
+ * Cuando dos se contradigan, prevalece la de abajo. Las tres son opcionales: si
+ * Sheets falla, el prompt sale con lo que haya (en el peor caso, solo el catálogo).
  *
  * @param {Object} lead - OxfordLead row
  * @param {string|null} dynamicKnowledge - FAQ formateado desde Sheets, o null si falla
+ * @param {string|null} flowKnowledge - Descripciones de producto de "Flujo Ori", o null
  * @returns {string}
  */
-export function buildFullPrompt(lead, dynamicKnowledge = null) {
+export function buildFullPrompt(lead, dynamicKnowledge = null, flowKnowledge = null) {
   const leadContext = buildLeadContext(lead);
+
+  // Las descripciones que el menú ya le muestra al prospecto, disponibles también
+  // para preguntas de texto libre ("¿qué es AINARA?"). Varios productos del menú
+  // no tienen ficha en el FAQ; esta es la única fuente que los describe.
+  const menuSection = flowKnowledge !== null
+    ? `\n## INFORMACIÓN DE PRODUCTOS DEL MENÚ (fuente: pestaña "Flujo Ori")
+Son las descripciones oficiales de cada producto, las mismas que le mostramos al prospecto cuando navega el menú. Úsalas para responder preguntas de texto libre sobre estos productos, aunque no aparezcan en las preguntas frecuentes.
+Lo que NO cambia en este bloque: sigues sin dar precios, sin prometer fechas ni condiciones, y sin agregar detalles que no estén escritos aquí. Si te preguntan algo que estos textos no cubren, dilo con honestidad y ofrece conectar con la asesora — no lo completes de tu cuenta.
+
+${flowKnowledge}\n`
+    : '';
 
   const faqSection = dynamicKnowledge !== null
     ? `\n## PREGUNTAS FRECUENTES POR PROGRAMA (fuente más actualizada)
-Si algo en este bloque difiere del catálogo de programas de arriba, prevalece la información de este bloque.
+Si algo en este bloque difiere del catálogo de programas o de las descripciones del menú de arriba, prevalece la información de este bloque.
 
 ${dynamicKnowledge}\n`
     : '';
 
   return `${OXFORD_BASE_PROMPT}
-${faqSection}
+${menuSection}${faqSection}
 ---
 
 ## CONTEXTO DEL PROSPECTO ACTUAL

@@ -130,7 +130,7 @@ mock.module('../src/units/oxford-education/prompts.js', {
   },
 });
 mock.module('../src/units/oxford-education/knowledge.js', {
-  namedExports: { buildOxfordKnowledge: async () => null },
+  namedExports: { buildOxfordKnowledge: async () => null, buildFlowKnowledge: async () => null },
 });
 mock.module('../src/units/oxford-education/sheets-sync.js', {
   namedExports: { syncOxfordLeadToSheet: async () => {}, deriveTemperature: () => 'warm' },

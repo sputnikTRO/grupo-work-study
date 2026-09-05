@@ -61,7 +61,7 @@ mock.module('../src/units/oxford-education/whatsapp.js', {
   },
 });
 mock.module('../src/units/oxford-education/prompts.js', { namedExports: { buildFullPrompt: () => 'system' } });
-mock.module('../src/units/oxford-education/knowledge.js', { namedExports: { buildOxfordKnowledge: async () => null } });
+mock.module('../src/units/oxford-education/knowledge.js', { namedExports: { buildOxfordKnowledge: async () => null, buildFlowKnowledge: async () => null } });
 mock.module('../src/units/oxford-education/actions.js', {
   namedExports: {
     parseActions: () => [],
