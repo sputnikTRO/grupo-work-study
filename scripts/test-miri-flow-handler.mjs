@@ -28,6 +28,7 @@
  *   M. rama ya_inscrito: 3 desenlaces, varios hijos, match ambiguo, hoja caída
  *   N. tier único con vuelo incluido y colegios con varias filas (UMIN)
  *   O. regresión del chat real: opción por texto, número en frase, nudge una vez
+ *   P. guardarraíl de inscripción: la rama ya_inscrito* nunca cede al LLM
  *
  * Requiere: node --experimental-test-module-mocks
  */
@@ -619,6 +620,15 @@ assert.strictEqual(DB_LEAD.status, 'derivado_asesor', 'deriva como lead');
 assert.ok(TEMPLATES_SENT[0].params[7].startsWith('YA INSCRITO'), 'ticket marcado YA INSCRITO');
 ok('desenlace 1: no registrado → capta, deriva, ticket YA INSCRITO, sin datos financieros');
 
+// El ack de ESTE desenlace no puede sonar a confirmación: es justo el caso en que
+// el teléfono NO apareció en el registro, o sea que Miri no verificó nada.
+// "Ya quedó registrado tu caso" se leía como "ya estás inscrito".
+const ackSinMatch = SENT.map((m) => m.text).find((t) => /tomé tus datos/i.test(t)) || lastText();
+assert.ok(!/registrad|inscrit|confirmad|apartad/i.test(ackSinMatch), `el ack no debe implicar inscripción confirmada: "${ackSinMatch}"`);
+assert.ok(/tomé tus datos/i.test(ackSinMatch), 'dice explícitamente que solo tomó los datos');
+assert.ok(/asesora/i.test(ackSinMatch) && /revisar/i.test(ackSinMatch), 'deja el caso en manos de la asesora, sin prometer estatus');
+ok('desenlace 1: el ack no implica inscripción confirmada (solo "tomé tus datos")');
+
 // — Desenlace 2: registrado SIN fila de pagos → deriva con contexto, sin montos
 reset();
 FROM = '5215577889900';                                  // Sofía Ramos (registro, sin pagos)
@@ -814,5 +824,59 @@ await handleMessage(msg('1'), 'pnid');
 await handleMessage(msg('todavía no'), 'pnid');
 assert.strictEqual(DB_LEAD.status, 'nuevo', '"todavía no" NO deriva');
 ok('"todavía no" elige la opción 2 y no deriva');
+
+
+// ============================================================================
+console.log('\n== P. Guardarraíl de inscripción: la rama nunca cede al LLM ==');
+
+// (a) La ETIQUETA completa entra a la rama y dispara la consulta por teléfono.
+reset();
+FROM = '5215533445566';                                   // Diego Méndez, con pagos
+DB_CONV.flowNode = 'filtro_previo';
+await handleMessage(msg('Ya estoy inscrito'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'ya_inscrito_estatus', 'la etiqueta entra a la rama y consulta');
+assert.ok(lastText().includes('Diego Méndez Ruiz'), 'resolvió por teléfono, no por LLM');
+ok('(a) etiqueta completa en filtro_previo → consulta verificada');
+
+// (b) El número también.
+reset();
+FROM = '5215533445566';
+DB_CONV.flowNode = 'filtro_previo';
+await handleMessage(msg('1'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'ya_inscrito_estatus', '"1" entra a la rama');
+ok('(b) "1" en filtro_previo → consulta verificada');
+
+// (c) Escribir un NOMBRE en filtro_previo (el caso que se temía): cae al LLM,
+//     pero el LLM no puede confirmar inscripciones — y el flujo no avanza.
+reset();
+FROM = '5219999999999';
+DB_CONV.flowNode = 'filtro_previo';
+CHAT_REPLY = 'Con gusto, ¿en qué te ayudo?';
+await handleMessage(msg('Valentina morales, sir winston'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'filtro_previo', 'un nombre NO avanza el flujo');
+assert.ok(!/inscrit|registrad|apartad/i.test(allText()), 'no se afirma ninguna inscripción');
+ok('(c) un nombre en filtro_previo no produce confirmación de inscripción');
+
+// (d) Dentro de ya_inscrito_estatus, un mensaje sin match NO llega al LLM.
+reset();
+FROM = '5215533445566';
+DB_CONV.flowNode = 'filtro_previo';
+await handleMessage(msg('1'), 'pnid');                    // → ya_inscrito_estatus
+CHAT_REPLY = 'RESPUESTA-DEL-LLM-QUE-NO-DEBE-APARECER';
+SENT.length = 0;
+await handleMessage(msg('y cuándo sale el vuelo?'), 'pnid');
+assert.ok(!allText().includes('RESPUESTA-DEL-LLM'), 'el LLM NO contesta dentro de la rama');
+assert.ok(lastText().includes('respóndeme con una de estas opciones'), 're-muestra el nodo');
+assert.strictEqual(DB_CONV.flowNode, 'ya_inscrito_estatus', 'sigue en el mismo nodo');
+ok('(d) turno sin match dentro de ya_inscrito* no llega al LLM');
+
+// El guardarraíl vive en el prompt REAL. Aquí prompts.js está mockeado (lo usa el
+// handler), así que se verifica leyendo el archivo fuente en disco.
+const promptSrc = await (await import('node:fs/promises')).readFile(
+  new URL('../src/units/travel/prompts.js', import.meta.url), 'utf8');
+for (const frase of ['ESTATUS DE INSCRIPCIÓN Y PAGOS', 'NUNCA confirmes, niegues ni des por hecho', 'Nunca inventes ni completes nombres']) {
+  assert.ok(promptSrc.includes(frase), `el prompt contiene: ${frase}`);
+}
+ok('el prompt de travel prohíbe explícitamente confirmar inscripciones y pagos');
 
 console.log(`\n✅ ${pass} escenarios en verde\n`);

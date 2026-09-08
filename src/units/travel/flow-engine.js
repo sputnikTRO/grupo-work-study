@@ -107,6 +107,19 @@ const ORIGIN_REASONS = {
   wb_material: 'Recibió la presentación de Winter Break y quiere hablar',
 };
 
+/**
+ * ¿Este nodo pertenece a la rama "ya inscrito"?
+ *
+ * Esa rama toca datos financieros (montos pagados, saldos, inscripción), así que
+ * NO tiene camino conversacional libre: un mensaje que no matchea re-muestra el
+ * nodo en vez de ceder el turno al LLM. Si el LLM contestara aquí, podría
+ * confirmar o negar una inscripción sin haberla verificado — exactamente lo que
+ * el guardarraíl del prompt prohíbe, pero sin depender de que el modelo obedezca.
+ */
+function isEnrollmentNode(nodeId) {
+  return String(nodeId || '').startsWith('ya_inscrito');
+}
+
 // Nodos de material → ID fijo. English 4 Life no aparece aquí porque su material
 // se resuelve por destino (ver resolveMaterialId).
 const MATERIAL_NODES = new Set(['e4l_material', 'wb_material']);
@@ -200,7 +213,15 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
     // elegir: se le vuelve a mostrar la lista. Una frase con un número dentro,
     // no: eso va al respaldo LLM.
     const intento = choice || standaloneNumber(text);
-    if (!intento) return { handled: false, midFlowFallback: true };
+    if (!intento) {
+      // Dentro de la rama "ya inscrito" no se cede al LLM: se re-muestra el nodo.
+      if (isEnrollmentNode(currentFlowNode)) {
+        await conversation.addMessage(conv.id, 'user', text);
+        await sendNodeText(`Para seguir, respóndeme con una de estas opciones 🙏\n\n${await buildNodeText(node, ctx)}`, ctx);
+        return { handled: true };
+      }
+      return { handled: false, midFlowFallback: true };
+    }
     await conversation.addMessage(conv.id, 'user', text);
     return await handleMenuChoice(graph, node, intento, ctx);
   }
@@ -216,6 +237,14 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
     }
     await sendNodeText('Sin problema 😊 Escribe *Menú* cuando quieras ver las demás opciones.', ctx);
     await persistFlowNode(conv, FREEFORM);
+    return { handled: true };
+  }
+
+  // Red de seguridad: cualquier otro nodo de la rama "ya inscrito" que llegue
+  // hasta aquí tampoco cede al LLM (los de arriba ya se atendieron antes).
+  if (isEnrollmentNode(currentFlowNode)) {
+    await conversation.addMessage(conv.id, 'user', text);
+    await sendNodeText(`Para seguir, respóndeme con una de estas opciones 🙏\n\n${await buildNodeText(node, ctx)}`, ctx);
     return { handled: true };
   }
 
@@ -655,8 +684,12 @@ async function handleYaInscrito(text, ctx) {
     'Ya inscrito sin match por teléfono — registrado para seguimiento',
   );
 
+  // El copy NO debe sonar a confirmación. Este es justo el camino en que el
+  // teléfono NO apareció en el registro de inscritos: Miri no pudo verificar
+  // nada, así que solo puede decir que tomó los datos. Mismo criterio que el ack
+  // de ya_inscrito_stub en Ori.
   const nombre = ctx.lead.parentName ? `, ${ctx.lead.parentName}` : '';
-  await sendNodeText(`¡Gracias${nombre}! 🙌 Ya quedó registrado tu caso. Una asesora te dará seguimiento pronto.`, ctx);
+  await sendNodeText(`¡Gracias${nombre}! 🙌 Ya tomé tus datos. Una asesora va a revisar tu caso y te contacta para darte el detalle de tu proceso.`, ctx);
   return await runHandoff('handoff_colegio', ctx, 'YA INSCRITO — no encontrado por teléfono en el registro', { ticketKind: 'ya_inscrito' });
 }
 
