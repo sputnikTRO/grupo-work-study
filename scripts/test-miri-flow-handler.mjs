@@ -629,6 +629,21 @@ assert.ok(/tomé tus datos/i.test(ackSinMatch), 'dice explícitamente que solo t
 assert.ok(/asesora/i.test(ackSinMatch) && /revisar/i.test(ackSinMatch), 'deja el caso en manos de la asesora, sin prometer estatus');
 ok('desenlace 1: el ack no implica inscripción confirmada (solo "tomé tus datos")');
 
+// Con asesora ya asignada, el guard anti-redisparo hace que Miri conteste ella
+// misma. Ese texto tampoco puede dar por hecho que la asesora ya escribió: el
+// sistema solo sabe que fue asignada y notificada.
+// Se navega a un nodo de handoff con la asesora YA asignada del turno anterior:
+// executeHandoffToAdvisor corta por el guard y es Miri quien responde.
+SENT.length = 0;
+DB_CONV.flowNode = 'ya_inscrito_estatus';
+await handleMessage(msg('1'), 'pnid');                   // → handoff_colegio
+const conAsesora = allText();
+assert.ok(conAsesora.includes(DB_LEAD.assignedAdvisor), 'nombra a la asesora ya asignada');
+assert.ok(!/está en contacto|ya te escribió|ya te contactó|ya se comunicó/i.test(conAsesora),
+  `asignada ≠ ya te escribió: "${conAsesora}"`);
+assert.ok(/asignada/i.test(conAsesora), 'sí afirma lo que el sistema sabe: que es su asesora asignada');
+ok('con asesora asignada, Miri no da por hecho que ya la contactó');
+
 // — Desenlace 2: registrado SIN fila de pagos → deriva con contexto, sin montos
 reset();
 FROM = '5215577889900';                                  // Sofía Ramos (registro, sin pagos)

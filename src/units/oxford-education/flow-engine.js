@@ -263,7 +263,7 @@ async function handleCtaLeaf(node, verdict, ctx) {
     // Guard anti-redisparo: ya había asesor asignado. executeHandoffToAdvisor no
     // manda mensaje en este caso — Ori sí responde (igual que el camino LLM).
     const msg = ctx.lead.assignedAdvisor
-      ? `Ese detalle lo verá directamente ${ctx.lead.assignedAdvisor}, que ya está en contacto contigo 😊 ¿Te ayudo con algo más mientras tanto?`
+      ? `Ese detalle lo puedes ver directamente con ${ctx.lead.assignedAdvisor}, tu asesor/a asignada 😊 ¿Te ayudo con algo más mientras tanto?`
       : 'Con gusto te ayudo. ¿Sobre qué programa te gustaría saber más? 😊';
     await sendNodeText(msg, ctx);
   } else if (!isWithinOfficeHours()) {

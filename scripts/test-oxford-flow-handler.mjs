@@ -293,6 +293,46 @@ assert.ok(SENT[1].text.includes('Menú'), 'segundo mensaje = recordatorio para v
 assert.strictEqual(DB_CONV.flowNode, 'cat_1', 'flowNode NO cambia — el respaldo no rompe el estado del flujo');
 ok('Texto libre en nodo de menú → respaldo LLM (prompt actual) + recordatorio, flowNode intacto');
 
+// El recordatorio sale UNA VEZ por nodo. Antes era incondicional y se colgaba
+// debajo de CADA respuesta de Ori (en un tramo real salió tres veces seguidas).
+SENT.length = 0;
+CHAT_REPLY = 'El proceso completo toma alrededor de 8 semanas 😊';
+await handleMessage(msg('¿y cuánto tarda en llegar el certificado físico?'), 'pnid');
+assert.strictEqual(SENT.length, 1, 'segundo texto libre en el MISMO nodo → solo la respuesta, sin repetir el recordatorio');
+assert.strictEqual(SENT[0].text, CHAT_REPLY);
+assert.strictEqual(DB_CONV.flowNode, 'cat_1', 'y el flowNode sigue intacto');
+ok('el recordatorio de "Menú" NO se repite turno tras turno en el mismo nodo');
+
+// Al cambiar de nodo vuelve a salir: es una guía de navegación, no un mensaje
+// de una sola vez por conversación.
+SENT.length = 0;
+await handleMessage(msg('1'), 'pnid');                    // cat_1 → n_1_1
+assert.strictEqual(DB_CONV.flowNode, 'n_1_1', 'avanza de nodo');
+SENT.length = 0;
+CHAT_REPLY = 'Sí, incluye examen oral con evaluadores expertos.';
+await handleMessage(msg('¿y eso incluye la parte oral?'), 'pnid'); // CTA ambiguo → respaldo LLM
+assert.strictEqual(SENT.length, 2, 'en el nodo NUEVO el recordatorio vuelve a salir');
+assert.ok(SENT[1].text.includes('Menú'));
+ok('al cambiar de nodo el recordatorio reaparece (guía de navegación, no one-shot)');
+
+// ============================================================================
+// Escenario D2 — El copy no afirma un contacto que el sistema no puede saber
+// ============================================================================
+console.log('\n== D2. Copy de la asesora ya asignada: asignada ≠ ya te escribió ==');
+resetState();
+DB_CONV.flowNode = 'llm_freeform';
+DB_LEAD.assignedAdvisor = 'Oriana Pullas';
+DB_LEAD.status = 'derivado_asesor';
+SENT.length = 0;
+CHAT_REPLY = ''; // el LLM no produjo texto → entra el fallback con nombre de asesora
+await handleMessage(msg('¿me pasas el precio?'), 'pnid');
+const conAsesora = SENT[0].text;
+assert.ok(conAsesora.includes('Oriana Pullas'), 'nombra a la asesora asignada');
+assert.ok(!/está en contacto|ya te escribió|ya te contactó|ya se comunicó/i.test(conAsesora),
+  `el sistema sabe que fue asignada y notificada, NO que ya escribió: "${conAsesora}"`);
+assert.ok(/asignada/i.test(conAsesora), 'lo que sí puede afirmar: que es su asesora asignada');
+ok('el respaldo sin texto del LLM no da por hecho el contacto con la asesora');
+
 // ============================================================================
 // Escenario E — CTA: declina / ambiguo
 // ============================================================================

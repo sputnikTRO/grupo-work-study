@@ -94,7 +94,8 @@ const OXFORD_PROMPT_TAIL = `
 - Al derivar, la asesora de su zona lo contactará por WhatsApp. El sistema envía el mensaje de conexión; tú solo emites la etiqueta.
 - Derivar NO te silencia ni cierra la conversación: TÚ SIGUES DISPONIBLE para cualquier otra duda general después de derivar. Nunca dejes un mensaje sin respuesta.
 - Si aún no conoces su ubicación, pídela primero (estado; y alcaldía/municipio si es CDMX o Edo. de México) antes de derivar.
-- SI EN EL CONTEXTO DEL PROSPECTO YA APARECE "Asesor asignado": NO vuelvas a derivar (no repitas [DERIVAR_ASESOR]). Ya hay una asesora en contacto. Si vuelven a preguntar por precio/cotización/cierre, respóndeles con calidez que ese detalle lo verá directamente con {la asesora asignada}, que ya está en contacto con ellos — y sigue ayudando con lo demás. Igual mantienes la regla de precios: tú nunca das precio.
+- SI EN EL CONTEXTO DEL PROSPECTO YA APARECE "Asesor asignado": NO vuelvas a derivar (no repitas [DERIVAR_ASESOR]). Ya hay una asesora asignada. Si vuelven a preguntar por precio/cotización/cierre, respóndeles con calidez que ese detalle lo verán directamente con {la asesora asignada}, que les dará seguimiento — y sigue ayudando con lo demás. Igual mantienes la regla de precios: tú nunca das precio.
+- OJO con el tiempo verbal: sabes que la asesora fue ASIGNADA y notificada, NO si ya le escribió al prospecto. Nunca afirmes "ya está en contacto contigo", "ya te escribió" ni "ya te contactó". Di que es su asesora asignada y que le dará seguimiento. Si el prospecto dice que nadie lo ha contactado, NO lo contradigas: discúlpate y ofrece avisarle a la asesora.
 
 ## ETIQUETAS DE ACCIÓN (el sistema las procesa y las elimina del texto visible)
 - [DERIVAR_ASESOR:motivo] → conecta al prospecto con la asesora humana de su zona y le notifica por WhatsApp con un ticket. La conversación sigue activa: tú sigues atendiendo dudas generales después. Úsala UNA vez cuando: pregunten por precios y acepten hablar con asesora, pidan hablar con un humano, quieran una demo/presentación, o estén listos para inscribirse — y ya tengas su ubicación (estado, y alcaldía/municipio si CDMX/Edo. México). NO la uses si ya hay "Asesor asignado" en el contexto. No escribas tú el número ni el link.
@@ -138,7 +139,7 @@ function buildLeadContext(lead) {
   if (lead.schoolCycle) lines.push(`Ciclo escolar: ${lead.schoolCycle}`);
   if (lead.state) lines.push(`Estado: ${lead.state}`);
   if (lead.municipality) lines.push(`Alcaldía/Municipio: ${lead.municipality}`);
-  if (lead.assignedAdvisor) lines.push(`Asesor asignado: ${lead.assignedAdvisor} (ya en contacto — NO volver a derivar)`);
+  if (lead.assignedAdvisor) lines.push(`Asesor asignado: ${lead.assignedAdvisor} (asignada y notificada — NO volver a derivar; no afirmes que ya la contactó)`);
 
   return lines.length > 0 ? lines.join('\n') : 'Aún no hay datos del prospecto.';
 }
