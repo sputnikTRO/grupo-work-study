@@ -75,6 +75,9 @@ mock.module('../src/core/sheets/client.js', {
       ['INSTITUTO', 'DESTINO', 'MODALIDAD', 'PRECIO PROGRAMA', 'PRECIO VUELO', 'PRECIO PROGRAMA', 'PRECIO VUELO'],
       ['Colegio The Hills Institute', 'Londres', 'Homestay', '29990', '35000', '34990', '35000'],
     ],
+    // enrollment.js (rama ya_inscrito) también importa esto; sin el export el
+    // import estático de flow-engine.js no resuelve y la demo ni arranca.
+    getSpreadsheetMetadata: async () => ({ sheets: [] }),
   },
 });
 
