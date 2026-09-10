@@ -87,11 +87,20 @@ export async function handleMessage(message, phoneNumberId) {
       // El flujo seguía activo (flowNode no cambió) pero el mensaje no matcheó
       // número/menú/CTA claro → el LLM ya respondió la duda; lo reencauzamos al
       // menú con un recordatorio corto, SIN tocar flowNode (no rompe el estado).
-      if (flowResult.midFlowFallback) {
+      //
+      // El recordatorio sale UNA SOLA VEZ por nodo: repetirlo en cada mensaje
+      // ensucia la conversación (se veía colgando debajo de cada respuesta de
+      // Ori, tres veces seguidas en un tramo real). Se recuerda en
+      // conversation.metadata, que ya existe y es Json libre. Mismo patrón que
+      // el handler de Travel; al cambiar de nodo el recordatorio vuelve a salir.
+      const meta = conv.metadata || {};
+      if (flowResult.midFlowFallback && meta.nudgedNode !== conv.flowNode) {
         const reminder = "Escribe *Menú* cuando quieras ver las opciones de nuevo 😊";
         await sendTextMessage(phone, reminder);
         await messageService.createOutbound(conv.id, reminder);
         await store.addMessage(conv.id, 'assistant', reminder);
+        await conversationService.update(conv.id, { metadata: { ...meta, nudgedNode: conv.flowNode } });
+        conv.metadata = { ...meta, nudgedNode: conv.flowNode };
       }
     }
   } catch (error) {
@@ -148,7 +157,7 @@ async function processWithAI(phone, content, conv, lead, contact, log) {
     reply = cleanText;
     if (!reply) {
       reply = lead.assignedAdvisor
-        ? `Ese detalle lo verá directamente ${lead.assignedAdvisor}, que ya está en contacto contigo 😊 ¿Te ayudo con algo más mientras tanto?`
+        ? `Ese detalle lo puedes ver directamente con ${lead.assignedAdvisor}, tu asesor/a asignada 😊 ¿Te ayudo con algo más mientras tanto?`
         : 'Con gusto te ayudo. ¿Sobre qué programa te gustaría saber más? 😊';
     }
     await sendTextMessage(phone, reply);

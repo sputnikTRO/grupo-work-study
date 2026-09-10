@@ -98,5 +98,26 @@ ok('System prompt prohíbe confirmar/negar/inventar estatus de inscripción o pa
 assert.ok(/repetir un dato que el prospecto acaba de darte NO es confirmarlo/.test(prompt));
 ok('El guardarraíl aclara que repetir un dato del prospecto sí está permitido');
 
+// ── 6. La asesora está ASIGNADA, no necesariamente ya en contacto ────────────
+// El sistema sabe que se asignó y notificó a la asesora; NO sabe si le escribió
+// al prospecto (en leads previos al SLA, assigned_at/confirmed_at son null).
+// Decir "ya está en contacto contigo" afirma un hecho que nadie verificó.
+assert.ok(!/ya está en contacto con ellos/.test(prompt), 'el prompt ya no da por hecho el contacto');
+assert.ok(/sabes que la asesora fue ASIGNADA y notificada, NO si ya le escribió/.test(prompt),
+  'debe explicar qué sabe el sistema y qué no');
+assert.ok(/Nunca afirmes "ya está en contacto contigo", "ya te escribió" ni "ya te contactó"/.test(prompt),
+  'debe prohibir las tres formas de afirmarlo');
+assert.ok(/Si el prospecto dice que nadie lo ha contactado, NO lo contradigas/.test(prompt),
+  'y decir qué hacer si el prospecto reclama que nadie le escribió');
+ok('El prompt distingue "asesora asignada" de "asesora ya en contacto"');
+
+// El contexto del lead alimenta esa misma regla en cada turno.
+const conAsesor = buildFullPrompt({ fullName: 'Ana', assignedAdvisor: 'Oriana Pullas' });
+assert.ok(/Asesor asignado: Oriana Pullas/.test(conAsesor), 'el contexto nombra a la asesora');
+assert.ok(/asignada y notificada/.test(conAsesor) && !/ya en contacto/.test(conAsesor),
+  'el contexto dice asignada+notificada, no "ya en contacto"');
+assert.ok(/no afirmes que ya la contactó/.test(conAsesor), 'y lo recuerda en la misma línea');
+ok('El contexto del prospecto describe el estado real: asignada y notificada');
+
 console.log(`\nAll ${passed} checks passed ✅`);
 process.exit(0);
