@@ -6,11 +6,23 @@
  *
  * Schema: Programa | Categoría | Pregunta | Respuesta | Orden
  *
+ * Idempotencia ADITIVA (antes era clear + rewrite completo):
+ * "FAQ Oxford" la puede editar el cliente a mano, y un clear+rewrite borraría
+ * esas ediciones sin aviso. Ahora, en cada corrida:
+ *   1. Si la pestaña no existe, la crea con el header y siembra todas las filas.
+ *   2. Si ya existe, lee las filas presentes y SOLO hace append de las que
+ *      faltan. La clave es Programa + Pregunta (normalizados): ni el Orden ni
+ *      la Categoría ni la Respuesta cuentan, para que una fila reescrita a mano
+ *      por el cliente NO se duplique ni se pise.
+ *   3. Las filas existentes nunca se tocan, borran ni reordenan.
+ * Mismo patrón que scripts/seed-ori-flow.js.
+ *
  * Usage:
  *   node scripts/seed-oxford-faq.js [--dry-run]
  *
  * Flags:
- *   --dry-run   Print rows that would be written without touching Sheets.
+ *   --dry-run   Compara contra el Sheet real y marca cada fila NUEVA / YA EXISTE,
+ *               sin escribir nada.
  *
  * NOTE: W&S Q6 about €3,600 is intentionally excluded.
  *       See docs/oxford/faq-productos.md for the marked entry.
@@ -26,6 +38,13 @@ import { google } from 'googleapis';
 // Columns: [Programa, Categoría, Pregunta, Respuesta, Orden]
 
 const FAQ_ROWS = [
+  // ── TODOS — políticas que aplican a cualquier certificación ─────────────
+  // knowledge.js agrupa 'TODOS' aparte y el bloque entero viaja al prompt sin
+  // filtrar por programa, así que responde pregunten por la certificación que
+  // pregunten. No toca la fila de ETC "¿Qué sucede si obtengo menos de 70
+  // puntos?", que es la regla específica de esa certificación.
+  ['TODOS', 'Política', '¿Qué pasa si no apruebo el examen o la certificación?', 'Si no alcanzas el puntaje mínimo para aprobar, no se realiza reembolso. Recibes un diploma de participación que reconoce tu avance: los módulos certificados, el porcentaje obtenido y el nivel alcanzado. Esto aplica a cualquiera de nuestras certificaciones.', 1],
+
   // ── Oxford TCC ──────────────────────────────────────────────────────────
   ['oxford_tcc', 'FAQ', '¿Para qué edad es adecuada esta certificación?', 'La certificación Oxford TCC se recomienda para estudiantes mayores de 12 años, sin límite de edad máxima. Para niños de 7 a 12 años se ofrece la versión Oxford TCC Kids.', 1],
   ['oxford_tcc', 'FAQ', '¿Qué niveles de inglés evalúa?', 'Evalúa los niveles A1 a C2 según el Marco Común Europeo de Referencia para las Lenguas (MCER), cubriendo todo el espectro de dominio del idioma.', 2],
@@ -125,6 +144,23 @@ const FAQ_ROWS = [
 const HEADER = ['Programa', 'Categoría', 'Pregunta', 'Respuesta', 'Orden'];
 const SHEET_NAME = 'FAQ Oxford';
 
+/**
+ * Clave de identidad de una fila: Programa + Pregunta, normalizados (sin
+ * acentos, minúsculas, espacios colapsados y sin signos). Deliberadamente NO
+ * incluye Respuesta, Categoría ni Orden: si el cliente reescribe una respuesta
+ * o reordena la hoja, la fila sigue siendo LA MISMA y el seed no la duplica.
+ */
+function rowKey(programa, pregunta) {
+  const norm = (v) => String(v ?? '')
+    .normalize('NFD')
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .toLowerCase()
+    .replace(/[^a-z0-9ñ ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `${norm(programa)}||${norm(pregunta)}`;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function buildSheetsClient() {
@@ -149,49 +185,95 @@ async function main() {
     process.exit(1);
   }
 
-  const allRows = [HEADER, ...FAQ_ROWS];
-
   console.log(`Target sheet: "${SHEET_NAME}" in spreadsheet ${spreadsheetId}`);
-  console.log(`Rows to write: ${FAQ_ROWS.length} data rows + 1 header`);
+  console.log(`Filas definidas en el script: ${FAQ_ROWS.length}\n`);
+
+  const hasCreds = Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY);
+  let sheets = null;
+  let sheetExists = false;
+  let existingKeys = null; // null = no se pudo verificar contra el Sheet real
+
+  if (hasCreds) {
+    sheets = await buildSheetsClient();
+    const meta = await sheets.spreadsheets.get({ spreadsheetId });
+    sheetExists = meta.data.sheets.some((s) => s.properties.title === SHEET_NAME);
+
+    if (sheetExists) {
+      const resp = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${SHEET_NAME}'!A:E`,
+      });
+      const values = resp.data.values || [];
+      existingKeys = new Set(values.slice(1).map((r) => rowKey(r[0], r[2]))); // salta el header
+      console.log(`[LECTURA] La pestaña YA EXISTE con ${existingKeys.size} fila(s) sembrada(s).`);
+    } else {
+      existingKeys = new Set();
+      console.log('[LECTURA] La pestaña NO existe todavía — se crearía desde cero.');
+    }
+  } else {
+    console.log('[LECTURA] Sin credenciales de Google en este entorno: no se puede comparar contra el Sheet real.');
+    console.log('Modo simulación pura: se listan todas las filas que el script maneja.\n');
+  }
+
+  const nuevas = existingKeys
+    ? FAQ_ROWS.filter((r) => !existingKeys.has(rowKey(r[0], r[2])))
+    : FAQ_ROWS;
+
+  FAQ_ROWS.forEach((r, i) => {
+    const estado = !existingKeys ? '(sin verificar)'
+      : existingKeys.has(rowKey(r[0], r[2])) ? '(YA EXISTE — se conserva, no se toca)'
+      : '(NUEVA — se agregaría al final)';
+    if (existingKeys && existingKeys.has(rowKey(r[0], r[2])) && !dryRun) return;
+    console.log(`  ${String(i + 1).padStart(2)}. [${r[0]} / ${r[1]}] ${estado}`);
+    if (!existingKeys || !existingKeys.has(rowKey(r[0], r[2]))) {
+      console.log(`      P: ${r[2]}`);
+      console.log(`      R: ${r[3]}`);
+    }
+  });
+
+  console.log(`\nResumen: ${FAQ_ROWS.length - nuevas.length} existentes (sin tocar) + ${nuevas.length} nueva(s) a insertar.`);
 
   if (dryRun) {
-    console.log('\n[DRY RUN] Would write:');
-    allRows.forEach((r, i) => console.log(`  ${i}: ${JSON.stringify(r)}`));
-    console.log(`\nTotal: ${allRows.length} rows (1 header + ${FAQ_ROWS.length} data rows)`);
+    console.log('\n[DRY RUN] No se escribió nada. Vuelve a correr sin --dry-run para sembrar.');
     return;
   }
 
-  const sheets = await buildSheetsClient();
+  if (!hasCreds) {
+    console.error('\nFaltan GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY para escribir.');
+    process.exit(1);
+  }
 
-  // Create the sheet if it doesn't exist yet — safe to call repeatedly.
-  const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const exists = meta.data.sheets.some(s => s.properties.title === SHEET_NAME);
-  if (!exists) {
-    console.log(`Sheet "${SHEET_NAME}" not found — creating it...`);
+  // Crear la pestaña si no existe (seguro de llamar repetidamente).
+  if (!sheetExists) {
+    console.log(`\nSheet "${SHEET_NAME}" not found — creating it...`);
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: { requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] },
     });
-    console.log(`Sheet "${SHEET_NAME}" created.`);
-  } else {
-    console.log(`Sheet "${SHEET_NAME}" already exists — will overwrite content.`);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${SHEET_NAME}'!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [HEADER] },
+    });
+    console.log(`Sheet "${SHEET_NAME}" created con el header.`);
   }
 
-  // Clear existing content then write fresh (idempotent).
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A:Z`,
-  });
+  if (nuevas.length === 0) {
+    console.log('\nNada que insertar: el Sheet ya tiene todas las filas del script.');
+    return;
+  }
 
-  await sheets.spreadsheets.values.update({
+  // APPEND: nunca clear, nunca update sobre filas existentes.
+  await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${SHEET_NAME}!A1`,
+    range: `'${SHEET_NAME}'!A:E`,
     valueInputOption: 'RAW',
-    requestBody: { values: allRows },
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: nuevas },
   });
 
-  console.log(`\nDone. ${FAQ_ROWS.length} FAQ rows written to "${SHEET_NAME}".`);
-  console.log(`Includes W&S-Q6 (recursos económicos / 3,600 €) — confirmed by client.`);
+  console.log(`\nListo. ${nuevas.length} fila(s) agregada(s) a "${SHEET_NAME}". Las existentes quedaron intactas.`);
 }
 
 main().catch((err) => {

@@ -12,6 +12,10 @@ const PROGRAM_LABELS = {
   rising_stars: 'Rising Stars',
   work_study_spain: 'Work & Study Spain',
   smile_and_learn: 'Smile and Learn',
+  // Filas de política general: el bucket al que caen las que no declaran
+  // Programa. La etiqueta dice a qué aplican, porque un "### TODOS" suelto no
+  // le dice al LLM que la política cubre también al Oxford TCC.
+  TODOS: 'Aplica a TODAS las certificaciones (Oxford TCC, TCC Kids, ETC, Checkpoint)',
 };
 
 /**

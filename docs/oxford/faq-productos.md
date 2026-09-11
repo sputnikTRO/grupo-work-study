@@ -8,6 +8,17 @@ Schema: Programa | Categoría | Pregunta | Respuesta | Orden
 
 ---
 
+## TODOS
+
+Políticas que aplican a CUALQUIER certificación (Oxford TCC, TCC Kids, ETC, Checkpoint).
+Programa vacío/`TODOS` en el Sheet: knowledge.js las agrupa aparte y viajan al prompt
+igual que el resto, así que responden sin importar por cuál certificación pregunten.
+
+1. ¿Qué pasa si no apruebo el examen o la certificación?
+   Si no alcanzas el puntaje mínimo para aprobar, no se realiza reembolso. Recibes un diploma de participación que reconoce tu avance: los módulos certificados, el porcentaje obtenido y el nivel alcanzado. Esto aplica a cualquiera de nuestras certificaciones.
+
+---
+
 ## oxford_tcc
 
 1. ¿Para qué edad es adecuada esta certificación?
