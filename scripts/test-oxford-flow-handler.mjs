@@ -356,6 +356,23 @@ assert.strictEqual(SENT[0].text, CHAT_REPLY);
 assert.strictEqual(DB_CONV.flowNode, 'n_1_1', 'CTA ambiguo NO rompe el estado (seguimos en n_1_1)');
 ok('CTA ambiguo → respaldo LLM, flowNode intacto (se puede resolver el CTA en el siguiente turno)');
 
+// Regresión del bug real: en el nodo del Oxford TCC (CTA "¿Deseas detalles sobre
+// niveles, proceso o costos?"), un prospecto preguntó "¿Qué pasa si no paso la
+// certificación?" y Ori contestó "Sin problema 😊 Escribe Menú…". DECLINE_RE
+// matcheaba el "no" de "si NO paso": la duda se leía como rechazo al CTA y nunca
+// llegaba al LLM, que sí tiene la respuesta en la FAQ (sin reembolso + diploma
+// de participación).
+resetState();
+DB_CONV.flowNode = 'n_1_1';
+SENT.length = 0;
+CHAT_REPLY = 'Si no alcanzas el puntaje no hay reembolso, pero recibes un diploma de participación 😊';
+await handleMessage(msg('¿Qué pasa si no paso la certificación?'), 'pnid');
+assert.ok(!SENT.some((m) => m.text.includes('Sin problema')), 'la pregunta NO se trata como "no gracias"');
+assert.strictEqual(SENT[0].text, CHAT_REPLY, 'la contesta el LLM, que es quien tiene la FAQ');
+assert.strictEqual(DB_CONV.flowNode, 'n_1_1', 'el CTA sigue vivo para resolverse en el siguiente turno');
+assert.strictEqual(DB_LEAD.assignedAdvisor, null, 'y por supuesto no deriva');
+ok('una PREGUNTA con "no" dentro llega al LLM, no al camino de rechazo del CTA');
+
 // ============================================================================
 // Escenario F — Aviso de horario al derivar FUERA de horario
 // ============================================================================
