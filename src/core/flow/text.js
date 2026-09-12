@@ -27,18 +27,67 @@ export function isMenuKeyword(text) {
 }
 
 const DECLINE_RE = /\b(no|nel|nop|negativo|ahorita no|ahora no|despues|mas tarde|luego|paso|todavia no)\b/;
-const ACCEPT_RE = /\b(si|claro|va|dale|ok|okay|vale|simon|yes|adelante|porfa|por favor)\b|hablar.*asesor|me interesa|conectame|conectenme|de acuerdo|esta bien/;
+// Tokens sueltos de aceptación: solo valen en una respuesta CORTA (ver abajo).
+const ACCEPT_TOKENS_RE = /\b(si|claro|va|dale|ok|okay|vale|simon|yes|adelante|porfa|por favor)\b/;
+// Frases que expresan la intención completa: valen aunque el mensaje sea largo.
+const ACCEPT_PHRASES_RE = /hablar.*asesor|me interesa|conectame|conectenme|de acuerdo|esta bien/;
+// Cualquier negación bloquea las frases de aceptación ("no quiero hablar con un asesor").
+const NEGATION_RE = /\b(no|nunca|tampoco)\b/;
+
+// Interrogativos con los que arranca una pregunta aunque no traiga signos.
+// Van sin acentos porque se comparan contra el texto ya normalizado.
+const QUESTION_WORD_RE = /^(que|como|cuando|donde|cuanto|cuanta|cuantos|cuantas|cual|cuales|quien|quienes|por que|porque)\b/;
+
+// Una respuesta de sí/no de verdad es corta ("no gracias", "sí, por favor",
+// "todavía no"). Más larga que esto y el sí/no suele venir embebido en una
+// frase que dice otra cosa.
+const MAX_SHORT_ANSWER_WORDS = 5;
+
+/** Texto normalizado sin puntuación, para contar palabras y buscar interrogativos. */
+function toWords(n) {
+  return n.replace(/[^a-z0-9ñ ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * ¿El mensaje es una PREGUNTA? Por signos (¿ o ?) o porque arranca con un
+ * interrogativo. No pretende ser exhaustivo: un falso positivo solo manda el
+ * turno al respaldo LLM, que es el lado seguro.
+ */
+function isQuestion(n) {
+  return /[¿?]/.test(n) || QUESTION_WORD_RE.test(toWords(n));
+}
 
 /**
  * Clasifica una respuesta a un CTA ("¿hablar con un asesor?") en
  * 'accept' | 'decline' | 'ambiguous'. Deliberadamente conservador: lo que no
  * matchea claro cae en 'ambiguous' → respaldo LLM (nunca deriva por accidente).
+ *
+ * Dos reglas impiden confundir una DUDA con un sí/no — el bug real fue
+ * "¿Qué pasa si no paso la certificación?" tratada como "no gracias", así que
+ * la pregunta nunca llegó al LLM (que sí tenía la respuesta en la FAQ):
+ *
+ *   1. Una pregunta NUNCA es accept ni decline. Quien pregunta no está
+ *      respondiendo al CTA todavía; está pidiendo información.
+ *   2. Los tokens sueltos de sí/no solo cuentan en una respuesta corta. Un "no"
+ *      dentro de una frase larga ("necesito pensarlo porque no tengo el
+ *      presupuesto") es parte de lo que dice, no un rechazo al CTA.
+ *
+ * En ambos casos el turno cae en 'ambiguous' → respaldo LLM, que responde de
+ * verdad y deja el flowNode intacto para resolver el CTA en el siguiente turno.
  */
 export function classifyCta(text) {
   const n = normalize(text);
   if (!n) return 'ambiguous';
-  if (DECLINE_RE.test(n)) return 'decline';
-  if (ACCEPT_RE.test(n)) return 'accept';
+
+  if (isQuestion(n)) return 'ambiguous';
+
+  const esCorta = toWords(n).split(' ').filter(Boolean).length <= MAX_SHORT_ANSWER_WORDS;
+  if (esCorta && DECLINE_RE.test(n)) return 'decline';
+  if (esCorta && ACCEPT_TOKENS_RE.test(n)) return 'accept';
+
+  // Las frases de intención valen a cualquier longitud, salvo que haya negación.
+  if (ACCEPT_PHRASES_RE.test(n) && !NEGATION_RE.test(n)) return 'accept';
+
   return 'ambiguous';
 }
 

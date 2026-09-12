@@ -840,6 +840,20 @@ await handleMessage(msg('todavía no'), 'pnid');
 assert.strictEqual(DB_LEAD.status, 'nuevo', '"todavía no" NO deriva');
 ok('"todavía no" elige la opción 2 y no deriva');
 
+// El clasificador de CTAs vive en core/flow/text.js, compartido con Ori: el bug
+// de "¿qué pasa si no…?" leído como rechazo afectaba a las dos. Aquí se cubre
+// del lado de Miri, en un nodo de precio con menú sí/no.
+reset();
+DB_LEAD.schoolCode = 'The Hills';
+DB_CONV.flowNode = 'cat_e4l';
+await handleMessage(msg('1'), 'pnid');                    // → precio (menú sí/no)
+SENT.length = 0;
+await handleMessage(msg('¿y si no me alcanza el presupuesto?'), 'pnid');
+assert.strictEqual(DB_LEAD.status, 'nuevo', 'una pregunta con "no" dentro NO se toma como respuesta al CTA');
+assert.ok(!allText().includes('Te conecto con'), 'y tampoco deriva');
+assert.strictEqual(DB_LEAD.assignedAdvisor, null, 'sigue sin asesora asignada');
+ok('una PREGUNTA con "no" dentro no cuenta como sí/no del CTA (helper compartido con Ori)');
+
 
 // ============================================================================
 console.log('\n== P. Guardarraíl de inscripción: la rama nunca cede al LLM ==');
