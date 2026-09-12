@@ -291,3 +291,114 @@ igual que el resto, así que responden sin importar por cuál certificación pre
 
 12. ¿Qué hace diferente a Smile and Learn?
     Combina miles de recursos educativos, aprendizaje personalizado, analíticas para docentes, contenido inclusivo y acceso desde múltiples dispositivos en una sola plataforma.
+
+---
+
+## oxford_data_analytics
+
+The Oxford Data Analytics — examen diagnóstico multinivel y Oxford Checkpoint.
+Es el bucket de los EXÁMENES DIAGNÓSTICOS del menú (cat_5: Oxford Checkpoint y
+Oxford Checkpoint Kids).
+
+1. ¿Qué es The Oxford Data Analytics y para qué sirve?
+   Es un proceso de evaluación diseñado para diagnosticar y medir de forma integral las competencias en las habilidades fundamentales del inglés: Use of English, Reading Comprehension, Writing, Listening Comprehension y Speaking. Sirve para obtener un perfil inicial de la población estudiantil, evaluar el nivel de inglés con base en el MCER y medir el progreso de los alumnos.
+
+2. ¿Qué instrumentos incluye y cuándo se utiliza cada uno?
+   Incluye dos instrumentos: Examen diagnóstico multinivel: permite identificar el nivel real de inglés de una población y diagnosticar necesidades generales. Es recomendable cuando se necesita obtener un panorama inicial amplio. Examen Checkpoint: está estructurado por nivel y cuenta con más de 200 reactivos. Es ideal para medir con precisión el dominio de un nivel previamente asignado y monitorear avances concretos.
+
+3. ¿A cuántos alumnos debe aplicarse y en qué grupos?
+   Se recomienda aplicarlo a por lo menos dos grados completos, es decir, a todos los grupos del mismo grado. Esto permite obtener muestras representativas, analizar los resultados por grupo y comparar generaciones.
+
+4. ¿Qué áreas o habilidades evalúa la prueba?
+   Dependiendo del instrumento elegido, evalúa: Use of English: gramática y vocabulario. Reading Comprehension. Listening Comprehension. Writing. Speaking. El examen diagnóstico evalúa tres habilidades: Use of English, Reading y Listening. El examen Checkpoint puede evaluar cinco habilidades al incluir Writing y Speaking.
+
+5. ¿Cómo se evalúa la expresión oral (Speaking)?
+   El estudiante graba sus respuestas directamente en la plataforma OxEd. Posteriormente, las grabaciones son evaluadas por académicos especialistas en certificaciones, quienes aplican criterios y rúbricas para calificar aspectos como: Pronunciación. Fluidez. Coherencia. Corrección lingüística. En la modalidad presencial, los examinadores pueden acudir a la sede seleccionada por la institución.
+
+6. ¿Qué tipo de reportes entrega y qué información contienen?
+   La institución recibe dos tipos de reportes: Reporte cuantitativo: presenta el desglose numérico de los resultados por alumno y por habilidad, incluyendo puntajes y porcentajes de acierto. Reporte cualitativo: analiza los resultados por grupo, nivel y grado; identifica patrones, tendencias y áreas comunes de oportunidad; además, incluye recomendaciones pedagógicas y medidas de acción.
+
+7. ¿Cómo pueden los docentes usar los resultados para mejorar la enseñanza?
+   Los docentes pueden utilizar los resultados para: Agrupar a los alumnos según sus necesidades. Priorizar contenidos por habilidad. Planear unidades de refuerzo. Asignar recursos. Diseñar actividades específicas. Monitorear la eficacia de las intervenciones mediante evaluaciones posteriores.
+
+8. ¿Qué garantía de alineación con estándares ofrece?
+   Tanto el examen diagnóstico como el examen Checkpoint están alineados con el Marco Común Europeo de Referencia para las Lenguas (MCER). Esto permite obtener resultados comparables y útiles para tomar decisiones basadas en estándares internacionales.
+
+9. ¿Qué logística y requisitos técnicos se necesitan?
+   Se requiere: Acceso a la plataforma OxEd. Dispositivos con capacidad de audio para las grabaciones. Conexión estable a internet. Coordinación operativa para calendarizar las sesiones. Alimentación de la base de datos. Verificación de la información de los alumnos. La implementación se coordina con el área de Operación para definir las sesiones, el volumen de aplicación y la validación de datos.
+
+10. ¿Se puede utilizar para seguimiento longitudinal y comparación entre generaciones?
+   Sí. The Oxford Data Analytics genera históricos institucionales que permiten monitorear las trayectorias individuales de los estudiantes y comparar generaciones. Mediante aplicaciones periódicas, como un diagnóstico inicial y una evaluación posterior, la institución puede medir el progreso longitudinal y evaluar el impacto de los cambios pedagógicos.
+
+
+---
+
+## ainara
+
+AINARA — plataforma de IA generativa para el aula (menú: cat_3, opción AINARA).
+
+1. ¿Qué es AINARA?
+   Es una plataforma de IA generativa especializada en educación que permite crear, adaptar y evaluar contenidos personalizados para distintos contextos educativos.
+
+2. ¿Se necesita hardware especial para usar AINARA?
+   No. Funciona con dispositivos estándar y conexión a internet, y se integra en plataformas y sistemas de gestión educativa o de forma independiente.
+
+3. ¿Qué niveles educativos cubre?
+   Desde educación básica hasta media superior, con adaptaciones posibles para educación universitaria y formación continua.
+
+4. ¿Cómo se asegura la inclusión de estudiantes con necesidades especiales?
+   Ofrece herramientas como pictogramas, lenguaje simplificado, subtítulos, audiolibros y accesibilidad motriz y sensorial.
+
+5. ¿Es segura la información de los estudiantes?
+   Sí. Cumple con estándares éticos y normativas internacionales de protección de datos.
+
+6. ¿Se pueden generar contenidos en varios idiomas?
+   Sí. Cuenta con traducción automática y adaptación de niveles lingüísticos según el MCER.
+
+7. ¿Qué formatos de salida admite?
+   PDF, PPT, presentaciones web, audiolibros y videos interactivos, entre otros.
+
+8. ¿Se pueden integrar recursos propios del docente?
+   Sí. Es posible añadir textos, videos, audios y presentaciones para que la IA los transforme o adapte.
+
+9. ¿Puede funcionar sin conexión a internet?
+   Algunas funciones de visualización sí, pero la creación y la adaptación de contenidos requieren conexión.
+
+10. ¿Cuál es la principal diferencia frente a otras herramientas de IA?
+   Integra en una sola plataforma todas las funciones de creación, adaptación, evaluación y personalización educativa, con un enfoque seguro e inclusivo. Al tratarse de un ambiente seguro, profesores y alumnos pueden confiar en la veracidad de los materiales.
+
+
+---
+
+## visual_camp
+
+READ by Visual Camp — el menú la ofrece como "Visual Camp" (cat_3). Las preguntas
+usan el nombre del doc; la etiqueta del bucket en knowledge.js nombra los dos.
+
+1. ¿Qué es READ de Visual Camp?
+   Es una plataforma tecnológica con eye tracking e inteligencia artificial que tiene el objetivo de enriquecer las habilidades lectoras mediante una tecnología de seguimiento ocular enfocada en analizar la forma en que las personas leen, sin hardware adicional.
+
+2. ¿En qué plataformas funciona?
+   En dispositivos móviles iOS y Android, así como en entornos web compatibles.
+
+3. ¿Necesito sensores especiales para usarlo?
+   No, solo se requiere la cámara frontal del dispositivo.
+
+4. ¿Qué mide READ exactamente?
+   Velocidad de lectura (palabras por minuto), fijaciones, pausas, atención y comprensión.
+
+5. ¿Es útil en la educación?
+   Sí. Permite evaluar y mejorar las habilidades lectoras de forma personalizada, así como la atención y la retención de información.
+
+6. ¿Cómo se protegen los datos de los usuarios?
+   Mediante cifrado seguro y cumplimiento de las normativas de privacidad.
+
+7. ¿Puede integrarse en aplicaciones existentes?
+   Sí, mediante el SDK (software development kit) de Visual Camp.
+
+8. ¿Funciona en tiempo real?
+   Sí. Detecta y analiza el comportamiento lector al momento, mediante la tecnología de eye tracking e inteligencia artificial.
+
+9. ¿Hay una versión demo disponible?
+   Sí. Visual Camp ofrece demos y soporte para la implementación.
+
