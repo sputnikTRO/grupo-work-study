@@ -12,6 +12,11 @@ const PROGRAM_LABELS = {
   rising_stars: 'Rising Stars',
   work_study_spain: 'Work & Study Spain',
   smile_and_learn: 'Smile and Learn',
+  // La etiqueta lleva TODOS los nombres con que el prospecto puede preguntar:
+  // es lo único que le dice al LLM a qué producto pertenece cada ficha.
+  oxford_data_analytics: 'The Oxford Data Analytics (examen diagnóstico multinivel y Oxford Checkpoint)',
+  ainara: 'AINARA',
+  visual_camp: 'Visual Camp (READ by Visual Camp)',
   // Filas de política general: el bucket al que caen las que no declaran
   // Programa. La etiqueta dice a qué aplican, porque un "### TODOS" suelto no
   // le dice al LLM que la política cubre también al Oxford TCC.
