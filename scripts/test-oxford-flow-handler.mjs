@@ -155,10 +155,10 @@ function row(id, texto, opciones = {}, orden = 1) {
 
 const FULL_FLOW_ROWS = [
   row('bienvenida',
-    '¡Hola! Gracias por escribir a Oxford Education Lit. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?',
+    '¡Hola! Gracias por escribir a Oxford Education. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?',
     {}, 1),
   row('filtro_previo',
-    'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education Lit o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
+    'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
     { 1: 'ya_inscrito_stub', 2: 'solicitud_datos' }, 2),
   row('ya_inscrito_stub',
     '¡Con gusto te apoyamos con tu proceso! ¿Me compartes tu nombre y el colegio o institución? Una asesora revisará tu caso y te dará seguimiento.',
@@ -202,8 +202,8 @@ resetState();
 
 await handleMessage(msg('Hola'), 'pnid');
 assert.strictEqual(SENT.length, 2, 'primer turno: bienvenida + filtro_previo (2 mensajes)');
-assert.ok(SENT[0].text.includes('Gracias por escribir a Oxford Education Lit'), 'msg 1 = bienvenida verbatim');
-assert.ok(SENT[1].text.includes('¿ya eres parte de Oxford Education Lit'), 'msg 2 = filtro_previo verbatim');
+assert.ok(SENT[0].text.includes('Gracias por escribir a Oxford Education'), 'msg 1 = bienvenida verbatim');
+assert.ok(SENT[1].text.includes('¿ya eres parte de Oxford Education'), 'msg 2 = filtro_previo verbatim');
 assert.strictEqual(DB_CONV.flowNode, 'filtro_previo', 'flowNode persistido = filtro_previo');
 ok('Conversación nueva → bienvenida + filtro_previo (verbatim), flowNode=filtro_previo');
 

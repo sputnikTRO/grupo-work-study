@@ -82,8 +82,8 @@ function row(id, texto, opciones = {}, orden = 1) {
   return { ID: id, Estado: 'Vigente', Texto: texto, 'Destino opción 1': d[0], 'Destino opción 2': d[1], 'Destino opción 3': d[2], 'Destino opción 4': d[3], 'Destino opción 5': d[4], Notas: '', Orden: String(orden) };
 }
 const FLOW_ROWS = [
-  row('bienvenida', '¡Hola! Gracias por escribir a Oxford Education Lit. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?', {}, 1),
-  row('filtro_previo', 'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education Lit o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información', { 1: 'ya_inscrito_stub', 2: 'solicitud_datos' }, 2),
+  row('bienvenida', '¡Hola! Gracias por escribir a Oxford Education. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?', {}, 1),
+  row('filtro_previo', 'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información', { 1: 'ya_inscrito_stub', 2: 'solicitud_datos' }, 2),
   row('ya_inscrito_stub', '¡Con gusto te apoyamos con tu proceso! ¿Me compartes tu nombre y el colegio o institución? Una asesora revisará tu caso y te dará seguimiento.', {}, 3),
   row('solicitud_datos', 'Para ayudarte mejor, ¿me compartes por favor:\n- Tu nombre y puesto (en caso de pertenecer a una institución)\n- Nombre de tu colegio o institución\n- Ciudad y estado', {}, 4),
   row('menu_principal', 'Oxford Education es una EdTech con más de 10 años de experiencia que acompaña a colegios con certificaciones de idiomas, plataformas digitales, programas STEAM y experiencias educativas internacionales, siempre alineadas a estándares internacionales. ¿Qué área te interesa conocer?\n1.- Certificaciones\n2.- Plataformas para aprendizaje del inglés\n3.- Plataformas para el aula\n4.- Experiencias internacionales\n5.- Exámenes diagnósticos de inglés', { 1: 'cat_1', 2: 'cat_2', 3: 'cat_3', 4: 'cat_4', 5: 'cat_5' }, 5),

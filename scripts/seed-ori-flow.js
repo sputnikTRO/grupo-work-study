@@ -49,14 +49,14 @@ const FLOW_NODES = [
   {
     id: 'bienvenida',
     estado: 'Vigente',
-    texto: '¡Hola! Gracias por escribir a Oxford Education Lit. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?',
+    texto: '¡Hola! Gracias por escribir a Oxford Education. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?',
     opciones: {},
     notas: 'Se usa SIEMPRE, sin versión de fuera de horario.',
   },
   {
     id: 'filtro_previo',
     estado: 'Nuevo (redacción provisional)',
-    texto: 'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education Lit o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
+    texto: 'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
     opciones: { 1: 'ya_inscrito_stub', 2: 'solicitud_datos' },
     notas: 'NUEVO — no está en el Sheet actual; redacción provisional, sujeta a validación del cliente.',
   },
@@ -224,7 +224,7 @@ const FLOW_NODES = [
   {
     id: 'util_cierre',
     estado: 'Vigente',
-    texto: 'Gracias por comunicarte con Oxford Education Lit. Si tienes más dudas en el futuro, no dudes en contactarnos nuevamente. ¡Que tengas un excelente día!',
+    texto: 'Gracias por comunicarte con Oxford Education. Si tienes más dudas en el futuro, no dudes en contactarnos nuevamente. ¡Que tengas un excelente día!',
     opciones: {},
     notas: 'Nodo utilitario: cierre de conversación.',
   },

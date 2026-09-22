@@ -135,8 +135,8 @@ const NO_SEGURO_TXT = 'Si aún no estás seguro, podemos ayudarte a entender mej
 const TCC_TXT = 'El Oxford TCC evalúa el dominio del inglés como lengua extranjera, reconocido internacionalmente y alineado al MCER. ¿Deseas detalles sobre niveles, proceso o costos?';
 
 const FULL_FLOW_ROWS = [
-  row('bienvenida', '¡Hola! Gracias por escribir a Oxford Education Lit. ¿En qué puedo apoyarte hoy?', {}, 1),
-  row('filtro_previo', 'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education Lit o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
+  row('bienvenida', '¡Hola! Gracias por escribir a Oxford Education. ¿En qué puedo apoyarte hoy?', {}, 1),
+  row('filtro_previo', 'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
     { 1: 'ya_inscrito_stub', 2: 'solicitud_datos' }, 2),
   row('ya_inscrito_stub', '¡Con gusto te apoyamos con tu proceso! ¿Me compartes tu nombre y el colegio o institución?', {}, 3),
   row('solicitud_datos', 'Para ayudarte mejor, ¿me compartes tu nombre, tu colegio y tu ciudad y estado?', {}, 4),
@@ -154,7 +154,7 @@ const FULL_FLOW_ROWS = [
   row('n_3_4', AINARA_TXT, {}, 13),
   row('n_3_5', KNOW_TXT, {}, 14),
   row('util_menu', "Si deseas volver al menú principal, solo escribe 'Menú'.", {}, 15),
-  row('util_cierre', 'Gracias por comunicarte con Oxford Education Lit. ¡Que tengas un excelente día!', {}, 16),
+  row('util_cierre', 'Gracias por comunicarte con Oxford Education. ¡Que tengas un excelente día!', {}, 16),
 ];
 
 // Solo Smile and Learn tiene ficha en el FAQ — el hueco que motivó este cambio.
@@ -201,8 +201,8 @@ ok('las descripciones de producto entran con su nombre VERBATIM del menú');
 // Navegación fuera: su texto es una lista de opciones o un paso de captura.
 assert.ok(!block.includes('¿Qué área te interesa conocer?'), 'menu_principal es navegación, no conocimiento');
 assert.ok(!block.includes('selecciona la plataforma de tu interés'), 'cat_3 es navegación, no conocimiento');
-assert.ok(!block.includes('¿ya eres parte de Oxford Education Lit'), 'filtro_previo es navegación');
-assert.ok(!block.includes('Gracias por escribir a Oxford Education Lit'), 'bienvenida es saludo, no conocimiento');
+assert.ok(!block.includes('¿ya eres parte de Oxford Education'), 'filtro_previo es navegación');
+assert.ok(!block.includes('Gracias por escribir a Oxford Education'), 'bienvenida es saludo, no conocimiento');
 assert.ok(!block.includes('¿Me compartes tu nombre y el colegio'), 'ya_inscrito_stub es captura, no conocimiento');
 assert.ok(!block.includes('¿me compartes tu nombre, tu colegio'), 'solicitud_datos es captura, no conocimiento');
 assert.ok(!block.includes("solo escribe 'Menú'"), 'util_menu es utilitario');

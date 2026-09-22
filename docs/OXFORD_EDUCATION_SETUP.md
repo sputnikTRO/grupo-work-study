@@ -1,6 +1,6 @@
-# Oxford Education LIT — Nuevo agente de WhatsApp (Fase 3)
+# Oxford Education — Nuevo agente de WhatsApp (Fase 3)
 
-Agente conversacional de WhatsApp para **Oxford Education LIT**, construido sobre la
+Agente conversacional de WhatsApp para **Oxford Education**, construido sobre la
 misma base que Miri (Travel) pero **completamente aislado**.
 
 ## Qué se implementó (código, ya listo)

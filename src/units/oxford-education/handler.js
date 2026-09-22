@@ -17,7 +17,7 @@ import { tryDeterministicFlow, FREEFORM } from './flow-engine.js';
 /**
  * Oxford Education Unit Message Handler
  *
- * Processes inbound WhatsApp messages for the Oxford Education LIT number.
+ * Processes inbound WhatsApp messages for the Oxford Education number.
  * Mirrors the Travel flow's shape but is fully isolated: its own WhatsApp
  * credentials, Redis namespace (via ./store.js) and lead table (oxford_leads).
  */
