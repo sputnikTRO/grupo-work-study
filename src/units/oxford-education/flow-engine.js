@@ -47,6 +47,17 @@ const SOLICITUD_DATOS_FIELDS = [
   { key: 'full_name', label: 'nombre completo de la persona' },
   { key: 'role', label: 'puesto o cargo, solo si pertenece a una institución (p.ej. director, coordinador)' },
   { key: 'institution_name', label: 'nombre del colegio o institución' },
+  // lead_type NO se deducía aquí y el lead se quedaba siempre con el default
+  // b2c_individual: el ticket de la asesora decía "individual" aunque escribiera
+  // un coordinador, y el handoff de viajes mandaba colegios al carrusel de
+  // familias. Lo decide el LLM porque tiene la frase completa.
+  //
+  // OJO con el atajo obvio: "si hay colegio, es institución" es FALSO. El nodo
+  // pregunta "nombre de tu colegio o institución" y un papá contesta eso igual,
+  // con el colegio de su hijo. La señal fuerte es el PUESTO: un cargo solo
+  // existe dentro de una institución. Ante la duda se deja vacío — el extractor
+  // ya tiene instruido usar null y buildLeadUpdate descarta cualquier otro valor.
+  { key: 'lead_type', label: 'b2b_institutional si escribe EN NOMBRE de un colegio o institución (menciona su puesto o cargo ahí); b2c_individual si es un papá, alumno o docente a título personal. Déjalo en null si no queda claro — NO lo deduzcas solo porque mencione un colegio' },
   { key: 'state', label: 'estado de la república mexicana' },
   { key: 'municipality', label: 'ciudad, alcaldía o municipio' },
 ];

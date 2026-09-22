@@ -471,6 +471,51 @@ await handleMessage(msg('sí'), 'pnid');
 assert.strictEqual(DB_TRAVEL_LEAD.assignedAdvisor, 'Camila Serafín', 'familia → Camila');
 ok('English Life enruta por tipo de lead: familia → carrusel de familias');
 
+// ── lead_type ahora lo deduce el extractor de solicitud_datos ──────────────
+// Antes NO estaba entre los campos extraídos: el lead se quedaba siempre en el
+// default b2c_individual, así que el ticket de Oxford decía "individual" aunque
+// escribiera un coordinador, y el viaje de un colegio se iba al carrusel de
+// familias (pasó en la prueba real del 22-sep, ticket de viajes #49 → Camila).
+resetState();
+DB_CONV.flowNode = 'solicitud_datos';
+EXTRACT_RESULT = {
+  full_name: 'Ana López', role: 'Coordinadora académica',
+  institution_name: 'Colegio Test', lead_type: 'b2b_institutional',
+  state: 'Jalisco', municipality: 'Guadalajara',
+};
+await handleMessage(msg('Soy Ana López, coordinadora del Colegio Test, en Guadalajara'), 'pnid');
+assert.strictEqual(DB_LEAD.leadType, 'b2b_institutional', 'el puesto lo marca como institución');
+ok('solicitud_datos ya deduce lead_type (antes se quedaba en el default individual)');
+
+// Y con eso el viaje de un colegio va al carrusel de COLEGIOS, no al de familias.
+DB_CONV.flowNode = 'cat_4';
+TRAVEL_TEMPLATES.length = 0;
+await handleMessage(msg('1'), 'pnid');                 // → n_4_1 (English Life)
+await handleMessage(msg('sí'), 'pnid');
+assert.ok(['Alma Sotelo', 'Victor Hugo Cruz', 'Cecilia Rodríguez'].includes(DB_TRAVEL_LEAD.assignedAdvisor),
+  `institución → carrusel de colegios (fue: ${DB_TRAVEL_LEAD.assignedAdvisor})`);
+ok('con lead_type correcto, English Life de un colegio va al carrusel de colegios');
+
+// Ante la duda NO adivina: sin puesto, el extractor deja lead_type vacío y el
+// lead conserva su valor. Mencionar un colegio NO basta — el nodo pregunta "tu
+// colegio o institución" y un papá contesta eso igual.
+resetState();
+DB_CONV.flowNode = 'solicitud_datos';
+EXTRACT_RESULT = { full_name: 'Luis Hernández', institution_name: 'colegio Princeton', state: 'CDMX', municipality: 'Álvaro Obregón' };
+await handleMessage(msg('Luis Hernández, colegio Princeton, CDMX Álvaro Obregón'), 'pnid');
+assert.strictEqual(DB_LEAD.institutionName, 'colegio Princeton', 'el colegio sí se captura');
+assert.strictEqual(DB_LEAD.leadType, null, 'pero sin puesto NO se marca como institución');
+ok('sin puesto, el colegio por sí solo no convierte el lead en institucional');
+
+// Un valor inventado por el LLM se descarta (misma validación que CAPTURAR_DATO).
+resetState();
+DB_CONV.flowNode = 'solicitud_datos';
+EXTRACT_RESULT = { full_name: 'Test', lead_type: 'colegio_grande' };
+await handleMessage(msg('soy Test'), 'pnid');
+assert.strictEqual(DB_LEAD.leadType, null, 'un lead_type fuera del enum se ignora');
+assert.strictEqual(DB_LEAD.fullName, 'Test', 'sin bloquear los demás campos del mismo turno');
+ok('un lead_type inválido se descarta sin romper la captura');
+
 // Pero si el LLM solo respondió una duda, el nodo NO se toca: es lo que permite
 // seguir navegando donde ibas.
 resetState();
