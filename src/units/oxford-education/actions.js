@@ -7,6 +7,7 @@ import * as store from './store.js';
 import { sendTextMessage } from './whatsapp.js';
 import { HANDOFF_MEETING_URL } from './prompts.js';
 import { resolveZona, zonaAdvisors, CDMX_SENTINEL, CDMX_ZONAS } from './advisor-zones.js';
+import { handoffToTravel, isTravelProduct } from './travel-handoff.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { buildAssignmentFields } from './advisor-sla.js';
 
@@ -262,6 +263,16 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
   if (lead.assignedAdvisor) {
     log.info({ assignedAdvisor: lead.assignedAdvisor }, 'Lead already handed off — skip re-notify (Ori defers to advisor)');
     return { handedOff: false };
+  }
+
+  // Producto de viajes → lo atiende el equipo de Travel, no el de Oxford. Se
+  // reconoce por la etiqueta que quedó capturada (del menú o de product_label).
+  if (isTravelProduct(lead.primaryProductLabel)) {
+    const viajes = await handoffToTravel({
+      lead, conv, contact, productLabel: lead.primaryProductLabel, reason, log,
+    });
+    if (viajes.handedOff) return { handedOff: true };
+    if (viajes.yaDerivado) return { handedOff: false };
   }
 
   const resuelta = resolveZona(lead.state, lead.municipality);

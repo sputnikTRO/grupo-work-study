@@ -16,6 +16,16 @@ No mezclar datos ni credenciales entre unidades — Oxford tiene su propio tab d
 (`Leads Oxford`) y sus propias credenciales de WhatsApp (`OXED_PHONE_NUMBER_ID`, etc.),
 aisladas de Travel a propósito.
 
+**Única excepción, deliberada y acotada:** `oxford-education/travel-handoff.js`. Las
+experiencias internacionales del menú de Ori (English Life, Rising STARS, Global
+Insights, Wish and Go) las atiende el equipo de VIAJES, así que ese módulo crea el
+`TravelLead`, elige asesora del carrusel de Miri y la notifica con la plantilla y el
+`phone_number_id` de Travel. Al prospecto le responde ORI, por su propio chat y su
+propio número — si se reusara el handoff de Miri tal cual, el "te conecto con…" le
+llegaría desde un número que él nunca escribió. El lead de Oxford queda marcado con la
+etiqueta `derivado_travel` pero NO se deriva a una asesora de Oxford: notificar a dos
+equipos por el mismo prospecto es peor que no notificar a ninguno.
+
 ## Oxford Education (Ori) — piezas clave
 
 - `handler.js` — orquesta el turno: primero intenta la capa determinística
