@@ -321,6 +321,55 @@ assert.ok(!TEMPLATES_SENT[0].params.includes('no capturado'), 'el apartado Produ
 ok('un producto fuera del enum (Smile and Learn) llena el apartado Producto del ticket');
 flowRowsOverride = FULL_FLOW_ROWS;
 
+// ── Conversación REAL de prod (22-sep): el ticket llegó sin producto ────────
+// El prospecto preguntó por AINARA en TEXTO LIBRE estando en cat_2, así que el
+// handoff salió por el camino LLM ([DERIVAR_ASESOR]) y no por un nodo del menú.
+// La captura desde el nodo no aplicaba, y AINARA no existe en el enum, así que
+// el apartado "Producto" del ticket llegó VACÍO a la asesora.
+resetState();
+DB_CONV.flowNode = 'llm_freeform';
+DB_LEAD.state = 'Jalisco';
+SENT.length = 0;
+TEMPLATES_SENT.length = 0;
+CHAT_REPLY = '¡AINARA es una de nuestras plataformas más innovadoras! 😊 [CAPTURAR_DATO:product_label:AINARA][DERIVAR_ASESOR:Interesado en plataforma AINARA para el aula]';
+await handleMessage(msg('Me interesa Ainara'), 'pnid');
+assert.strictEqual(DB_LEAD.primaryProductLabel, 'AINARA', 'el LLM ya puede registrar un producto fuera del enum');
+assert.strictEqual(DB_LEAD.primaryProduct, null, 'sin inventar un valor de enum inexistente');
+assert.ok(TEMPLATES_SENT[0].params.includes('AINARA'), `el ticket lleva AINARA (params: ${TEMPLATES_SENT[0].params.join(' | ')})`);
+assert.ok(!TEMPLATES_SENT[0].params.includes('no capturado'), 'ya no llega "no capturado"');
+ok('AINARA por el camino LLM: el ticket llega CON el producto (bug real del 22-sep)');
+
+// ── El menú acepta el TEXTO de la opción, no solo el número ────────────────
+// En la misma conversación, "Me interesa Ainara" no podía elegir nada porque el
+// menú de Ori solo miraba dígitos. Miri ya aceptaba texto; ahora Ori también.
+resetState();
+DB_CONV.flowNode = 'cat_1';
+SENT.length = 0;
+await handleMessage(msg('Oxford ETC'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'n_1_3', 'la etiqueta del menú elige la opción');
+assert.strictEqual(DB_LEAD.primaryProductLabel, 'Oxford ETC (Certificación para docentes)');
+ok('el menú de Ori acepta el texto de la opción, no solo el número');
+
+// Un número suelto FUERA de rango re-muestra la lista (no cede al LLM).
+resetState();
+DB_CONV.flowNode = 'cat_1';
+SENT.length = 0;
+await handleMessage(msg('9'), 'pnid');      // cat_1 solo tiene 1..4
+assert.strictEqual(SENT.length, 1);
+assert.ok(SENT[0].text.includes('no es válida'), 'avisa y re-muestra las opciones');
+assert.strictEqual(DB_CONV.flowNode, 'cat_1', 'sin romper el estado');
+ok('un número fuera de rango sigue re-mostrando la lista');
+
+// Pero un número DENTRO de una frase es conversación, no una elección.
+resetState();
+DB_CONV.flowNode = 'cat_1';
+SENT.length = 0;
+CHAT_REPLY = 'Con gusto, para 30 alumnos aplican condiciones especiales 😊';
+await handleMessage(msg('tenemos 30 alumnos, ¿aplica?'), 'pnid');
+assert.strictEqual(SENT[0].text, CHAT_REPLY, 'va al LLM, no elige ninguna opción');
+assert.strictEqual(DB_CONV.flowNode, 'cat_1');
+ok('un número dentro de una frase no se confunde con elegir opción');
+
 // ============================================================================
 // Escenario B — Número inválido
 // ============================================================================

@@ -35,6 +35,10 @@ const CAPTURE_FIELD_MAP = {
   role: 'role',
   lead_type: 'leadType',
   primary_product: 'primaryProduct',
+  // Nombre libre del producto de interés. El enum solo cubre 7 de los ~16 del
+  // menú, así que sin esto un prospecto que pregunta por AINARA o Smile and
+  // Learn en texto libre se deriva con el apartado "Producto" VACÍO.
+  product_label: 'primaryProductLabel',
   institution_name: 'institutionName',
   institution_type: 'institutionType',
   estimated_students: 'estimatedStudents',
@@ -110,6 +114,12 @@ export function buildLeadUpdate(field, value) {
     // También la etiqueta legible, para que el ticket se vea igual venga del
     // menú determinístico o de [CAPTURAR_DATO] del LLM.
     return { primaryProduct: value, productsInterest: [value], primaryProductLabel: PRODUCT_LABELS[value] || value };
+  }
+  if (column === 'primaryProductLabel') {
+    // Texto libre a propósito (el catálogo vive en el Sheet), pero acotado:
+    // es un NOMBRE de producto, no una frase.
+    const label = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return label ? { primaryProductLabel: label } : null;
   }
   if (column === 'estimatedStudents') {
     const n = parseInt(value.replace(/\D/g, ''), 10);

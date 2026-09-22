@@ -119,5 +119,21 @@ assert.ok(/asignada y notificada/.test(conAsesor) && !/ya en contacto/.test(conA
 assert.ok(/no afirmes que ya la contactó/.test(conAsesor), 'y lo recuerda en la misma línea');
 ok('El contexto del prospecto describe el estado real: asignada y notificada');
 
+// ── 7. El LLM no debe numerar listas (chocan con el menú del sistema) ────────
+// Bug real del 22-sep: estando el flujo en cat_2 (que solo tiene opciones 1 y 2),
+// el LLM imprimió su propia lista "1. Smile and Learn … 3. AINARA …". El
+// prospecto escribió "3" y el sistema lo evaluó contra cat_2 → "esa opción no es
+// válida". Los números le pertenecen a la capa determinística.
+assert.ok(/NUNCA escribas una lista NUMERADA/.test(prompt), 'el prompt debe prohibir las listas numeradas');
+assert.ok(/Los números le\n  pertenecen al MENÚ del sistema/.test(prompt), 'y explicar por qué, no solo prohibirlo');
+assert.ok(/escribirme el\n  nombre/.test(prompt), 'y decir qué hacer en su lugar');
+ok('El prompt prohíbe listas numeradas y explica el conflicto con el menú');
+
+// ── 8. product_label: cualquier producto llega al ticket ─────────────────────
+assert.ok(/product_label \(el NOMBRE del producto/.test(prompt), 'existe el campo product_label');
+assert.ok(/AINARA.*Smile and Learn.*Visual Camp/.test(prompt), 'con ejemplos de los que no están en el enum');
+assert.ok(/\[CAPTURAR_DATO:product_label:AINARA\]/.test(prompt), 'y un ejemplo concreto de uso');
+ok('El prompt sabe registrar productos fuera del enum (product_label)');
+
 console.log(`\nAll ${passed} checks passed ✅`);
 process.exit(0);

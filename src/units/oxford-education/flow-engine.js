@@ -6,7 +6,7 @@ import * as oxfordLeadService from './lead.service.js';
 import { sendTextMessage } from './whatsapp.js';
 import { buildLeadUpdate, executeHandoffToAdvisor } from './actions.js';
 import { loadFlowGraph, getNode, isMenuNode, menuLabelFor, productLabelFor } from './flow-content.js';
-import { isMenuKeyword, classifyCta } from '../../core/flow/text.js';
+import { isMenuKeyword, classifyCta, matchMenuChoice, standaloneNumber } from '../../core/flow/text.js';
 import { extractStructuredFields } from '../../core/flow/extract.js';
 import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from './office-hours.js';
 
@@ -115,10 +115,14 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
 
   // ── Nodo de menú (opciones numeradas): filtro_previo, menu_principal, cat_1..5 ──
   if (isMenuNode(node)) {
-    const digitMatch = text.match(/(\d+)/);
-    if (!digitMatch) return { handled: false, midFlowFallback: true }; // texto libre → respaldo LLM, flowNode intacto
+    // Acepta el número O el TEXTO de la etiqueta ("Alphable"), igual que Miri:
+    // un prospecto escribe el nombre del producto tanto como el número. Un
+    // número SUELTO fuera de rango también entra, para re-mostrar la lista; uno
+    // dentro de una frase ("tengo 30 alumnos") NO — eso es conversación.
+    const intento = matchMenuChoice(text, node) || standaloneNumber(text);
+    if (!intento) return { handled: false, midFlowFallback: true }; // texto libre → respaldo LLM, flowNode intacto
     await store.addMessage(conv.id, 'user', text);
-    return await handleMenuChoice(graph, node, digitMatch[1], ctx);
+    return await handleMenuChoice(graph, node, intento, ctx);
   }
 
   // ── Nodo hoja de producto (n_1_1..n_5_2): CTA "¿hablar con un asesor?" ──────
