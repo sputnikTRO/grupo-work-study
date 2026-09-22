@@ -12,7 +12,7 @@ import { buildFullPrompt } from './prompts.js';
 import { buildOxfordKnowledge, buildFlowKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
-import { tryDeterministicFlow } from './flow-engine.js';
+import { tryDeterministicFlow, FREEFORM } from './flow-engine.js';
 
 /**
  * Oxford Education Unit Message Handler
@@ -82,7 +82,22 @@ export async function handleMessage(message, phoneNumberId) {
     const flowResult = await tryDeterministicFlow({ phone, content, conv, lead, contact, log });
 
     if (!flowResult.handled) {
-      await processWithAI(phone, content, conv, lead, contact, log);
+      const { handoffOccurred } = await processWithAI(phone, content, conv, lead, contact, log);
+
+      // Si la derivación OCURRIÓ por el camino del LLM, el guion terminó igual
+      // que cuando deriva el menú: se cierra el nodo. Si no, el prospecto queda
+      // parado en un menú viejo y un "2" suelto lo manda a la opción 2 de ese
+      // menú, aunque la conversación ya fuera de otra cosa y ya tenga asesora.
+      //
+      // Solo cuando ocurrió DE VERDAD: si el guard anti-redisparo la bloqueó
+      // (ya había asesora), no pasó nada y el nodo no se toca. Y si el LLM solo
+      // respondió una duda a media navegación, tampoco — conservar el nodo ahí
+      // es justo lo que hace que el flujo no se rompa.
+      if (handoffOccurred && conv.flowNode && conv.flowNode !== FREEFORM) {
+        await conversationService.update(conv.id, { flowNode: FREEFORM });
+        conv.flowNode = FREEFORM;
+        log.info('Handoff por el camino LLM — flowNode cerrado a modo libre');
+      }
 
       // El flujo seguía activo (flowNode no cambió) pero el mensaje no matcheó
       // número/menú/CTA claro → el LLM ya respondió la duda; lo reencauzamos al
@@ -94,7 +109,7 @@ export async function handleMessage(message, phoneNumberId) {
       // conversation.metadata, que ya existe y es Json libre. Mismo patrón que
       // el handler de Travel; al cambiar de nodo el recordatorio vuelve a salir.
       const meta = conv.metadata || {};
-      if (flowResult.midFlowFallback && meta.nudgedNode !== conv.flowNode) {
+      if (flowResult.midFlowFallback && !handoffOccurred && meta.nudgedNode !== conv.flowNode) {
         const reminder = "Escribe *Menú* cuando quieras ver las opciones de nuevo 😊";
         await sendTextMessage(phone, reminder);
         await messageService.createOutbound(conv.id, reminder);
@@ -120,6 +135,9 @@ export async function handleMessage(message, phoneNumberId) {
 /**
  * Runs the Claude turn: builds prompt + history, parses/executes actions,
  * replies, and updates conversation memory.
+ *
+ * @returns {Promise<{handoffOccurred: boolean}>} el llamador lo usa para cerrar
+ *   el nodo del flujo cuando la derivación de verdad ocurrió.
  */
 async function processWithAI(phone, content, conv, lead, contact, log) {
   const history = await store.getHistory(conv.id);
@@ -176,6 +194,8 @@ async function processWithAI(phone, content, conv, lead, contact, log) {
   const freshLead = await oxfordLeadService.getOxfordLeadById(lead.id);
   const summary = buildConversationSummary(history, content.text, reply);
   await syncOxfordLeadToSheet(freshLead || lead, contact, conv, { handoffOccurred, summary });
+
+  return { handoffOccurred };
 }
 
 /**

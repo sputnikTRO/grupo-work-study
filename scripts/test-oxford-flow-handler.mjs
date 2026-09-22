@@ -339,6 +339,44 @@ assert.ok(TEMPLATES_SENT[0].params.includes('AINARA'), `el ticket lleva AINARA (
 assert.ok(!TEMPLATES_SENT[0].params.includes('no capturado'), 'ya no llega "no capturado"');
 ok('AINARA por el camino LLM: el ticket llega CON el producto (bug real del 22-sep)');
 
+// ── El nodo se cierra cuando la derivación ocurre por el camino LLM ─────────
+// En la prueba real el prospecto quedó parado en cat_2 después de que lo
+// derivaran: un "2" suelto lo habría mandado a Alphable, con asesora ya asignada
+// y la conversación hablando de otra cosa.
+resetState();
+DB_CONV.flowNode = 'cat_1';
+DB_LEAD.state = 'Jalisco';
+SENT.length = 0;
+CHAT_REPLY = 'Claro que sí 😊 [DERIVAR_ASESOR:pidió hablar con una asesora]';
+await handleMessage(msg('quiero que me contacte una asesora'), 'pnid');
+assert.ok(DB_LEAD.assignedAdvisor, 'la derivación ocurrió');
+assert.strictEqual(DB_CONV.flowNode, 'llm_freeform', 'el nodo se cierra: el guion terminó');
+assert.ok(!SENT.some((m) => m.text.includes('Escribe *Menú*')), 'y no empuja al menú justo tras conectar');
+ok('derivación por el camino LLM → flowNode a modo libre (no queda en un menú viejo)');
+
+// Pero si el LLM solo respondió una duda, el nodo NO se toca: es lo que permite
+// seguir navegando donde ibas.
+resetState();
+DB_CONV.flowNode = 'cat_1';
+SENT.length = 0;
+CHAT_REPLY = 'El proceso tiene 3 etapas, todas en línea 😊';
+await handleMessage(msg('¿cuántas etapas tiene?'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'cat_1', 'sin derivación, el nodo se conserva');
+ok('una duda a media navegación sigue SIN romper el estado del flujo');
+
+// Y si el guard anti-redisparo bloquea la derivación (ya había asesora), tampoco
+// se toca: no ocurrió nada que cerrar.
+resetState();
+DB_CONV.flowNode = 'cat_1';
+DB_LEAD.state = 'Jalisco';
+DB_LEAD.assignedAdvisor = 'Rosaura Pinto';
+DB_LEAD.status = 'derivado_asesor';
+CHAT_REPLY = 'Con gusto 😊 [DERIVAR_ASESOR:insiste en hablar con alguien]';
+await handleMessage(msg('quiero hablar con una asesora'), 'pnid');
+assert.strictEqual(DB_LEAD.assignedAdvisor, 'Rosaura Pinto', 'no se re-deriva');
+assert.strictEqual(DB_CONV.flowNode, 'cat_1', 'el guard bloqueó el handoff → el nodo se conserva');
+ok('el guard anti-redisparo no cierra el nodo (no hubo derivación que cerrar)');
+
 // ── El menú acepta el TEXTO de la opción, no solo el número ────────────────
 // En la misma conversación, "Me interesa Ainara" no podía elegir nada porque el
 // menú de Ori solo miraba dígitos. Miri ya aceptaba texto; ahora Ori también.
