@@ -36,7 +36,9 @@ const TEMPLATES_SENT = []; // { to, name, lang, params }
 let DB_CONV;
 let DB_LEAD;
 let officeHoursOverride = true;
-let EXTRACT_RESULT = {};    // lo que "extrae" el LLM en el próximo turno de solicitud_datos/ya_inscrito_stub
+let EXTRACT_RESULT = {};
+let DB_TRAVEL_LEAD;              // lead de la unidad Travel (handoff cruzado)
+const TRAVEL_TEMPLATES = [];     // plantillas enviadas a la asesora de viajes    // lo que "extrae" el LLM en el próximo turno de solicitud_datos/ya_inscrito_stub
 let CHAT_REPLY = 'Claro, con gusto te cuento más sobre eso 😊'; // respuesta conversacional del respaldo LLM
 
 function resetState() {
@@ -51,6 +53,12 @@ function resetState() {
   };
   officeHoursOverride = true;
   EXTRACT_RESULT = {};
+  DB_TRAVEL_LEAD = {
+    id: 'tlead1', contactId: 'c1', status: 'nuevo', ticketNumber: 77,
+    parentName: null, schoolCode: null, programInterest: null, destination: null,
+    leadType: null, assignedAdvisor: null, notes: null, travelerName: null, travelerAge: null,
+  };
+  TRAVEL_TEMPLATES.length = 0;
   CHAT_REPLY = 'Claro, con gusto te cuento más sobre eso 😊';
 }
 resetState();
@@ -82,11 +90,20 @@ mock.module('../src/config/env.js', {
       OXED_FOREIGN_LEAD_FALLBACK: 'meeting_link',
       OXED_ADVISOR_TEMPLATE_NAME: 'nuevo_lead_oxford',
       OXED_ADVISOR_TEMPLATE_LANG: 'es_MX',
+      // Credenciales de TRAVEL: el handoff cruzado notifica a la asesora de
+      // viajes con el número y la plantilla de esa unidad, no con los de Ori.
+      WA_PHONE_NUMBER_ID_TRAVEL: 'pnid-travel',
+      TRAVEL_ADVISOR_TEMPLATE_NAME: 'nuevo_lead_travel',
+      TRAVEL_ADVISOR_TEMPLATE_LANG: 'es_MX',
     },
   },
 });
 mock.module('../src/core/database/client.js', {
-  defaultExport: { oxfordLead: { groupBy: async () => [] } }, // round-robin → primer asesor de la zona
+  // travelLead lo consulta pickAdvisor de Miri en el handoff cruzado.
+  defaultExport: {
+    oxfordLead: { groupBy: async () => [] },   // round-robin → primer asesor de la zona
+    travelLead: { groupBy: async () => [] },   // carrusel de viajes → primera del track
+  },
 });
 mock.module('../src/services/contact.service.js', {
   namedExports: { findOrCreate: async () => ({ id: 'c1', name: null, phone: '+5215500000000' }) },
@@ -155,10 +172,10 @@ function row(id, texto, opciones = {}, orden = 1) {
 
 const FULL_FLOW_ROWS = [
   row('bienvenida',
-    '¡Hola! Gracias por escribir a Oxford Education Lit. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?',
+    '¡Hola! Gracias por escribir a Oxford Education. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?',
     {}, 1),
   row('filtro_previo',
-    'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education Lit o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
+    'Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información',
     { 1: 'ya_inscrito_stub', 2: 'solicitud_datos' }, 2),
   row('ya_inscrito_stub',
     '¡Con gusto te apoyamos con tu proceso! ¿Me compartes tu nombre y el colegio o institución? Una asesora revisará tu caso y te dará seguimiento.',
@@ -181,11 +198,55 @@ const FULL_FLOW_ROWS = [
   row('n_1_3',
     'Oxford ETC certifica competencias didácticas del profesorado en enseñanza de inglés. ¿Te gustaría conocer el contenido o modalidades del curso?',
     {}, 9),
+  // Experiencias internacionales: las atiende el equipo de TRAVEL, no el de Oxford.
+  row('cat_4', 'Experiencias internacionales. Selecciona la que te interesa:\n1.- English Life\n2.- Rising STARS\n3.- Global Insights',
+    { 1: 'n_4_1', 2: 'n_4_2', 3: 'n_4_3' }, 30),
+  row('n_4_1', 'English Life ofrece inmersión total en inglés en Londres o Dublín. ¿Te interesaría hablar con un asesor?', {}, 31),
+  row('n_4_2', 'Rising STARS es un programa exclusivo en Inglaterra para estudiantes de alto rendimiento. ¿Te interesaría hablar con un asesor?', {}, 32),
+  row('n_4_3', 'Global Insights es un viaje académico para tomadores de decisiones educativas. ¿Te interesaría hablar con un asesor?', {}, 33),
 ];
 
 let flowRowsOverride = FULL_FLOW_ROWS;
+// ── Lado TRAVEL: el handoff cruzado crea el lead allá y notifica con SU
+// plantilla y SU phone_number_id (por eso el cliente de core, no el de Ori).
+mock.module('../src/services/lead.service.js', {
+  namedExports: {
+    findOrCreateTravelLead: async () => ({ ...DB_TRAVEL_LEAD }),
+    updateTravelLead: async (_id, d) => { Object.assign(DB_TRAVEL_LEAD, d); return { ...DB_TRAVEL_LEAD }; },
+    updateTravelLeadStatus: async (_id, st) => { DB_TRAVEL_LEAD.status = st; return { ...DB_TRAVEL_LEAD }; },
+    getTravelLeadById: async () => ({ ...DB_TRAVEL_LEAD }),
+    addMaterialSent: async () => {},
+  },
+});
+mock.module('../src/core/whatsapp/client.js', {
+  namedExports: {
+    sendTextMessage: async () => {},
+    sendTemplateMessage: async (to, name, lang, components, pnid) =>
+      { TRAVEL_TEMPLATES.push({ to, name, pnid, params: (components?.[0]?.parameters || []).map((x) => x.text) }); },
+    sendMediaMessage: async () => {},
+    sendMediaMessageByUrl: async () => {},
+  },
+});
+mock.module('../src/core/sheets/leads-sync.js', { namedExports: { syncLeadToSheet: async () => {} } });
+// buildTicketFields (travel/actions.js) busca el nombre canónico del colegio en
+// la hoja VIVA de precios; sin mock haría una llamada real a Google y la
+// notificación se perdería en silencio (sendAdvisorNotification traga su error).
+mock.module('../src/units/travel/prices.js', {
+  namedExports: {
+    findSchoolPrices: async () => null,
+    isQuotable: () => false, isSinglePrice: () => false,
+    isAllInclusiveHotel: () => false, isWinterBreakRow: () => false,
+  },
+});
+
 mock.module('../src/core/sheets/cache.js', {
-  namedExports: { getOxfordFlowRows: async () => flowRowsOverride },
+  namedExports: {
+    getOxfordFlowRows: async () => flowRowsOverride,
+    // getSchool lo usa buildTicketFields de travel/actions.js en el handoff
+    // cruzado. Sin él, la notificación reventaba y se perdía en silencio: su
+    // catch traga el error para no tumbar el handoff.
+    getSchool: async () => null,
+  },
 });
 
 const { handleMessage } = await import('../src/units/oxford-education/handler.js');
@@ -202,8 +263,8 @@ resetState();
 
 await handleMessage(msg('Hola'), 'pnid');
 assert.strictEqual(SENT.length, 2, 'primer turno: bienvenida + filtro_previo (2 mensajes)');
-assert.ok(SENT[0].text.includes('Gracias por escribir a Oxford Education Lit'), 'msg 1 = bienvenida verbatim');
-assert.ok(SENT[1].text.includes('¿ya eres parte de Oxford Education Lit'), 'msg 2 = filtro_previo verbatim');
+assert.ok(SENT[0].text.includes('Gracias por escribir a Oxford Education'), 'msg 1 = bienvenida verbatim');
+assert.ok(SENT[1].text.includes('¿ya eres parte de Oxford Education'), 'msg 2 = filtro_previo verbatim');
 assert.strictEqual(DB_CONV.flowNode, 'filtro_previo', 'flowNode persistido = filtro_previo');
 ok('Conversación nueva → bienvenida + filtro_previo (verbatim), flowNode=filtro_previo');
 
@@ -353,6 +414,62 @@ assert.ok(DB_LEAD.assignedAdvisor, 'la derivación ocurrió');
 assert.strictEqual(DB_CONV.flowNode, 'llm_freeform', 'el nodo se cierra: el guion terminó');
 assert.ok(!SENT.some((m) => m.text.includes('Escribe *Menú*')), 'y no empuja al menú justo tras conectar');
 ok('derivación por el camino LLM → flowNode a modo libre (no queda en un menú viejo)');
+
+// ── Handoff CRUZADO a Travel ───────────────────────────────────────────────
+// Los 4 productos de cat_4 los atiende el equipo de viajes, no el de Oxford.
+// Antes se derivaban a la asesora de zona de Oxford, que no lleva viajes.
+resetState();
+DB_CONV.flowNode = 'cat_4';
+DB_LEAD.state = 'Jalisco';        // zona CENTRO de Oxford — NO debe usarse
+DB_LEAD.fullName = 'Ana López';
+DB_LEAD.institutionName = 'Colegio Test';
+DB_LEAD.leadType = 'b2b_institutional';
+SENT.length = 0; TEMPLATES_SENT.length = 0; TRAVEL_TEMPLATES.length = 0;
+await handleMessage(msg('2'), 'pnid');                 // → n_4_2 (Rising STARS)
+assert.strictEqual(DB_CONV.flowNode, 'n_4_2');
+SENT.length = 0;
+await handleMessage(msg('sí, me interesa'), 'pnid');   // CTA → handoff
+
+// La asesora de VIAJES recibe el ticket, con la plantilla y el número de Travel.
+assert.strictEqual(TRAVEL_TEMPLATES.length, 1, 'se notificó a la asesora de viajes');
+assert.strictEqual(TEMPLATES_SENT.length, 0, 'y NO se notificó a ninguna asesora de Oxford');
+assert.ok(TRAVEL_TEMPLATES[0].pnid, 'la notificación sale con el phone_number_id de Travel');
+const RS = ['Miriana Galdos', 'Alejandra Najera', 'Ericka Arcos'];
+assert.ok(RS.includes(DB_TRAVEL_LEAD.assignedAdvisor), `asesora del carrusel Rising Stars (fue: ${DB_TRAVEL_LEAD.assignedAdvisor})`);
+assert.strictEqual(DB_TRAVEL_LEAD.status, 'derivado_asesor');
+ok('Rising STARS → ticket al carrusel de viajes, NO a la asesora de zona de Oxford');
+
+// Los datos que Ori ya tenía se copian: el prospecto no los repite.
+assert.strictEqual(DB_TRAVEL_LEAD.parentName, 'Ana López', 'el nombre viaja al lead de Travel');
+assert.strictEqual(DB_TRAVEL_LEAD.schoolCode, 'Colegio Test', 'y el colegio');
+assert.strictEqual(DB_TRAVEL_LEAD.programInterest, 'Rising STARS', 'y el producto');
+assert.strictEqual(DB_TRAVEL_LEAD.leadType, 'institucion', 'traducido al vocabulario de Travel');
+ok('lo capturado por Ori se copia al lead de viajes');
+
+// Al prospecto le responde ORI, en su chat, avisando que será otro número.
+assert.ok(SENT.some((m) => m.text.includes('equipo de viajes')), 'Ori le explica que lo lleva el equipo de viajes');
+assert.ok(SENT.some((m) => m.text.includes('desde otro número')), 'y le avisa que le escriben desde otro número');
+assert.strictEqual(DB_LEAD.assignedAdvisor, null, 'el lead de Oxford NO se deriva: un solo equipo notificado');
+assert.ok((DB_LEAD.tags || []).includes('derivado_travel'), 'pero queda marcado y trazable');
+assert.strictEqual(DB_CONV.flowNode, 'llm_freeform', 'el guion terminó');
+ok('responde Ori (no Miri), avisa del cambio de número y no notifica a dos equipos');
+
+// Guard anti-redisparo: un segundo "sí" no genera otro ticket de viajes.
+TRAVEL_TEMPLATES.length = 0;
+DB_CONV.flowNode = 'n_4_2';
+await handleMessage(msg('sí'), 'pnid');
+assert.strictEqual(TRAVEL_TEMPLATES.length, 0, 'no se duplica el ticket de viajes');
+ok('el guard anti-redisparo también aplica al handoff cruzado');
+
+// English Life para una FAMILIA va al track de familias, no al de colegios.
+resetState();
+DB_CONV.flowNode = 'cat_4';
+DB_LEAD.leadType = 'b2c_individual';
+TRAVEL_TEMPLATES.length = 0;
+await handleMessage(msg('1'), 'pnid');                 // → n_4_1 (English Life)
+await handleMessage(msg('sí'), 'pnid');
+assert.strictEqual(DB_TRAVEL_LEAD.assignedAdvisor, 'Camila Serafín', 'familia → Camila');
+ok('English Life enruta por tipo de lead: familia → carrusel de familias');
 
 // Pero si el LLM solo respondió una duda, el nodo NO se toca: es lo que permite
 // seguir navegando donde ibas.

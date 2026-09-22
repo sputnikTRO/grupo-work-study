@@ -6,6 +6,7 @@ import * as oxfordLeadService from './lead.service.js';
 import { sendTextMessage } from './whatsapp.js';
 import { buildLeadUpdate, executeHandoffToAdvisor } from './actions.js';
 import { loadFlowGraph, getNode, isMenuNode, menuLabelFor, productLabelFor } from './flow-content.js';
+import { handoffToTravel, isTravelProduct } from './travel-handoff.js';
 import { isMenuKeyword, classifyCta, matchMenuChoice, standaloneNumber } from '../../core/flow/text.js';
 import { extractStructuredFields } from '../../core/flow/extract.js';
 import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from './office-hours.js';
@@ -326,6 +327,23 @@ async function handleCtaLeaf(graph, node, verdict, ctx) {
   }
 
   // accept → reutiliza el handoff tibio + ruteo geográfico tal cual están en prod.
+  // Los productos de viajes los atiende el equipo de Travel, no el de Oxford:
+  // se deriva a su carrusel en vez de a la asesora de zona. Si falla o ya
+  // estaba derivado, se sigue con el camino normal de Oxford.
+  const producto = productLabelFor(graph, node.id);
+  if (isTravelProduct(producto)) {
+    const viajes = await handoffToTravel({
+      lead: ctx.lead, conv: ctx.conv, contact: ctx.contact,
+      productLabel: producto,
+      reason: `Flujo Ori — aceptó hablar con asesor (${producto})`,
+      log: ctx.log,
+    });
+    if (viajes.handedOff || viajes.yaDerivado) {
+      await persistFlowNode(ctx.conv, FREEFORM);
+      return { handled: true };
+    }
+  }
+
   const { handedOff } = await executeHandoffToAdvisor(
     ctx.lead,
     ctx.conv,

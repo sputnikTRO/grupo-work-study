@@ -7,6 +7,7 @@ import * as store from './store.js';
 import { sendTextMessage } from './whatsapp.js';
 import { HANDOFF_MEETING_URL } from './prompts.js';
 import { resolveZona, zonaAdvisors, CDMX_SENTINEL, CDMX_ZONAS } from './advisor-zones.js';
+import { handoffToTravel, isTravelProduct } from './travel-handoff.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { buildAssignmentFields } from './advisor-sla.js';
 
@@ -264,6 +265,16 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
     return { handedOff: false };
   }
 
+  // Producto de viajes → lo atiende el equipo de Travel, no el de Oxford. Se
+  // reconoce por la etiqueta que quedó capturada (del menú o de product_label).
+  if (isTravelProduct(lead.primaryProductLabel)) {
+    const viajes = await handoffToTravel({
+      lead, conv, contact, productLabel: lead.primaryProductLabel, reason, log,
+    });
+    if (viajes.handedOff) return { handedOff: true };
+    if (viajes.yaDerivado) return { handedOff: false };
+  }
+
   const resuelta = resolveZona(lead.state, lead.municipality);
   if (!resuelta) {
     return handleForeignFallback(lead, conv, contact, reason, log);
@@ -295,7 +306,7 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
 
   // Mensaje cálido: se le conecta con el asesor, pero Ori sigue disponible.
   const connect =
-    `¡Perfecto! 😊 Te conecto con ${advisor.nombre}, asesor/a de Oxford Education LIT. ` +
+    `¡Perfecto! 😊 Te conecto con ${advisor.nombre}, asesor/a de Oxford Education. ` +
     `Te escribe en breve por WhatsApp para ver precio y los siguientes pasos.\n\n` +
     `Mientras tanto, aquí sigo para cualquier otra duda. 🌎`;
   await sendTextMessage(contact.phone, connect);
@@ -339,7 +350,7 @@ async function handleForeignFallback(lead, conv, contact, reason, log) {
       Object.assign(lead, leadUpdate);
 
       const connect =
-        `¡Perfecto! 😊 Te conecto con ${advisor.nombre}, asesor/a de Oxford Education LIT. ` +
+        `¡Perfecto! 😊 Te conecto con ${advisor.nombre}, asesor/a de Oxford Education. ` +
         `Te escribe en breve para ver precio y siguientes pasos.\n\nMientras tanto, aquí sigo para cualquier otra duda. 🌎`;
       await sendTextMessage(contact.phone, connect);
       await messageService.createOutbound(conv.id, connect);

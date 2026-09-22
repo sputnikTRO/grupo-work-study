@@ -535,7 +535,11 @@ async function buildTicketFields(lead, conv, prospectPhone, reason, track) {
  *   2. RESPALDO: texto libre con los mismos 8 campos (solo se entrega dentro de
  *      la ventana de 24 h).
  */
-async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reason, phoneNumberId, actionLogger, track, ticketKind) {
+// Exportada (antes privada) para que el handoff cruzado de Ori
+// (units/oxford-education/travel-handoff.js) notifique a la asesora de viajes
+// con ESTE MISMO ticket y la plantilla aprobada de la WABA de Travel, en vez de
+// duplicar el formato en la otra unidad. El comportamiento NO cambia.
+export async function sendAdvisorNotification(advisor, lead, conv, prospectPhone, reason, phoneNumberId, actionLogger, track, ticketKind) {
   try {
     actionLogger.info({ advisorWhatsApp: advisor.whatsapp }, 'Sending notification to advisor');
 
