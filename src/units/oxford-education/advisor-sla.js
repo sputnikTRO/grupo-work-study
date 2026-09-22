@@ -4,7 +4,7 @@ import logger from '../../utils/logger.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { sendTextMessage } from './whatsapp.js';
 import * as oxfordLeadService from './lead.service.js';
-import { ADVISORS, DUPLAS } from './advisor-zones.js';
+import { ADVISORS, ZONAS, ZONA_ORDER } from './advisor-zones.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
 
@@ -28,7 +28,7 @@ import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
  * propio lead (slaDueAt + currentAttempt) que el poll consulta directamente —
  * mismo efecto (delay + payload), sin cola externa.
  *
- * Reutiliza SIN reimplementar: advisor-zones.js (ADVISORS/DUPLAS, única fuente de
+ * Reutiliza SIN reimplementar: advisor-zones.js (ADVISORS/ZONAS, única fuente de
  * verdad) y advisor-notify.js (notifyAdvisor, mismo formato/plantilla que el
  * handoff inicial). NUNCA toca el guard anti-redisparo de executeHandoffToAdvisor
  * — la reasignación es un camino distinto (updateMany condicional sobre
@@ -125,18 +125,19 @@ export function buildConfirmationFields(lead, now = new Date()) {
 }
 
 /**
- * Siguiente candidato a reasignar: primero la pareja de `zoneKey` (si la hay),
- * luego TODAS las duplas en orden fijo A→B→C→D, asesor por asesor, saltando a
- * quienes ya estén en `triedKeys`. `null` si ya se intentaron las 8 (terminal).
+ * Siguiente candidato a reasignar: primero el resto del equipo de `zoneKey` (si
+ * la hay), luego TODAS las zonas en orden fijo NORTE→CENTRO→SUR, asesor por
+ * asesor, saltando a quienes ya estén en `triedKeys`. `null` si ya se
+ * intentaron los 8 (terminal).
  *
- * @param {'A'|'B'|'C'|'D'|null} zoneKey - dupla del lead (puede ser null/desconocida)
+ * @param {'NORTE'|'CENTRO'|'SUR'|null} zoneKey - zona del lead (puede ser null)
  * @param {Array<string>} triedKeys - keys de advisor-zones.ADVISORS ya intentados
  * @returns {string|null} key del siguiente asesor a intentar
  */
 export function nextAdvisorCandidateKey(zoneKey, triedKeys = []) {
   const candidates = [];
-  if (zoneKey && DUPLAS[zoneKey]) candidates.push(...DUPLAS[zoneKey].advisors);
-  for (const k of ['A', 'B', 'C', 'D']) candidates.push(...DUPLAS[k].advisors);
+  if (zoneKey && ZONAS[zoneKey]) candidates.push(...ZONAS[zoneKey].advisors);
+  for (const k of ZONA_ORDER) candidates.push(...ZONAS[k].advisors);
 
   const seen = new Set();
   const ordered = [];
@@ -149,16 +150,16 @@ export function nextAdvisorCandidateKey(zoneKey, triedKeys = []) {
   return ordered.find((key) => !triedKeys.includes(key)) || null;
 }
 
-// ── Helpers locales (derivados de ADVISORS/DUPLAS — sin tocar advisor-zones.js) ──
+// ── Helpers locales (derivados de ADVISORS/ZONAS — sin tocar advisor-zones.js) ──
 
 function advisorKeyByName(nombre) {
   const entry = Object.entries(ADVISORS).find(([, a]) => a.nombre === nombre);
   return entry ? entry[0] : null;
 }
 
-function duplaKeyForAdvisor(advisorKey) {
-  for (const [duplaKey, def] of Object.entries(DUPLAS)) {
-    if (def.advisors.includes(advisorKey)) return duplaKey;
+function zonaKeyForAdvisor(advisorKey) {
+  for (const [zonaKey, def] of Object.entries(ZONAS)) {
+    if (def.advisors.includes(advisorKey)) return zonaKey;
   }
   return null;
 }
@@ -227,7 +228,7 @@ export async function reassignOneLead(lead, now, log) {
   const nextAdvisor = ADVISORS[nextKey];
   const attemptsWithPrevMarked = markLastAttempt(lead.advisorAttempts, ATTEMPT_RESULT.NOT_CONFIRMED, now);
   const assignmentFields = buildAssignmentFields(lead, nextAdvisor, now, attemptsWithPrevMarked);
-  const duplaKey = duplaKeyForAdvisor(nextKey) || lead.zoneKey;
+  const zonaKey = zonaKeyForAdvisor(nextKey) || lead.zoneKey;
 
   const applied = await oxfordLeadService.conditionalUpdateOxfordLead(lead.id, guard, {
     assignedAdvisor: nextAdvisor.nombre,
@@ -252,7 +253,7 @@ export async function reassignOneLead(lead, now, log) {
     null,
     lead.contact,
     `Reasignación automática — la asesora anterior no confirmó en ${env.OXED_ADVISOR_SLA_MINUTES} min`,
-    duplaKey,
+    zonaKey,
     log,
   );
   await notifyPreviousAdvisorReassigned(previousAdvisorKey, lead, log);

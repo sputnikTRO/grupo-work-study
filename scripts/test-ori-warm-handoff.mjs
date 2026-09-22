@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert';
 import { executeActions } from '../src/units/oxford-education/actions.js';
-import { resolveDupla } from '../src/units/oxford-education/advisor-zones.js';
+import { resolveZona, CDMX_SENTINEL } from '../src/units/oxford-education/advisor-zones.js';
 import { normalizePhone } from '../src/utils/phone.js';
 
 let pass = 0;
@@ -21,7 +21,7 @@ const ok = (n) => { console.log('  ✓ ' + n); pass++; };
 const assignedLead = {
   id: 'lead-guard-1',
   assignedAdvisor: 'Enrique Ruiz',   // ya derivado antes
-  zoneKey: 'A',
+  zoneKey: 'NORTE',
   state: 'CDMX', municipality: 'Benito Juárez',
   status: 'derivado_asesor',
 };
@@ -40,8 +40,11 @@ ok('(b) 2ª pregunta de precio con asesor ya asignado → handoffOccurred=false 
 ok('(a) Al ser handoffOccurred=false, el handler NO silencia: envía el texto de Ori (difiere al asesor y sigue atendiendo)');
 
 // La zona del lead sigue resolviéndose bien (lógica intacta).
-assert.strictEqual(resolveDupla('CDMX', 'Benito Juárez'), 'A');
-ok('resolveDupla sigue intacto (Benito Juárez → A)');
+// CDMX ya no se resuelve por alcaldía: devuelve el centinela y actions.js
+// alterna entre NORTE y CENTRO. Un estado normal sí resuelve directo.
+assert.strictEqual(resolveZona('CDMX', 'Benito Juárez'), CDMX_SENTINEL);
+assert.strictEqual(resolveZona('Jalisco', null), 'CENTRO');
+ok('resolveZona sigue vivo (CDMX → centinela · Jalisco → CENTRO)');
 
 // ── (c) Oriana conserva su número internacional ───────────────────────────────
 const orianaSend = normalizePhone('+17866332282').replace('+', '');

@@ -78,7 +78,7 @@ export function deriveTemperature(lead, handoffOccurred = false) {
   if (handoffOccurred || hotStatuses.includes(lead.status)) return 'hot';
 
   const hasQualification = Boolean(
-    lead.primaryProduct || lead.institutionName || lead.estimatedStudents || lead.fullName,
+    lead.primaryProductLabel || lead.primaryProduct || lead.institutionName || lead.estimatedStudents || lead.fullName,
   );
   if (hasQualification) return 'warm';
 
@@ -121,7 +121,7 @@ function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }
     lead.fullName || contact.name || '',                                  // D Nombre
     lead.institutionName || '',                                           // E Colegio/Organización
     roleParts.join(' · '),                                                // F Rol/Tipo
-    lead.primaryProduct ? (PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct) : '', // G Producto
+    lead.primaryProductLabel || (lead.primaryProduct ? (PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct) : ''), // G Producto
     lead.estimatedStudents?.toString() || '',                            // H No. alumnos
     deriveTemperature(lead, handoffOccurred),                             // I Temperatura
     handoffOccurred ? 'Sí' : 'No',                                        // J Derivación

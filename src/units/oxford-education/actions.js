@@ -6,7 +6,7 @@ import * as messageService from '../../services/message.service.js';
 import * as store from './store.js';
 import { sendTextMessage } from './whatsapp.js';
 import { HANDOFF_MEETING_URL } from './prompts.js';
-import { resolveDupla, duplaAdvisors } from './advisor-zones.js';
+import { resolveZona, zonaAdvisors, CDMX_SENTINEL, CDMX_ZONAS } from './advisor-zones.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { buildAssignmentFields } from './advisor-sla.js';
 
@@ -15,7 +15,7 @@ import { buildAssignmentFields } from './advisor-sla.js';
  *
  * The model embeds tags in its reply; we parse them, run side effects, and strip
  * them from the text the prospect sees.
- *   [DERIVAR_ASESOR:motivo]        → WARM handoff: resolve zone → dupla → advisor
+ *   [DERIVAR_ASESOR:motivo]        → WARM handoff: resolve zona → advisor
  *                                    (round-robin), assign + notify the advisor by
  *                                    WhatsApp with a ticket, but DO NOT silence Ori
  *                                    — the conversation stays ACTIVE for general
@@ -107,7 +107,9 @@ export function buildLeadUpdate(field, value) {
   if (column === 'primaryProduct') {
     if (!VALID_PRODUCTS.includes(value)) return null;
     // Mirror into products_interest so the array stays useful for reporting.
-    return { primaryProduct: value, productsInterest: [value] };
+    // También la etiqueta legible, para que el ticket se vea igual venga del
+    // menú determinístico o de [CAPTURAR_DATO] del LLM.
+    return { primaryProduct: value, productsInterest: [value], primaryProductLabel: PRODUCT_LABELS[value] || value };
   }
   if (column === 'estimatedStudents') {
     const n = parseInt(value.replace(/\D/g, ''), 10);
@@ -119,7 +121,7 @@ export function buildLeadUpdate(field, value) {
 /**
  * Executes parsed actions: captures data and runs the ACTIVE handoff.
  *
- * On [DERIVAR_ASESOR] the handoff resolves the prospect's zone → dupla → advisor,
+ * On [DERIVAR_ASESOR] the handoff resolves the prospect's zona → advisor,
  * sends the prospect a warm "te conecto" message and notifies the advisor by
  * WhatsApp with a ticket, but keeps the conversation ACTIVE (no waiting_human).
  * When a fresh handoff runs, that message is the reply for the turn, so the
@@ -138,7 +140,7 @@ export async function executeActions(actions, lead, conv, contact) {
   // IMPORTANTE: aplicar TODAS las capturas ANTES de cualquier derivación. Si el
   // modelo captura y deriva en el MISMO mensaje (p.ej. [CAPTURAR_DATO:municipality:
   // Xochimilco] + [DERIVAR_ASESOR:...]), el handoff debe ver el lead ya actualizado
-  // para resolver la zona; de lo contrario resolveDupla no encuentra la alcaldía y
+  // para resolver la zona; de lo contrario resolveZona no encuentra el estado y
   // cae al fallback pasivo (link de agenda) en vez del handoff tibio de zona.
   const captures = actions.filter((a) => a.type === 'CAPTURAR_DATO');
   const handoffs = actions.filter((a) => a.type === 'DERIVAR_ASESOR');
@@ -174,15 +176,19 @@ export async function executeActions(actions, lead, conv, contact) {
 }
 
 /**
- * Round-robin dentro de una dupla: elige al asesor con menos leads asignados.
+ * Round-robin dentro de una zona: elige al asesor con menos leads asignados.
  * Espeja el "carrusel" de Travel (assignFamilyCarousel) pero sobre oxford_leads.
  *
- * @param {'A'|'B'|'C'|'D'} duplaKey
- * @returns {Promise<Object|null>} advisor object o null si la dupla es inválida
+ * Funciona con zonas de CUALQUIER tamaño: NORTE tiene 4 asesores y CENTRO/SUR
+ * tienen 2. Antes asumía parejas y con un equipo de 4 habría devuelto siempre
+ * al primero.
+ *
+ * @param {'NORTE'|'CENTRO'|'SUR'} zonaKey
+ * @returns {Promise<Object|null>} advisor object o null si la zona es inválida
  */
-async function pickAdvisorRoundRobin(duplaKey) {
-  const advisors = duplaAdvisors(duplaKey);
-  if (advisors.length !== 2) return advisors[0] || null;
+async function pickAdvisorRoundRobin(zonaKey) {
+  const advisors = zonaAdvisors(zonaKey);
+  if (advisors.length <= 1) return advisors[0] || null;
 
   try {
     const counts = await prisma.oxfordLead.groupBy({
@@ -191,12 +197,33 @@ async function pickAdvisorRoundRobin(duplaKey) {
       _count: { assignedAdvisor: true },
     });
     const countFor = (name) => counts.find((r) => r.assignedAdvisor === name)?._count.assignedAdvisor ?? 0;
-    const c0 = countFor(advisors[0].nombre);
-    const c1 = countFor(advisors[1].nombre);
-    return c0 <= c1 ? advisors[0] : advisors[1];
+    // El de menos carga; a igualdad gana el primero de la zona (orden estable).
+    return advisors.reduce((mejor, a) => (countFor(a.nombre) < countFor(mejor.nombre) ? a : mejor), advisors[0]);
   } catch (error) {
-    logger.error({ err: error, unit: 'oxford_education', duplaKey }, 'Round-robin failed, defaulting to first advisor');
+    logger.error({ err: error, unit: 'oxford_education', zonaKey }, 'Round-robin failed, defaulting to first advisor');
     return advisors[0];
+  }
+}
+
+/**
+ * CDMX no es de un solo equipo: el organigrama la reparte entre NORTE (11
+ * colegios) y CENTRO-OCCIDENTE (14). Se alterna por CARGA — gana el equipo con
+ * menos leads de CDMX — en vez de preguntar la alcaldía, que ya no decide zona.
+ *
+ * @returns {Promise<'NORTE'|'CENTRO'>}
+ */
+async function pickCdmxZona() {
+  try {
+    const counts = await prisma.oxfordLead.groupBy({
+      by: ['zoneKey'],
+      where: { zoneKey: { in: CDMX_ZONAS }, state: { in: ['CDMX', 'cdmx', 'Ciudad de México'] } },
+      _count: { zoneKey: true },
+    });
+    const countFor = (z) => counts.find((r) => r.zoneKey === z)?._count.zoneKey ?? 0;
+    return countFor(CDMX_ZONAS[0]) <= countFor(CDMX_ZONAS[1]) ? CDMX_ZONAS[0] : CDMX_ZONAS[1];
+  } catch (error) {
+    logger.error({ err: error, unit: 'oxford_education' }, 'CDMX alternation failed, defaulting to first zone');
+    return CDMX_ZONAS[0];
   }
 }
 
@@ -204,10 +231,10 @@ async function pickAdvisorRoundRobin(duplaKey) {
  * [DERIVAR_ASESOR] — Handoff ACTIVO con ruteo geográfico.
  *
  * Orden:
- *  1. Resuelve dupla desde (state, municipality).
+ *  1. Resuelve zona desde (state/país, municipality). CDMX se alterna.
  *  2. Si no hay zona (lead internacional o sin ubicación) → fallback provisional
  *     controlado por OXED_FOREIGN_LEAD_FALLBACK (ver handleForeignFallback). TODO cliente.
- *  3. Elige asesor por round-robin dentro de la dupla.
+ *  3. Elige asesor por round-robin dentro de la zona.
  *  4. Persiste asesor/zona en el lead, avisa al prospecto (mensaje tibio),
  *     notifica al asesor por WhatsApp con ticket y DEJA la conversación ACTIVA.
  *
@@ -227,14 +254,16 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
     return { handedOff: false };
   }
 
-  const duplaKey = resolveDupla(lead.state, lead.municipality);
-  if (!duplaKey) {
+  const resuelta = resolveZona(lead.state, lead.municipality);
+  if (!resuelta) {
     return handleForeignFallback(lead, conv, contact, reason, log);
   }
+  // CDMX se reparte entre NORTE y CENTRO; el resto ya viene resuelto.
+  const zonaKey = resuelta === CDMX_SENTINEL ? await pickCdmxZona() : resuelta;
 
-  const advisor = await pickAdvisorRoundRobin(duplaKey);
+  const advisor = await pickAdvisorRoundRobin(zonaKey);
   if (!advisor) {
-    log.warn({ duplaKey }, 'No advisor resolved for dupla, using foreign fallback');
+    log.warn({ zonaKey }, 'No advisor resolved for zona, using foreign fallback');
     return handleForeignFallback(lead, conv, contact, reason, log);
   }
 
@@ -247,8 +276,8 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
   const leadUpdate = {
     status: 'derivado_asesor',
     assignedAdvisor: advisor.nombre,
-    zoneKey: duplaKey,
-    notes: reason ? `Derivación (${duplaKey}/${advisor.nombre}): ${reason}` : `Derivado a ${advisor.nombre} (${duplaKey})`,
+    zoneKey: zonaKey,
+    notes: reason ? `Derivación (${zonaKey}/${advisor.nombre}): ${reason}` : `Derivado a ${advisor.nombre} (${zonaKey})`,
     ...buildAssignmentFields(lead, advisor),
   };
   await oxfordLeadService.updateOxfordLead(lead.id, leadUpdate);
@@ -264,9 +293,9 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
   await store.addMessage(conv.id, 'assistant', connect);
 
   // La conversación PERMANECE activa (sin waiting_human). Notificar al asesor.
-  await notifyAdvisor(advisor, lead, conv, contact, reason, duplaKey, log);
+  await notifyAdvisor(advisor, lead, conv, contact, reason, zonaKey, log);
 
-  log.info({ duplaKey, advisor: advisor.nombre }, 'Oxford warm handoff completed (conversation stays active)');
+  log.info({ zonaKey, advisor: advisor.nombre }, 'Oxford warm handoff completed (conversation stays active)');
   return { handedOff: true };
 }
 
@@ -276,24 +305,24 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
  * fuera de México — Ori recibe prospectos internacionales por diseño.
  *
  * OXED_FOREIGN_LEAD_FALLBACK:
- *   - 'A'|'B'|'C'|'D' → deriva a esa dupla default (handoff activo).
+ *   - 'NORTE'|'CENTRO'|'SUR' → deriva a esa zona default (handoff activo).
  *   - cualquier otro / no seteada (default 'meeting_link') → comparte el link de
  *     agenda y MANTIENE la conversación activa (comportamiento previo, pasivo).
  */
 async function handleForeignFallback(lead, conv, contact, reason, log) {
   const raw = (env.OXED_FOREIGN_LEAD_FALLBACK || 'meeting_link').trim();
-  const asDupla = raw.toUpperCase();
+  const asZona = raw.toUpperCase();
 
-  // Opción configurada: derivar a una dupla default (handoff tibio, sin silenciar).
-  if (['A', 'B', 'C', 'D'].includes(asDupla)) {
-    const advisor = await pickAdvisorRoundRobin(asDupla);
+  // Opción configurada: derivar a una zona default (handoff tibio, sin silenciar).
+  if (['NORTE', 'CENTRO', 'SUR'].includes(asZona)) {
+    const advisor = await pickAdvisorRoundRobin(asZona);
     if (advisor) {
-      log.info({ fallback: asDupla, advisor: advisor.nombre }, 'Foreign fallback → default dupla (warm handoff)');
+      log.info({ fallback: asZona, advisor: advisor.nombre }, 'Foreign fallback → default zona (warm handoff)');
       const leadUpdate = {
         status: 'derivado_asesor',
         assignedAdvisor: advisor.nombre,
-        zoneKey: asDupla,
-        notes: reason ? `Derivación FALLBACK ${asDupla}/${advisor.nombre}: ${reason}` : `Fallback → ${advisor.nombre} (${asDupla})`,
+        zoneKey: asZona,
+        notes: reason ? `Derivación FALLBACK ${asZona}/${advisor.nombre}: ${reason}` : `Fallback → ${advisor.nombre} (${asZona})`,
         ...buildAssignmentFields(lead, advisor), // feature/ori-advisor-sla — mismo init que el camino normal
       };
       await oxfordLeadService.updateOxfordLead(lead.id, leadUpdate);
@@ -306,7 +335,7 @@ async function handleForeignFallback(lead, conv, contact, reason, log) {
       await messageService.createOutbound(conv.id, connect);
       await store.addMessage(conv.id, 'assistant', connect);
       // Sin waiting_human: Ori sigue viva. Notificar al asesor.
-      await notifyAdvisor(advisor, lead, conv, contact, reason, asDupla, log);
+      await notifyAdvisor(advisor, lead, conv, contact, reason, asZona, log);
       return { handedOff: true };
     }
   }

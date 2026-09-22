@@ -1,4 +1,5 @@
 import { getOxfordFlowRows } from '../../core/sheets/cache.js';
+import { normalize } from '../../core/flow/text.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -105,4 +106,84 @@ export function getNode(graph, nodeId) {
  */
 export function isMenuNode(node) {
   return Boolean(node && node.opciones && Object.keys(node.opciones).length > 0);
+}
+
+/**
+ * Etiquetas de un menú numerado CONSERVANDO el texto original:
+ *   "1.- Smile and Learn" → { '1': 'Smile and Learn' }
+ *
+ * Deliberadamente NO reusa parseMenuLabels() de core/flow/text.js: aquella
+ * normaliza (minúsculas, sin acentos ni puntuación) porque su trabajo es
+ * comparar lo que escribió el usuario. Aquí el texto se muestra tal cual.
+ */
+export function rawMenuLabels(texto) {
+  const out = {};
+  for (const line of String(texto ?? '').split('\n')) {
+    const m = line.match(/^\s*(\d{1,2})\s*[.\-)]*\s*(.+?)\s*$/);
+    if (m) out[m[1]] = m[2].trim();
+  }
+  return out;
+}
+
+/**
+ * Cómo se llama un nodo en el menú que lo ofrece: "n_3_4" → "AINARA".
+ *
+ * El nodo hoja NO sabe su propio nombre (su texto es la descripción), así que
+ * se busca en el menú padre. Sirve para decirle a la asesora QUÉ producto
+ * estaba viendo el prospecto en vez del id del nodo.
+ *
+ * @returns {string|null} la etiqueta, o null si ningún menú apunta a ese nodo
+ */
+export function menuLabelFor(graph, nodeId) {
+  for (const node of Object.values(graph || {})) {
+    if (!isMenuNode(node)) continue;
+    const labels = rawMenuLabels(node.texto);
+    for (const [opt, dest] of Object.entries(node.opciones)) {
+      if (dest === nodeId && labels[opt]) return labels[opt];
+    }
+  }
+  return null;
+}
+
+// Nodos de "Flujo Ori" que NO son conocimiento de producto. Los nodos con
+// opciones numeradas (menu_principal, filtro_previo, cat_*) se descartan solos
+// vía isMenuNode: su texto es una lista de opciones, no una descripción. Aquí
+// solo quedan las hojas que tampoco describen nada.
+const NON_CONTENT_NODE_IDS = new Set([
+  'bienvenida',       // saludo + horario
+  'solicitud_datos',  // paso de captura de datos (lo consume flow-engine)
+  'ya_inscrito_stub', // paso de captura de datos (lo consume flow-engine)
+]);
+const NON_CONTENT_PREFIX = /^util_/; // util_menu / util_llamada / util_cierre
+
+// Etiquetas que son una SALIDA DE NAVEGACIÓN ("no sé cuál elegir"), no un
+// producto: su nodo existe para orientar a quien duda, no para describir algo
+// que vendemos. Sin este filtro, cat_1 metía "No estoy seguro" en la lista y el
+// LLM lo leía como un producto más del catálogo — justo el tipo de confusión
+// que esta sección viene a evitar. Se compara la etiqueta, no el ID, para que
+// también aplique si el cliente agrega la misma salida a otra categoría.
+const NON_PRODUCT_LABELS = new Set([
+  'no estoy seguro', 'no estoy segura', 'no lo se', 'no se', 'aun no se',
+  'otro', 'otra', 'ninguno', 'ninguna',
+]);
+
+/**
+ * La etiqueta del menú SI el nodo es un producto de verdad; null si no lo es.
+ *
+ * Definición ÚNICA de "producto del menú", usada por dos cosas que no pueden
+ * discrepar: el bloque de conocimiento que lee el LLM (knowledge.js) y el
+ * producto que se estampa en el ticket de la asesora (flow-engine.js). Si esto
+ * se equivoca, la asesora recibe "Producto: Quiero información".
+ *
+ * Quedan fuera: los menús (su texto es una lista), el saludo, los pasos de
+ * captura, los nodos util_* y las salidas de navegación ("No estoy seguro").
+ */
+export function productLabelFor(graph, nodeId) {
+  const node = (graph || {})[nodeId];
+  if (!node || isMenuNode(node)) return null;
+  if (NON_CONTENT_NODE_IDS.has(node.id) || NON_CONTENT_PREFIX.test(node.id)) return null;
+
+  const label = menuLabelFor(graph, nodeId);
+  if (!label || NON_PRODUCT_LABELS.has(normalize(label))) return null;
+  return label;
 }

@@ -1,6 +1,5 @@
 import { getOxfordFAQ } from '../../core/sheets/cache.js';
-import { loadFlowGraph, isMenuNode } from './flow-content.js';
-import { normalize } from '../../core/flow/text.js';
+import { loadFlowGraph, isMenuNode, rawMenuLabels, productLabelFor } from './flow-content.js';
 import logger from '../../utils/logger.js';
 
 const PROGRAM_LABELS = {
@@ -106,46 +105,6 @@ export async function buildOxfordKnowledge(lead) {
 // Lee del MISMO cache que el motor de flujo (loadFlowGraph → getOxfordFlowRows),
 // así el prompt nunca queda más viejo que el menú que el prospecto está viendo.
 
-// Nodos de "Flujo Ori" que NO son conocimiento de producto. Los nodos con
-// opciones numeradas (menu_principal, filtro_previo, cat_*) se descartan solos
-// vía isMenuNode: su texto es una lista de opciones, no una descripción. Aquí
-// solo quedan las hojas que tampoco describen nada.
-const NON_CONTENT_NODE_IDS = new Set([
-  'bienvenida',       // saludo + horario
-  'solicitud_datos',  // paso de captura de datos (lo consume flow-engine)
-  'ya_inscrito_stub', // paso de captura de datos (lo consume flow-engine)
-]);
-const NON_CONTENT_PREFIX = /^util_/; // util_menu / util_llamada / util_cierre
-
-// Etiquetas que son una SALIDA DE NAVEGACIÓN ("no sé cuál elegir"), no un
-// producto: su nodo existe para orientar a quien duda, no para describir algo
-// que vendemos. Sin este filtro, cat_1 metía "No estoy seguro" en la lista y el
-// LLM lo leía como un producto más del catálogo — justo el tipo de confusión
-// que esta sección viene a evitar. Se compara la etiqueta, no el ID, para que
-// también aplique si el cliente agrega la misma salida a otra categoría.
-const NON_PRODUCT_LABELS = new Set([
-  'no estoy seguro', 'no estoy segura', 'no lo se', 'no se', 'aun no se',
-  'otro', 'otra', 'ninguno', 'ninguna',
-]);
-
-/**
- * Etiquetas de un menú numerado CONSERVANDO el texto original:
- *   "1.- Smile and Learn" → { '1': 'Smile and Learn' }
- *
- * Deliberadamente NO reusa parseMenuLabels() de core/flow/text.js: aquella
- * normaliza (minúsculas, sin acentos ni puntuación) porque su trabajo es
- * comparar lo que escribió el usuario. Aquí el texto se le muestra al LLM, así
- * que "KNOW BY STEAM TREKS" debe llegar tal cual.
- */
-function rawMenuLabels(texto) {
-  const out = {};
-  for (const line of String(texto ?? '').split('\n')) {
-    const m = line.match(/^\s*(\d{1,2})\s*[.\-)]*\s*(.+?)\s*$/);
-    if (m) out[m[1]] = m[2].trim();
-  }
-  return out;
-}
-
 /**
  * Para cada nodo, quién lo ofrece y con qué etiqueta:
  *   { n_3_4: { parentId: 'cat_3', label: 'AINARA' }, cat_3: { parentId: 'menu_principal', label: 'Plataformas para el aula' } }
@@ -187,16 +146,13 @@ export async function buildFlowKnowledge() {
     const grupos = new Map(); // categoría → [{ label, texto }], en el orden del Sheet
 
     for (const node of Object.values(graph)) {
-      if (isMenuNode(node)) continue;
-      if (NON_CONTENT_NODE_IDS.has(node.id) || NON_CONTENT_PREFIX.test(node.id)) continue;
+      const label = productLabelFor(graph, node.id);
+      if (!label) continue; // menú, saludo, paso de captura o salida de navegación
 
       const padre = parentOf[node.id];
-      if (!padre) continue; // hoja a la que ningún menú apunta: no se le ofrece a nadie
-      if (NON_PRODUCT_LABELS.has(normalize(padre.label))) continue;
-
       const categoria = parentOf[padre.parentId]?.label || padre.parentId;
       if (!grupos.has(categoria)) grupos.set(categoria, []);
-      grupos.get(categoria).push({ label: padre.label || node.id, texto: node.texto });
+      grupos.get(categoria).push({ label, texto: node.texto });
     }
 
     const total = [...grupos.values()].reduce((n, items) => n + items.length, 0);

@@ -137,8 +137,8 @@ async function ensureSummarySheet() {
 function formatDetailRow(lead, contact) {
   const attempts = Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts : [];
   const zona = [lead.municipality, lead.state].filter(Boolean).join(', ');
-  const zonaDupla = zona ? (lead.zoneKey ? `${zona} (dupla ${lead.zoneKey})` : zona) : (lead.zoneKey ? `(dupla ${lead.zoneKey})` : '');
-  const producto = lead.primaryProduct ? (PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct) : '';
+  const zonaDupla = zona ? (lead.zoneKey ? `${zona} (zona ${lead.zoneKey})` : zona) : (lead.zoneKey ? `(zona ${lead.zoneKey})` : '');
+  const producto = lead.primaryProductLabel || (lead.primaryProduct ? (PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct) : '');
   const esSinConfirmar = lead.status === 'sin_confirmar';
   const asesoraQueAtendio = esSinConfirmar ? '—' : (lead.assignedAdvisor || '—');
   const minutos = !esSinConfirmar && lead.responseSeconds != null ? (lead.responseSeconds / 60).toFixed(1) : '';

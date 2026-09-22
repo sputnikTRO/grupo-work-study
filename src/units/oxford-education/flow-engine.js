@@ -5,7 +5,7 @@ import * as store from './store.js';
 import * as oxfordLeadService from './lead.service.js';
 import { sendTextMessage } from './whatsapp.js';
 import { buildLeadUpdate, executeHandoffToAdvisor } from './actions.js';
-import { loadFlowGraph, getNode, isMenuNode } from './flow-content.js';
+import { loadFlowGraph, getNode, isMenuNode, menuLabelFor, productLabelFor } from './flow-content.js';
 import { isMenuKeyword, classifyCta } from '../../core/flow/text.js';
 import { extractStructuredFields } from '../../core/flow/extract.js';
 import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from './office-hours.js';
@@ -125,10 +125,79 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
   const verdict = classifyCta(text);
   if (verdict === 'ambiguous') return { handled: false, midFlowFallback: true }; // respaldo LLM, flowNode intacto
   await store.addMessage(conv.id, 'user', text);
-  return await handleCtaLeaf(node, verdict, ctx);
+  return await handleCtaLeaf(graph, node, verdict, ctx);
 }
 
 // ── Helpers de envío/persistencia ───────────────────────────────────────────
+
+/**
+ * Etiqueta del menú → valor del enum OxfordProduct.
+ *
+ * Por qué hace falta: hasta ahora primaryProduct SOLO lo escribía la etiqueta
+ * [CAPTURAR_DATO] del LLM. Un prospecto que navegaba el menú hasta un producto
+ * y aceptaba el CTA se derivaba con el campo "Producto" VACÍO en el ticket de
+ * la asesora, aunque el flujo supiera exactamente qué nodo estaba viendo.
+ *
+ * Se casa contra la ETIQUETA del menú (no contra el id del nodo) para que siga
+ * funcionando si el cliente renumera los nodos en el Sheet. El orden importa:
+ * "Kids" y "ETC" se evalúan antes que el "TCC" genérico, que los contiene.
+ *
+ * OJO: el enum OxfordProduct solo tiene 7 valores y el menú ofrece 16. Los que
+ * no mapean (AINARA, Visual Camp, Checkpoint, Global Insights…) no se pueden
+ * guardar en la columna — para esos, el nombre viaja en el MOTIVO del ticket.
+ */
+// Los patrones son ESTRECHOS a propósito. Probados contra el menú real, dos
+// versiones laxas metían el producto EQUIVOCADO en el ticket, que es peor que
+// dejarlo vacío:
+//   · /kids/  →  "Oxford Checkpoint Kids" (un examen diagnóstico) caía en
+//                oxford_tcc_kids (una certificación). Ahora exige "tcc kids".
+//   · /life/  →  "English Life" (el programa de inmersión de viajes) caía en
+//                oxford_life (la app). Ahora exige "oxford life".
+const LABEL_TO_PRODUCT = [
+  [/tcc kids/, 'oxford_tcc_kids'],
+  [/\betc\b|teaching certificate/, 'english_teaching_certificate'],
+  [/\btcc\b/, 'oxford_tcc'],
+  [/oxford life/, 'oxford_life'],
+  [/alphable/, 'alphable'],
+  [/rising/, 'rising_stars'],
+  [/work.*study/, 'work_study_spain'],
+];
+
+function productKeyFromLabel(label) {
+  const n = (label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (!n) return null;
+  return LABEL_TO_PRODUCT.find(([re]) => re.test(n))?.[1] || null;
+}
+
+/**
+ * Si el nodo al que se acaba de llegar es un producto del menú, registra el
+ * interés en el lead. Se hace al ATERRIZAR (no solo al aceptar el CTA) para que
+ * el dato ya esté puesto tanto si deriva el flujo como si deriva el LLM después.
+ *
+ * Guarda DOS cosas:
+ *   - primaryProductLabel: la etiqueta verbatim del menú. Es la que ve la
+ *     asesora, y funciona para los ~16 productos, no solo para los del enum.
+ *   - primaryProduct: el valor del enum, solo cuando la etiqueta mapea a uno de
+ *     los 7. Se conserva porque lo consumen la hoja de leads y el prompt.
+ *
+ * Refleja la elección MÁS RECIENTE: si el prospecto pasea por tres productos,
+ * el primario es el último, y productsInterest acumula los que sí son enum.
+ */
+async function capturarProductoDelNodo(graph, node, ctx) {
+  const label = productLabelFor(graph, node.id);
+  if (!label || ctx.lead.primaryProductLabel === label) return;
+
+  const producto = productKeyFromLabel(label);
+  const update = { primaryProductLabel: label };
+  if (producto) {
+    update.primaryProduct = producto;
+    update.productsInterest = Array.from(new Set([...(ctx.lead.productsInterest || []), producto]));
+  }
+  await oxfordLeadService.updateOxfordLead(ctx.lead.id, update);
+  Object.assign(ctx.lead, update);
+  ctx.log.info({ nodo: node.id, label, producto: producto || '(sin valor de enum)' },
+    'Producto capturado desde el menú (para el ticket de la asesora)');
+}
 
 /** Envía un texto de Ori y lo persiste igual que el camino LLM (Postgres + Redis). */
 async function sendNodeText(text, ctx) {
@@ -153,6 +222,7 @@ async function jumpToNode(graph, nodeId, ctx) {
   }
   await sendNodeText(node.texto, ctx);
   await persistFlowNode(ctx.conv, node.id);
+  await capturarProductoDelNodo(graph, node, ctx);
   return { handled: true };
 }
 
@@ -244,7 +314,7 @@ async function handleYaInscrito(text, ctx) {
  * YA EXISTENTE (executeHandoffToAdvisor, guard anti-redisparo incluido) +
  * aviso de horario si aplica; declina → invita a volver al menú.
  */
-async function handleCtaLeaf(node, verdict, ctx) {
+async function handleCtaLeaf(graph, node, verdict, ctx) {
   if (verdict === 'decline') {
     await sendNodeText("Sin problema 😊 Escribe *Menú* cuando quieras ver las demás opciones, o cuéntame si tienes otra duda.", ctx);
     await persistFlowNode(ctx.conv, FREEFORM);
@@ -256,7 +326,9 @@ async function handleCtaLeaf(node, verdict, ctx) {
     ctx.lead,
     ctx.conv,
     ctx.contact,
-    `Flujo Ori — aceptó hablar con asesor (nodo ${node.id})`,
+    // El motivo lleva el NOMBRE del producto, no el id del nodo: es lo único
+    // que ve la asesora para los productos que el enum no puede guardar.
+    `Flujo Ori — aceptó hablar con asesor (${menuLabelFor(graph, node.id) || `nodo ${node.id}`})`,
   );
 
   if (!handedOff) {

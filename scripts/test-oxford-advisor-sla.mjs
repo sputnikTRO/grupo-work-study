@@ -221,8 +221,8 @@ function makeLead(overrides = {}) {
     fullName: 'Prospecto Test',
     institutionName: null,
     state: 'CDMX',
-    municipality: 'Coyoacán', // → dupla A
-    zoneKey: 'A',
+    municipality: 'Coyoacán', // CDMX (la zona va explícita abajo)
+    zoneKey: 'NORTE',
     primaryProduct: null,
     status: 'derivado_asesor',
     ticketNumber: overrides.ticketNumber ?? nextTicket++,
@@ -313,41 +313,45 @@ resetDB();
 }
 
 // ============================================================================
-// 3) El worker reasigna a la PAREJA de la dupla si no hay confirmación
+// 3) El worker reasigna DENTRO del equipo si no hay confirmación
 // ============================================================================
-console.log('\n== 3. Reasignación a la pareja de dupla ==');
+console.log('\n== 3. Reasignación dentro del equipo ==');
 resetDB();
 let chainLead; // se reutiliza en los escenarios 4/5/6 (cadena completa)
 {
-  chainLead = makeLead({ zoneKey: 'A' });
+  chainLead = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(chainLead, 'enrique', overdueAssignAt());
 
   SENT.length = 0;
   TEMPLATES_SENT.length = 0;
   await processExpiredAssignments(new Date());
 
-  assert.strictEqual(chainLead.assignedAdvisor, 'Oriana Pullas', 'reasignado a la pareja de dupla A (Oriana)');
+  // NORTE tiene 4 (Enrique → Mayra → Silvana → Oriana): la cadena ya no salta
+  // de zona al primer fallo, recorre el equipo completo antes de pasar a CENTRO.
+  assert.strictEqual(chainLead.assignedAdvisor, 'Mayra Villareal', 'reasignado al siguiente de NORTE (Mayra)');
   assert.strictEqual(chainLead.reassignCount, 1);
-  assert.deepStrictEqual(chainLead.triedAdvisorKeys, ['enrique', 'oriana']);
+  assert.deepStrictEqual(chainLead.triedAdvisorKeys, ['enrique', 'mayra']);
   assert.strictEqual(chainLead.advisorAttempts[0].result, 'no_confirmo', 'intento de Enrique marcado no_confirmo');
-  assert.strictEqual(chainLead.advisorAttempts[1].result, 'esperando', 'nuevo intento de Oriana en esperando');
+  assert.strictEqual(chainLead.advisorAttempts[1].result, 'esperando', 'nuevo intento de Mayra en esperando');
   assert.ok(SENT.some((m) => m.text.includes('ya no requiere tu atención')), 'aviso breve al asesor anterior (Enrique)');
-  ok('Sin confirmación → reasigna a la pareja de la dupla (Enrique → Oriana)');
+  ok('Sin confirmación → reasigna dentro del equipo (Enrique → Mayra)');
 }
 
 // ============================================================================
-// 4) Si la pareja tampoco confirma, pasa a la SIGUIENTE dupla (B)
+// 4) Se agota NORTE y recién entonces pasa a la SIGUIENTE zona (CENTRO)
 // ============================================================================
-console.log('\n== 4. Pareja tampoco confirma → siguiente dupla (B) ==');
+console.log('\n== 4. Se agota el equipo → siguiente zona (CENTRO) ==');
 {
-  chainLead.assignedAt = overdueAssignAt();
-  chainLead.slaDueAt = new Date(Date.now() - 60000);
+  const vence = () => { chainLead.assignedAt = overdueAssignAt(); chainLead.slaDueAt = new Date(Date.now() - 60000); };
 
-  await processExpiredAssignments(new Date());
-
-  assert.strictEqual(chainLead.assignedAdvisor, 'Rosaura Pinto', 'pasa a la dupla B (primer asesor: Rosaura)');
-  assert.strictEqual(chainLead.reassignCount, 2);
-  ok('Pareja tampoco confirma → siguiente dupla en orden fijo (B: Rosaura)');
+  vence(); await processExpiredAssignments(new Date());
+  assert.strictEqual(chainLead.assignedAdvisor, 'Silvana Meza', '3.º de NORTE');
+  vence(); await processExpiredAssignments(new Date());
+  assert.strictEqual(chainLead.assignedAdvisor, 'Oriana Pullas', '4.º y último de NORTE');
+  vence(); await processExpiredAssignments(new Date());
+  assert.strictEqual(chainLead.assignedAdvisor, 'Rosaura Pinto', 'agotado NORTE → primera de CENTRO');
+  assert.strictEqual(chainLead.reassignCount, 4);
+  ok('Recorre NORTE completo (4) y solo entonces salta a CENTRO en orden fijo');
 }
 
 // ============================================================================
@@ -355,8 +359,8 @@ console.log('\n== 4. Pareja tampoco confirma → siguiente dupla (B) ==');
 // ============================================================================
 console.log('\n== 5. nextAdvisorCandidateKey salta a los ya intentados ==');
 {
-  const next = nextAdvisorCandidateKey('A', ['enrique', 'oriana', 'rosaura']);
-  assert.strictEqual(next, 'diana', 'salta rosaura (ya intentada) y da el siguiente de dupla B (Diana)');
+  const next = nextAdvisorCandidateKey('NORTE', ['enrique', 'mayra', 'silvana', 'oriana', 'rosaura']);
+  assert.strictEqual(next, 'diana', 'agotado NORTE y saltando rosaura (ya intentada) → Diana, de CENTRO');
   ok('nextAdvisorCandidateKey salta correctamente a los asesores ya intentados');
 }
 
@@ -395,7 +399,7 @@ console.log('\n== 6. Terminal tras agotar TODAS las asesoras ==');
 console.log('\n== 7. Carrera: confirmación vs. job de reasignación ==');
 resetDB();
 {
-  const lead = makeLead({ zoneKey: 'A' });
+  const lead = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(lead, 'enrique', overdueAssignAt());
 
   // "Snapshot" que el job habría leído ANTES de la confirmación.
@@ -428,7 +432,7 @@ resetDB();
   // 8a) Sin configurar (default de prod hasta que Meta apruebe) → usa la
   // plantilla base de siempre. Cero cambio de comportamiento.
   envMock.OXED_ADVISOR_SLA_TEMPLATE = '';
-  const lead = makeLead({ zoneKey: 'A' });
+  const lead = makeLead({ zoneKey: 'NORTE' });
   TEMPLATES_SENT.length = 0;
   assignAdvisor(lead, 'enrique', new Date());
   await notifyAdvisorDirect(lead, 'enrique');
@@ -452,7 +456,7 @@ console.log('\n== 9. ATIENDO escribe la fila de detalle correcta ==');
 resetDB();
 resetSheets();
 {
-  const lead = makeLead({ zoneKey: 'A' });
+  const lead = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(lead, 'enrique', new Date(Date.now() - 3 * 60000)); // hace 3 min
 
   SENT.length = 0;
@@ -474,7 +478,7 @@ resetSheets();
 // ============================================================================
 console.log('\n== 10. Segundo evento sobre el mismo ticket actualiza, no duplica ==');
 {
-  const lead = makeLead({ zoneKey: 'A', ticketNumber: 9001 });
+  const lead = makeLead({ zoneKey: 'NORTE', ticketNumber: 9001 });
   assignAdvisor(lead, 'enrique', new Date());
 
   const { recordAdvisorSlaOutcome } = await import('../src/units/oxford-education/advisor-sla-sheet.js');
@@ -496,7 +500,7 @@ console.log('\n== 11. Terminal (sin_confirmar) escribe fila con "—" y estado c
 resetDB();
 resetSheets();
 {
-  const lead = makeLead({ zoneKey: 'A' });
+  const lead = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(lead, 'enrique', overdueAssignAt());
   // Ya va 1 intento (enrique). Se necesitan 7 reasignaciones más para agotar a
   // las 7 asesoras restantes (tried.length llega a 8) + 1 vuelta MÁS para que el
@@ -524,11 +528,11 @@ resetDB();
 resetSheets();
 {
   // Dos leads confirmados por Enrique: 2 min y 4 min → promedio 3, min 2, max 4.
-  const leadA = makeLead({ zoneKey: 'A' });
+  const leadA = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(leadA, 'enrique', new Date(Date.now() - 2 * 60000));
   await handleOxfordAdvisorCommand(msgFrom(ADVISORS.enrique.whatsapp, `ATIENDO ${leadA.ticketNumber}`));
 
-  const leadB = makeLead({ zoneKey: 'A' });
+  const leadB = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(leadB, 'enrique', new Date(Date.now() - 4 * 60000));
   await handleOxfordAdvisorCommand(msgFrom(ADVISORS.enrique.whatsapp, `ATIENDO ${leadB.ticketNumber}`));
 
@@ -540,11 +544,12 @@ resetSheets();
   assert.strictEqual(parseFloat(enriqueRow[4]).toFixed(1), '4.0', 'máximo = 4.0 min');
   ok('Resumen agrega correctamente 2 leads de la misma asesora (count/promedio/min/max)');
 
-  // Un tercer lead: Enrique no confirma → se reasigna a su pareja (Oriana), que sí confirma.
-  const leadC = makeLead({ zoneKey: 'A' });
+  // Un tercer lead: Enrique no confirma → se reasigna al siguiente de NORTE
+  // (Mayra, no Oriana: el equipo tiene 4 y la cadena los recorre en orden).
+  const leadC = makeLead({ zoneKey: 'NORTE' });
   assignAdvisor(leadC, 'enrique', overdueAssignAt());
-  await processExpiredAssignments(new Date()); // reasigna a Oriana; Enrique queda "no_confirmo" en la cadena
-  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.oriana.whatsapp, `ATIENDO ${leadC.ticketNumber}`));
+  await processExpiredAssignments(new Date()); // reasigna a Mayra; Enrique queda "no_confirmo" en la cadena
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.mayra.whatsapp, `ATIENDO ${leadC.ticketNumber}`));
 
   summaryRows = SHEETS.get('Resumen asesoras');
   enriqueRow = summaryRows.slice(1).find((r) => r[0] === 'Enrique Ruiz');

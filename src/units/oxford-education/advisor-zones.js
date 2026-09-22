@@ -13,24 +13,43 @@
 
 // ── Registro de asesores (clave estable interna) ─────────────────────────────
 export const ADVISORS = {
-  enrique:  { key: 'enrique',  nombre: 'Enrique Ruiz',        apodo: 'Enrique',  whatsapp: '5532676181' },
-  oriana:   { key: 'oriana',   nombre: 'Oriana Pullas',       apodo: 'Oriana',   whatsapp: '+17866332282', international: true },
-  rosaura:  { key: 'rosaura',  nombre: 'Rosaura Pinto',       apodo: 'Rosaura',  whatsapp: '5528996738' },
-  diana:    { key: 'diana',    nombre: 'Diana Castillo',      apodo: 'Diana',    whatsapp: '5554794875' },
-  alfredo:  { key: 'alfredo',  nombre: 'Alfredo Grados',      apodo: 'Alfredo',  whatsapp: '5551064383' },
-  paola:    { key: 'paola',    nombre: 'Paola Torres',        apodo: 'Paola',    whatsapp: '5534599531' },
-  gilberto: { key: 'gilberto', nombre: 'Gilberto Osnaya',     apodo: 'Gilberto', whatsapp: '5560703259' },
-  anamaria: { key: 'anamaria', nombre: 'Anamaría Manzanares', apodo: 'Anamaría', whatsapp: '5541947449' },
+  // NORTE
+  enrique:  { key: 'enrique',  nombre: 'Enrique Ruiz',     apodo: 'Enrique',  whatsapp: '5532676181', rol: 'coord' },
+  mayra:    { key: 'mayra',    nombre: 'Mayra Villareal',  apodo: 'Mayra',    whatsapp: '5551020712', rol: 'front' },
+  silvana:  { key: 'silvana',  nombre: 'Silvana Meza',     apodo: 'Silvana',  whatsapp: '8441222124', rol: 'front' },
+  oriana:   { key: 'oriana',   nombre: 'Oriana Pullas',    apodo: 'Oriana',   whatsapp: '+17866332282', international: true, rol: 'back' },
+  // CENTRO-OCCIDENTE
+  rosaura:  { key: 'rosaura',  nombre: 'Rosaura Pinto',    apodo: 'Rosaura',  whatsapp: '5528996738', rol: 'front' },
+  diana:    { key: 'diana',    nombre: 'Diana Castillo',   apodo: 'Diana',    whatsapp: '5554794875', rol: 'back' },
+  // SUR + LATAM
+  balam:    { key: 'balam',    nombre: 'Balam Hernández',  apodo: 'Balam',    whatsapp: '5541947449', rol: 'front' },
+  paola:    { key: 'paola',    nombre: 'Paola Torres',     apodo: 'Paola',    whatsapp: '5534599531', rol: 'back' },
 };
 
-// ── Duplas por zona (round-robin dentro de la dupla, en actions.js) ──────────
-export const DUPLAS = {
-  A: { key: 'A', advisors: ['enrique', 'oriana'] },
-  B: { key: 'B', advisors: ['rosaura', 'diana'] },
-  C: { key: 'C', advisors: ['alfredo', 'paola'] },
-  D: { key: 'D', advisors: ['gilberto', 'anamaria'] },
+// ── Zonas (round-robin por carga DENTRO de la zona, en actions.js) ───────────
+//
+// Sustituye a las 4 "duplas" A/B/C/D: ahora son 3 equipos de tamaño distinto
+// (NORTE 4 · CENTRO 2 · SUR 2), así que el picker ya no puede asumir parejas.
+//
+// `rol` (coord/front/back) es informativo: HOY no altera el ruteo — el
+// round-robin mira solo la carga de leads. Si el equipo quiere que la primera
+// asignación caiga siempre en un FRONT y el BACK entre como respaldo, ese es un
+// cambio aparte en pickAdvisorRoundRobin y en el SLA.
+export const ZONAS = {
+  NORTE:  { key: 'NORTE',  advisors: ['enrique', 'mayra', 'silvana', 'oriana'] },
+  CENTRO: { key: 'CENTRO', advisors: ['rosaura', 'diana'] },
+  SUR:    { key: 'SUR',    advisors: ['balam', 'paola'] },
 };
 
+// Orden fijo para la cadena de reasignación del SLA (advisor-sla.js).
+export const ZONA_ORDER = ['NORTE', 'CENTRO', 'SUR'];
+
+// CDMX no pertenece a una sola zona: el organigrama la reparte entre NORTE (11
+// colegios) y CENTRO-OCCIDENTE (14). Como el bot necesita una regla
+// determinista por lead, resolveZona devuelve este centinela y actions.js
+// ALTERNA entre los dos equipos según quién lleve menos leads de CDMX.
+export const CDMX_SENTINEL = 'CDMX';
+export const CDMX_ZONAS = ['NORTE', 'CENTRO'];
 /**
  * Normaliza texto geográfico: sin acentos, minúsculas, sin puntos, espacios
  * colapsados. "Gustavo A. Madero" → "gustavo a madero"; "Edo. de México" →
@@ -73,77 +92,80 @@ function canon(token) {
   return ALIASES[n] || n;
 }
 
-// ── Alcaldías de CDMX → dupla (las 16) ───────────────────────────────────────
-// NOTA: Cuajimalpa es alcaldía de CDMX pero va INTENCIONALMENTE en la dupla B.
-const CDMX_ALCALDIA_TO_DUPLA = {
-  // Dupla A
-  'alvaro obregon': 'A', 'benito juarez': 'A', 'iztacalco': 'A', 'coyoacan': 'A', 'tlalpan': 'A',
-  // Dupla B (excepción)
-  'cuajimalpa': 'B',
-  // Dupla C
-  'magdalena contreras': 'C', 'milpa alta': 'C', 'tlahuac': 'C', 'iztapalapa': 'C', 'xochimilco': 'C',
-  // Dupla D
-  'miguel hidalgo': 'D', 'cuauhtemoc': 'D', 'venustiano carranza': 'D', 'azcapotzalco': 'D', 'gustavo a madero': 'D',
+// ── Estados de la República → zona ──────────────────────────────────────────
+// Los 31 estados + CDMX, tal como los reparte el organigrama de equipos.
+// CDMX NO está aquí: se resuelve aparte (ver CDMX_SENTINEL).
+const STATE_TO_ZONA = {
+  // NORTE
+  'baja california': 'NORTE', 'baja california sur': 'NORTE', 'sonora': 'NORTE',
+  'chihuahua': 'NORTE', 'sinaloa': 'NORTE', 'coahuila': 'NORTE', 'nuevo leon': 'NORTE',
+  'tamaulipas': 'NORTE', 'durango': 'NORTE', 'zacatecas': 'NORTE', 'san luis potosi': 'NORTE',
+  // CENTRO-OCCIDENTE  (Edo. de México entra aquí: 34 colegios, el bloque más grande)
+  'hidalgo': 'CENTRO', 'queretaro': 'CENTRO', 'guanajuato': 'CENTRO', 'jalisco': 'CENTRO',
+  'aguascalientes': 'CENTRO', 'nayarit': 'CENTRO', 'colima': 'CENTRO', 'michoacan': 'CENTRO',
+  'tlaxcala': 'CENTRO', 'edomex': 'CENTRO', 'puebla': 'CENTRO', 'morelos': 'CENTRO',
+  // SUR
+  'guerrero': 'SUR', 'oaxaca': 'SUR', 'veracruz': 'SUR', 'tabasco': 'SUR', 'chiapas': 'SUR',
+  'campeche': 'SUR', 'yucatan': 'SUR', 'quintana roo': 'SUR',
 };
 
-// ── Estados de la República → dupla (CDMX se resuelve por alcaldía) ───────────
-const STATE_TO_DUPLA = {
-  // Dupla A
-  'sonora': 'A', 'chihuahua': 'A', 'coahuila': 'A', 'nuevo leon': 'A', 'sinaloa': 'A',
-  'baja california': 'A', 'baja california sur': 'A',
-  // Dupla B (incluye Edo. de México por default)
-  'edomex': 'B', 'puebla': 'B', 'morelos': 'B', 'michoacan': 'B', 'colima': 'B',
-  'jalisco': 'B', 'nayarit': 'B', 'aguascalientes': 'B',
-  // Dupla C
-  'guerrero': 'C', 'oaxaca': 'C', 'veracruz': 'C', 'tabasco': 'C', 'chiapas': 'C',
-  'campeche': 'C', 'yucatan': 'C', 'quintana roo': 'C',
-  // Dupla D
-  'tlaxcala': 'D', 'hidalgo': 'D', 'queretaro': 'D', 'guanajuato': 'D',
-  'san luis potosi': 'D', 'zacatecas': 'D', 'tamaulipas': 'D', 'durango': 'D',
+// ── Países de LATAM → zona ──────────────────────────────────────────────────
+// El equipo SUR atiende además la cartera internacional ("SUR + LATAM"). Antes
+// TODO lead extranjero caía en handleForeignFallback y solo recibía el link de
+// agenda, sin asignarse a nadie. Estos países ya se rutean como cualquier lead
+// nacional; el resto del mundo sigue con el fallback.
+const CDMX_ALCALDIAS = new Set([
+  'alvaro obregon', 'benito juarez', 'iztacalco', 'coyoacan', 'tlalpan', 'cuajimalpa',
+  'magdalena contreras', 'milpa alta', 'tlahuac', 'iztapalapa', 'xochimilco',
+  'miguel hidalgo', 'cuauhtemoc', 'venustiano carranza', 'azcapotzalco', 'gustavo a madero',
+]);
+
+const COUNTRY_TO_ZONA = {
+  'venezuela': 'SUR', 'costa rica': 'SUR', 'colombia': 'SUR',
+  'chile': 'SUR', 'ecuador': 'SUR', 'brasil': 'SUR',
 };
 
 /**
- * Resuelve la dupla (A/B/C/D) a partir de estado + municipio/alcaldía.
+ * Resuelve la ZONA a partir de estado/país + municipio.
  *
  * Reglas:
- *  - CDMX → por alcaldía (requiere municipio). Cuajimalpa → B (excepción).
- *  - Edo. de México → SIEMPRE dupla B (cualquier municipio, listado o no).
- *  - Otros estados → por estado.
- *  - Si sólo hay municipio y coincide con una alcaldía CDMX → se infiere CDMX.
+ *  - CDMX → devuelve el centinela 'CDMX': la reparte actions.js alternando
+ *    entre NORTE y CENTRO. Ya NO depende de la alcaldía, así que un lead de
+ *    CDMX que no la dijo también se rutea (antes caía al fallback extranjero).
+ *  - Edo. de México → CENTRO (cualquier municipio, listado o no).
+ *  - Estado de la República reconocido → su zona.
+ *  - País de LATAM reconocido → SUR.
  *
- * @returns {'A'|'B'|'C'|'D'|null} null = sin match (p. ej. lead internacional o
- *   CDMX sin alcaldía). El caller aplica el fallback correspondiente.
+ * @returns {'NORTE'|'CENTRO'|'SUR'|'CDMX'|null} null = sin match (lead de otro
+ *   país o sin ubicación). El caller aplica handleForeignFallback.
  */
-export function resolveDupla(state, municipality) {
+export function resolveZona(state, municipality) {
   const s = canon(state);
   const m = canon(municipality);
 
-  // Edo. de México: default dupla B para cualquier municipio.
-  if (s === 'edomex') return 'B';
+  if (s === 'cdmx') return CDMX_SENTINEL;
+  if (s === 'edomex') return 'CENTRO';
+  if (s && STATE_TO_ZONA[s]) return STATE_TO_ZONA[s];
+  if (s && COUNTRY_TO_ZONA[s]) return COUNTRY_TO_ZONA[s];
 
-  // CDMX: depende de la alcaldía.
-  if (s === 'cdmx') {
-    if (m && CDMX_ALCALDIA_TO_DUPLA[m]) return CDMX_ALCALDIA_TO_DUPLA[m];
-    return null; // CDMX sin alcaldía reconocida → pedir/aclarar
-  }
+  // Solo municipio: si es una alcaldía de CDMX, se infiere CDMX. La lista de
+  // alcaldías sobrevive SOLO para esto — ya no decide zona por sí misma.
+  if (!s && m && CDMX_ALCALDIAS.has(m)) return CDMX_SENTINEL;
 
-  // Otro estado reconocido.
-  if (s && STATE_TO_DUPLA[s]) return STATE_TO_DUPLA[s];
-
-  // Sólo municipio: inferir CDMX si es una alcaldía conocida.
-  if (!s && m && CDMX_ALCALDIA_TO_DUPLA[m]) return CDMX_ALCALDIA_TO_DUPLA[m];
+  // Algunos capturan el país en el campo de municipio ("ciudad: Caracas").
+  if (!s && m && COUNTRY_TO_ZONA[m]) return COUNTRY_TO_ZONA[m];
 
   return null;
 }
 
 /**
- * @param {'A'|'B'|'C'|'D'} duplaKey
- * @returns {Array<Object>} los 2 objetos advisor de la dupla, en orden.
+ * @param {'NORTE'|'CENTRO'|'SUR'} zonaKey
+ * @returns {Array<Object>} los asesores de la zona, en orden (2 o 4).
  */
-export function duplaAdvisors(duplaKey) {
-  const dupla = DUPLAS[duplaKey];
-  if (!dupla) return [];
-  return dupla.advisors.map((k) => ADVISORS[k]);
+export function zonaAdvisors(zonaKey) {
+  const zona = ZONAS[zonaKey];
+  if (!zona) return [];
+  return zona.advisors.map((k) => ADVISORS[k]);
 }
 
 /**

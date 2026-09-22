@@ -133,7 +133,8 @@ function buildLeadContext(lead) {
   if (lead.fullName) lines.push(`Nombre: ${lead.fullName}`);
   if (lead.role) lines.push(`Rol: ${lead.role}`);
   if (lead.leadType) lines.push(`Tipo de lead: ${lead.leadType}`);
-  if (lead.primaryProduct) lines.push(`Programa de interés: ${lead.primaryProduct}`);
+  const productoInteres = lead.primaryProductLabel || lead.primaryProduct;
+  if (productoInteres) lines.push(`Programa de interés: ${productoInteres}`);
   if (lead.institutionName) lines.push(`Institución: ${lead.institutionName}`);
   if (lead.estimatedStudents) lines.push(`Alumnos estimados: ${lead.estimatedStudents}`);
   if (lead.schoolCycle) lines.push(`Ciclo escolar: ${lead.schoolCycle}`);

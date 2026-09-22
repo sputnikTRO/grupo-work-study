@@ -60,14 +60,15 @@ function formatPhoneReadable(phone) {
  * @param {Object|null} conv - Conversation (no usado; se conserva por firma/compat)
  * @param {Object} contact - Contact (nombre/teléfono del prospecto)
  * @param {string} reason - Motivo/nota para el asesor
- * @param {'A'|'B'|'C'|'D'} duplaKey
+ * @param {'NORTE'|'CENTRO'|'SUR'} zonaKey
  * @param {Object} log - Logger child ya scopeado
  */
-export async function notifyAdvisor(advisor, lead, conv, contact, reason, duplaKey, log) {
+export async function notifyAdvisor(advisor, lead, conv, contact, reason, zonaKey, log) {
   const ticket = lead.ticketNumber || '?';
   const zona = [lead.municipality, lead.state].filter(Boolean).join(', ') || 'no capturada';
-  const zonaDupla = `${zona} (dupla ${duplaKey})`;
-  const producto = PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct || 'no capturado';
+  const zonaDupla = `${zona} (zona ${zonaKey})`;
+  // La etiqueta del menú gana: cubre los ~16 productos, no solo los 7 del enum.
+  const producto = lead.primaryProductLabel || PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct || 'no capturado';
   const tipo = lead.leadType === 'b2b_institutional' ? 'institución' : 'individual';
   const nombre = lead.fullName || contact.name || 'No capturado';
   const phoneFormatted = formatPhoneReadable(contact.phone);

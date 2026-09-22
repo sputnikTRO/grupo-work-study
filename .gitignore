@@ -39,3 +39,7 @@ coverage/
 tmp/
 temp/
 downloads/
+
+# Respaldos locales (scripts/reset-all-leads.mjs) — llevan conversaciones y
+# datos de leads reales; nunca deben commitearse.
+scratchpad/
