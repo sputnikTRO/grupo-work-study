@@ -46,8 +46,21 @@ aisladas de Travel a propósito.
   que emite el LLM. `buildLeadUpdate` y `executeHandoffToAdvisor` están **exportadas**
   (antes privadas) específicamente para que `flow-engine.js` las reutilice.
 - `advisor-zones.js` — **ya en prod**: registro de asesores + ruteo geográfico
-  (estado/alcaldía → dupla A/B/C/D) + handoff tibio (derivar NO silencia al bot; sigue
-  atendiendo después). No rehacer esto — es la fuente de verdad para asesores Oxford.
+  (estado/país → zona **NORTE/CENTRO/SUR**) + handoff tibio (derivar NO silencia al
+  bot; sigue atendiendo después). No rehacer esto — es la fuente de verdad para
+  asesores Oxford. Sustituyó a las 4 duplas A/B/C/D: ahora son 3 equipos de tamaño
+  distinto (NORTE 4 · CENTRO 2 · SUR 2), así que **nada puede asumir parejas**.
+  Detalles que no son obvios leyendo el mapa:
+  - **CDMX no es de un solo equipo**: el organigrama la reparte entre NORTE y
+    CENTRO, así que `resolveZona` devuelve el centinela `CDMX` y `actions.js`
+    alterna por carga. La alcaldía ya NO decide zona (solo sirve para inferir que
+    un municipio suelto es de CDMX), y un lead de CDMX sin alcaldía ya se rutea
+    en vez de caer al fallback extranjero.
+  - **SUR atiende LATAM**: Venezuela, Costa Rica, Colombia, Chile, Ecuador y
+    Brasil se rutean como cualquier lead nacional. El resto del mundo sigue con
+    `OXED_FOREIGN_LEAD_FALLBACK`.
+  - `rol` (coord/front/back) es **informativo**: hoy no altera el ruteo, el
+    round-robin mira solo la carga de leads.
 - `sheets-sync.js` — upsert de leads a la tab `Leads Oxford` (una fila por lead, keyed
   por ID en columna A). Patrón de referencia para escritura **aditiva/idempotente** a
   Sheets: nunca borra ni reordena, solo agrega columnas/filas faltantes al final.
@@ -67,9 +80,10 @@ aisladas de Travel a propósito.
   se conserva sin cambios en ambos casos.
 - `advisor-sla.js` (feature/ori-advisor-sla) — SLA de confirmación de asesor: el
   asesor asignado tiene `OXED_ADVISOR_SLA_MINUTES` (default 10) para responder
-  `ATIENDO`; si no, se reasigna automáticamente (pareja de dupla → A→B→C→D
-  saltando intentados → terminal `sin_confirmar` tras agotar las 8). Reutiliza
-  `ADVISORS`/`DUPLAS` de advisor-zones.js y `notifyAdvisor` de advisor-notify.js
+  `ATIENDO`; si no, se reasigna automáticamente (recorre el equipo completo y
+  luego NORTE→CENTRO→SUR saltando intentados → terminal `sin_confirmar` tras
+  agotar los 8). Reutiliza
+  `ADVISORS`/`ZONAS`/`ZONA_ORDER` de advisor-zones.js y `notifyAdvisor` de advisor-notify.js
   SIN reimplementarlos. Usa `updateMany` condicional (`currentAttempt`/
   `confirmedAt`) como guard de concurrencia — nunca doble-reasigna ni pisa una
   confirmación real. **BullMQ NO está en el stack** (verificado, no instalado):

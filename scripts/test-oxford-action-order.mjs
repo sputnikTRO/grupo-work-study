@@ -3,14 +3,14 @@
  *
  * Bug de prod (05-ago): cuando el modelo captura ubicación Y deriva en el MISMO
  * mensaje, parseActions ponía DERIVAR antes que CAPTURAR, así que el handoff
- * corría con el lead viejo (municipality=null) → resolveDupla fallaba → fallback
+ * corría con el lead viejo (state=null) → resolveZona fallaba → fallback
  * pasivo con link de HubSpot, en vez del handoff tibio de zona.
  *
- * Este test usa advisor-zones REAL (para que Xochimilco→dupla C funcione de
+ * Este test usa advisor-zones REAL (para que el ruteo de CDMX funcione de
  * verdad) y mockea el resto (DB/Redis/WhatsApp). Valida que, con las acciones en
  * el orden que produce parseActions (DERIVAR primero), executeActions:
  *   - aplica la captura ANTES de derivar,
- *   - resuelve zona C y asigna asesor (Alfredo/Paola),
+ *   - resuelve la zona de CDMX y asigna asesor,
  *   - envía el mensaje TIBIO ("Te conecto con …"), NO el fallback ("Agenda aquí").
  *
  * Requiere: node --experimental-test-module-mocks
@@ -64,8 +64,11 @@ const contact = { phone: '+52115535305000', name: 'Rafael' };
 const { handoffOccurred } = await executeActions(actions, lead, conv, contact);
 
 assert.strictEqual(lead.municipality, 'Xochimilco', 'la alcaldía debió capturarse ANTES de derivar');
-assert.strictEqual(lead.zoneKey, 'C', 'Xochimilco → dupla C');
-assert.ok(['Alfredo Grados', 'Paola Torres'].includes(lead.assignedAdvisor), `asesor de dupla C asignado (fue: ${lead.assignedAdvisor})`);
+// CDMX se reparte entre NORTE y CENTRO (la alcaldía ya no decide la zona),
+// así que la aserción es sobre el equipo que toque, no sobre uno fijo.
+assert.ok(['NORTE', 'CENTRO'].includes(lead.zoneKey), `CDMX → NORTE o CENTRO (fue: ${lead.zoneKey})`);
+const EQUIPOS = { NORTE: ['Enrique Ruiz', 'Mayra Villareal', 'Silvana Meza', 'Oriana Pullas'], CENTRO: ['Rosaura Pinto', 'Diana Castillo'] };
+assert.ok(EQUIPOS[lead.zoneKey].includes(lead.assignedAdvisor), `asesor del equipo ${lead.zoneKey} (fue: ${lead.assignedAdvisor})`);
 ok(`Captura aplicada antes del handoff → zona C, asesor ${lead.assignedAdvisor}`);
 
 assert.strictEqual(handoffOccurred, true, 'debió ocurrir handoff tibio real');

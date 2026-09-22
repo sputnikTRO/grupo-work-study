@@ -313,6 +313,12 @@ model OxfordLead {
   // Productos de interés
   productsInterest  OxfordProduct[]    @map("products_interest")
   primaryProduct    OxfordProduct?     @map("primary_product")
+  // Etiqueta VERBATIM del producto tal como lo ofrece el menú ("Smile and Learn",
+  // "AINARA", "Oxford Checkpoint Kids"). El enum OxfordProduct solo cubre 7 de los
+  // ~16 del menú, así que sin esto el ticket de la asesora llegaba con el apartado
+  // "Producto" vacío. Columna de texto libre a propósito: un producto nuevo en la
+  // pestaña "Flujo Ori" queda capturado sin necesidad de otra migración.
+  primaryProductLabel String?          @map("primary_product_label")
 
   // Calificación
   temperature       String             @default("nuevo")

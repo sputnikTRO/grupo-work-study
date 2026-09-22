@@ -1,94 +1,125 @@
 /**
  * Dry-run del ruteo geográfico de Ori (NO envía mensajes ni toca DB).
- * Verifica: mapeo zona→dupla→asesor, cobertura de 32 estados + 16 alcaldías,
- * tolerancia a acentos/alias, y passthrough internacional de Oriana.
+ * Verifica: mapeo estado→zona→asesor, cobertura de los 32 estados, LATAM,
+ * la alternancia de CDMX, tolerancia a acentos/alias, y el passthrough
+ * internacional de Oriana.
+ *
+ * Organigrama vigente (3 equipos, tamaños distintos):
+ *   NORTE  — Enrique Ruiz (coord) · Mayra Villareal · Silvana Meza · Oriana Pullas (back)
+ *   CENTRO — Rosaura Pinto · Diana Castillo (back)
+ *   SUR    — Balam Hernández · Paola Torres (back)   [+ cartera LATAM]
  */
 import assert from 'node:assert';
-import { ADVISORS, DUPLAS, resolveDupla, duplaAdvisors, advisorByPhone } from '../src/units/oxford-education/advisor-zones.js';
+import { ADVISORS, ZONAS, ZONA_ORDER, CDMX_SENTINEL, CDMX_ZONAS, resolveZona, zonaAdvisors, advisorByPhone } from '../src/units/oxford-education/advisor-zones.js';
 import { normalizePhone } from '../src/utils/phone.js';
 
 let pass = 0;
 const ok = (n) => { console.log('  ✓ ' + n); pass++; };
 
-// ── 1. Dupla → asesores ───────────────────────────────────────────────────────
-console.log('\n== Duplas ==');
-for (const k of ['A', 'B', 'C', 'D']) {
-  const advs = duplaAdvisors(k).map((a) => a.nombre);
-  console.log(`  Dupla ${k}: ${advs.join('  ↔  ')}`);
-  assert.strictEqual(advs.length, 2);
+// ── 1. Zona → asesores ────────────────────────────────────────────────────────
+console.log('\n== Equipos ==');
+const ESPERADO = {
+  NORTE: ['Enrique Ruiz', 'Mayra Villareal', 'Silvana Meza', 'Oriana Pullas'],
+  CENTRO: ['Rosaura Pinto', 'Diana Castillo'],
+  SUR: ['Balam Hernández', 'Paola Torres'],
+};
+for (const k of ZONA_ORDER) {
+  const advs = zonaAdvisors(k).map((a) => a.nombre);
+  console.log(`  ${k.padEnd(7)} ${advs.join('  ·  ')}`);
+  assert.deepStrictEqual(advs, ESPERADO[k], `equipo ${k}`);
 }
-ok('Cada dupla tiene 2 asesores');
+assert.strictEqual(Object.keys(ADVISORS).length, 8, 'son 8 asesores en total');
+assert.deepStrictEqual(Object.keys(ZONAS), ZONA_ORDER);
+ok('Los 3 equipos con su gente exacta (NORTE 4 · CENTRO 2 · SUR 2)');
 
-// ── 2. Cobertura de los 32 estados ────────────────────────────────────────────
+// Las zonas ya NO son parejas: el picker no puede asumir length === 2.
+assert.strictEqual(zonaAdvisors('NORTE').length, 4, 'NORTE tiene 4, no una pareja');
+ok('NORTE rompe el supuesto viejo de "dupla" de 2 — queda explícito en el test');
+
+// ── 2. Cobertura de los 31 estados (CDMX va aparte) ───────────────────────────
 const STATES = [
-  ['Sonora','A'],['Chihuahua','A'],['Coahuila','A'],['Nuevo León','A'],['Sinaloa','A'],['Baja California','A'],['Baja California Sur','A'],
-  ['Estado de México','B'],['Puebla','B'],['Morelos','B'],['Michoacán','B'],['Colima','B'],['Jalisco','B'],['Nayarit','B'],['Aguascalientes','B'],
-  ['Guerrero','C'],['Oaxaca','C'],['Veracruz','C'],['Tabasco','C'],['Chiapas','C'],['Campeche','C'],['Yucatán','C'],['Quintana Roo','C'],
-  ['Tlaxcala','D'],['Hidalgo','D'],['Querétaro','D'],['Guanajuato','D'],['San Luis Potosí','D'],['Zacatecas','D'],['Tamaulipas','D'],['Durango','D'],
+  ['Baja California','NORTE'],['Baja California Sur','NORTE'],['Sonora','NORTE'],['Chihuahua','NORTE'],
+  ['Sinaloa','NORTE'],['Coahuila','NORTE'],['Nuevo León','NORTE'],['Tamaulipas','NORTE'],
+  ['Durango','NORTE'],['Zacatecas','NORTE'],['San Luis Potosí','NORTE'],
+  ['Hidalgo','CENTRO'],['Querétaro','CENTRO'],['Guanajuato','CENTRO'],['Jalisco','CENTRO'],
+  ['Aguascalientes','CENTRO'],['Nayarit','CENTRO'],['Colima','CENTRO'],['Michoacán','CENTRO'],
+  ['Tlaxcala','CENTRO'],['Estado de México','CENTRO'],['Puebla','CENTRO'],['Morelos','CENTRO'],
+  ['Guerrero','SUR'],['Oaxaca','SUR'],['Veracruz','SUR'],['Tabasco','SUR'],['Chiapas','SUR'],
+  ['Campeche','SUR'],['Yucatán','SUR'],['Quintana Roo','SUR'],
 ];
-let stateGaps = [];
-for (const [name, expected] of STATES) {
-  const got = resolveDupla(name, null);
-  if (got !== expected) stateGaps.push(`${name}: esperado ${expected}, obtuvo ${got}`);
+const gaps = STATES.filter(([n, e]) => resolveZona(n, null) !== e).map(([n, e]) => `${n}: esperado ${e}, obtuvo ${resolveZona(n, null)}`);
+assert.strictEqual(gaps.length, 0, 'Gaps de estado: ' + gaps.join(' | '));
+assert.strictEqual(STATES.length, 31, 'son 31 estados + CDMX = 32');
+ok('Los 31 estados mapean a su equipo según el organigrama');
+
+// Tamaulipas y San Luis Potosí cambiaron de equipo respecto al mapa anterior.
+assert.strictEqual(resolveZona('Tamaulipas', null), 'NORTE');
+assert.strictEqual(resolveZona('Jalisco', null), 'CENTRO');
+ok('Los estados que cambiaron de manos quedaron donde dice el organigrama');
+
+// ── 3. CDMX: centinela + alternancia ──────────────────────────────────────────
+assert.strictEqual(resolveZona('CDMX', null), CDMX_SENTINEL, 'CDMX sin alcaldía YA se rutea (antes caía al fallback)');
+assert.strictEqual(resolveZona('CDMX', 'Coyoacán'), CDMX_SENTINEL, 'la alcaldía ya no decide la zona');
+assert.strictEqual(resolveZona(null, 'Xochimilco'), CDMX_SENTINEL, 'solo alcaldía → infiere CDMX');
+assert.deepStrictEqual(CDMX_ZONAS, ['NORTE', 'CENTRO'], 'CDMX se reparte entre esos dos equipos');
+ok('CDMX devuelve el centinela; la reparte actions.js entre NORTE y CENTRO');
+
+// ── 4. Edo. de México + alias y acentos ───────────────────────────────────────
+assert.strictEqual(resolveZona('Estado de México', 'Ecatepec'), 'CENTRO');
+assert.strictEqual(resolveZona('Edomex', 'Nezahualcóyotl'), 'CENTRO');
+ok('Cualquier municipio de Edo. México (listado o no) → CENTRO');
+
+assert.strictEqual(resolveZona('SLP', null), 'NORTE');
+assert.strictEqual(resolveZona('Nuevo Leon', null), 'NORTE');
+assert.strictEqual(resolveZona('nl', null), 'NORTE');
+assert.strictEqual(resolveZona('QROO', null), 'SUR');
+assert.strictEqual(resolveZona('Michoacán de Ocampo', null), 'CENTRO');
+ok('Tolerante a acentos, mayúsculas y alias (SLP, NL, QROO, nombres largos)');
+
+// ── 5. LATAM → SUR (antes caían todos al fallback) ────────────────────────────
+for (const pais of ['Venezuela', 'Costa Rica', 'Colombia', 'Chile', 'Ecuador', 'Brasil']) {
+  assert.strictEqual(resolveZona(pais, null), 'SUR', `${pais} → SUR`);
 }
-assert.strictEqual(stateGaps.length, 0, 'Gaps de estado: ' + stateGaps.join(' | '));
-ok(`31 estados (+ Edo. México) mapean correctamente; CDMX se resuelve por alcaldía`);
+assert.strictEqual(resolveZona(null, 'Venezuela'), 'SUR', 'también si el país llega en el campo de ciudad');
+ok('Los 6 países de LATAM se rutean al equipo SUR');
 
-// ── 3. Cobertura de las 16 alcaldías de CDMX ──────────────────────────────────
-const ALCALDIAS = [
-  ['Álvaro Obregón','A'],['Benito Juárez','A'],['Iztacalco','A'],['Coyoacán','A'],['Tlalpan','A'],
-  ['Cuajimalpa','B'],
-  ['Magdalena Contreras','C'],['Milpa Alta','C'],['Tláhuac','C'],['Iztapalapa','C'],['Xochimilco','C'],
-  ['Miguel Hidalgo','D'],['Cuauhtémoc','D'],['Venustiano Carranza','D'],['Azcapotzalco','D'],['Gustavo A. Madero','D'],
-];
-let alcGaps = [];
-for (const [name, expected] of ALCALDIAS) {
-  const got = resolveDupla('CDMX', name);
-  if (got !== expected) alcGaps.push(`${name}: esperado ${expected}, obtuvo ${got}`);
-}
-assert.strictEqual(alcGaps.length, 0, 'Gaps de alcaldía: ' + alcGaps.join(' | '));
-ok('16 alcaldías de CDMX mapean (Cuajimalpa → B, excepción intencional)');
+// ── 6. Fuera de cobertura → null (dispara el fallback) ────────────────────────
+assert.strictEqual(resolveZona('Florida', null), null);
+assert.strictEqual(resolveZona('USA', 'Miami'), null);
+assert.strictEqual(resolveZona('España', null), null);
+assert.strictEqual(resolveZona(null, null), null);
+ok('Lo que no es México ni LATAM sigue cayendo en OXED_FOREIGN_LEAD_FALLBACK');
 
-// ── 4. Edomex default + tolerancia a acentos/alias ────────────────────────────
-assert.strictEqual(resolveDupla('Estado de México', 'Ecatepec'), 'B'); // no listado → default B
-assert.strictEqual(resolveDupla('Edomex', 'Nezahualcóyotl'), 'B');
-ok('Cualquier municipio de Edo. México (listado o no) → dupla B');
-
-assert.strictEqual(resolveDupla('ciudad de mexico', 'gam'), 'D');       // alias GAM
-assert.strictEqual(resolveDupla('CDMX', 'Álvaro Obregón'), 'A');        // acentos
-assert.strictEqual(resolveDupla('SLP', null), 'D');                     // alias estado
-assert.strictEqual(resolveDupla('Nuevo Leon', null), 'A');             // sin acento
-assert.strictEqual(resolveDupla('df', 'benito juarez'), 'A');          // df + minúsculas
-assert.strictEqual(resolveDupla(null, 'Coyoacán'), 'A');               // solo alcaldía → infiere CDMX
-ok('Tolerante a acentos, mayúsculas y alias (CDMX/DF, GAM, SLP, etc.)');
-
-// ── 5. Fuera de zona / internacional → null (dispara fallback) ────────────────
-assert.strictEqual(resolveDupla('Florida', null), null);
-assert.strictEqual(resolveDupla('USA', 'Miami'), null);
-assert.strictEqual(resolveDupla('CDMX', null), null);                   // CDMX sin alcaldía
-ok('Leads sin zona resoluble → null (→ OXED_FOREIGN_LEAD_FALLBACK)');
-
-// ── 6. advisorByPhone (whitelist de comandos) ─────────────────────────────────
+// ── 7. advisorByPhone (whitelist de comandos) ─────────────────────────────────
 for (const a of Object.values(ADVISORS)) {
-  const noPlus = normalizePhone(a.whatsapp).replace('+', '');
-  const found = advisorByPhone(noPlus);
+  const found = advisorByPhone(normalizePhone(a.whatsapp).replace('+', ''));
   assert.ok(found && found.nombre === a.nombre, `advisorByPhone falló para ${a.nombre}`);
 }
-ok('advisorByPhone reconoce a los 8 asesores (incluida Oriana internacional)');
+ok('advisorByPhone reconoce a los 8 (Mayra, Silvana y Balam ya pueden usar comandos)');
 
-// ── 7. Oriana conserva su número internacional (envío de prueba, dry-run) ─────
+// Los que salieron del equipo ya no deben ser reconocidos.
+for (const [nombre, tel] of [['Alfredo Grados', '5551064383'], ['Gilberto Osnaya', '5560703259']]) {
+  assert.strictEqual(advisorByPhone(normalizePhone(tel).replace('+', '')), null, `${nombre} ya no debe estar`);
+}
+ok('Alfredo y Gilberto quedaron fuera del whitelist');
+
+// Balam heredó la línea de Anamaría: el número resuelve a ÉL, no a ella.
+const balam = advisorByPhone(normalizePhone('5541947449').replace('+', ''));
+assert.ok(balam && balam.nombre === 'Balam Hernández', 'el 5541947449 ahora es de Balam');
+ok('El número que era de Anamaría ahora resuelve a Balam Hernández');
+
+// ── 8. Oriana conserva su número internacional (dry-run, sin enviar nada) ─────
 console.log('\n== Formato de número para envío (normalizePhone → sin +) ==');
-const samples = [ADVISORS.oriana, ADVISORS.enrique, ADVISORS.rosaura];
-for (const a of samples) {
-  const toSend = normalizePhone(a.whatsapp).replace('+', '');
-  console.log(`  ${a.nombre.padEnd(20)} ${a.whatsapp.padEnd(14)} → to="${toSend}"`);
+for (const a of [ADVISORS.oriana, ADVISORS.enrique, ADVISORS.silvana, ADVISORS.balam]) {
+  console.log(`  ${a.nombre.padEnd(18)} ${a.whatsapp.padEnd(14)} → to="${normalizePhone(a.whatsapp).replace('+', '')}"`);
 }
 const orianaSend = normalizePhone(ADVISORS.oriana.whatsapp).replace('+', '');
-assert.strictEqual(orianaSend, '17866332282', 'Oriana debe conservar +1 (17866332282), NO +52');
+assert.strictEqual(orianaSend, '17866332282', 'Oriana debe conservar +1, NO +52');
 assert.ok(!orianaSend.startsWith('52'), 'Oriana NUNCA debe llevar prefijo 52');
-const enriqueSend = normalizePhone(ADVISORS.enrique.whatsapp).replace('+', '');
-assert.strictEqual(enriqueSend, '5215532676181', 'Enrique (MX 10 díg) → 521...');
-ok('Oriana intacta (+1 / 17866332282); MX recibe 521. NINGÚN mensaje real enviado.');
+assert.strictEqual(normalizePhone(ADVISORS.enrique.whatsapp).replace('+', ''), '5215532676181');
+// Silvana tiene lada 844 (Saltillo): 10 dígitos igual que las de lada 55.
+assert.strictEqual(normalizePhone(ADVISORS.silvana.whatsapp).replace('+', ''), '5218441222124');
+ok('Oriana intacta (+1); MX recibe 521, incluida la lada 844 de Silvana. NINGÚN mensaje real enviado.');
 
 console.log(`\nTODAS las verificaciones pasaron ✅  (${pass})`);
 process.exit(0);

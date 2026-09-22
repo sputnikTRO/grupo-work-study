@@ -47,7 +47,7 @@ function resetState() {
     id: 'lead1', contactId: 'c1', temperature: 'nuevo', status: 'nuevo',
     tags: [], notes: null, assignedAdvisor: null, zoneKey: undefined,
     state: null, municipality: null, fullName: null, institutionName: null,
-    primaryProduct: null, leadType: null, role: null,
+    primaryProduct: null, primaryProductLabel: null, leadType: null, role: null,
   };
   officeHoursOverride = true;
   EXTRACT_RESULT = {};
@@ -86,7 +86,7 @@ mock.module('../src/config/env.js', {
   },
 });
 mock.module('../src/core/database/client.js', {
-  defaultExport: { oxfordLead: { groupBy: async () => [] } }, // round-robin → primer asesor de la dupla
+  defaultExport: { oxfordLead: { groupBy: async () => [] } }, // round-robin → primer asesor de la zona
 });
 mock.module('../src/services/contact.service.js', {
   namedExports: { findOrCreate: async () => ({ id: 'c1', name: null, phone: '+5215500000000' }) },
@@ -175,6 +175,12 @@ const FULL_FLOW_ROWS = [
   row('n_1_1',
     'Oxford TCC Kids es la certificación para niños de 7 a 12 años, que mide las habilidades de inglés integralmente y está alineada al MCER. ¿Quieres recibir más información o agendar una llamada con un asesor?',
     {}, 7),
+  row('n_1_2',
+    'El Oxford TCC evalúa el dominio del inglés como lengua extranjera, reconocido internacionalmente y alineado al MCER. ¿Deseas detalles sobre niveles, proceso o costos?',
+    {}, 8),
+  row('n_1_3',
+    'Oxford ETC certifica competencias didácticas del profesorado en enseñanza de inglés. ¿Te gustaría conocer el contenido o modalidades del curso?',
+    {}, 9),
 ];
 
 let flowRowsOverride = FULL_FLOW_ROWS;
@@ -239,11 +245,81 @@ officeHoursOverride = true; // dentro de horario: SIN aviso
 await handleMessage(msg('Sí, me interesa hablar con un asesor'), 'pnid');
 assert.ok(SENT.some((m) => m.text.includes('Te conecto con')), 'CTA "sí" → handoff tibio (mensaje "Te conecto con…")');
 assert.ok(!SENT.some((m) => m.text.includes('atienden de lunes a viernes')), 'dentro de horario → SIN aviso extra');
-assert.strictEqual(DB_LEAD.zoneKey, 'B', 'Jalisco → dupla B (ruteo geográfico REAL con el state capturado por el flujo)');
+assert.strictEqual(DB_LEAD.zoneKey, 'CENTRO', 'Jalisco → equipo CENTRO (ruteo geográfico REAL con el state capturado por el flujo)');
 assert.ok(DB_LEAD.assignedAdvisor, 'asesor asignado por el handoff tibio REAL');
 assert.strictEqual(DB_CONV.flowNode, 'llm_freeform', 'flowNode → modo libre tras el handoff');
 assert.strictEqual(TEMPLATES_SENT.length, 1, 'se notificó al asesor (plantilla)');
 ok('CTA "sí" en n_1_1 → handoff tibio REAL (ruteo geográfico con datos del flujo) + notifica asesor');
+
+// Bug real: a una asesora le llegó el ticket con el apartado "Producto" VACÍO.
+// primaryProduct solo lo escribía [CAPTURAR_DATO] del LLM, así que quien
+// navegaba el menú hasta un producto se derivaba sin él — aunque el flujo
+// supiera perfectamente en qué nodo estaba. Se captura al aterrizar en el nodo.
+assert.strictEqual(DB_LEAD.primaryProduct, 'oxford_tcc_kids', 'n_1_1 = "Oxford TCC Kids" → producto capturado del menú');
+assert.ok((DB_LEAD.productsInterest || []).includes('oxford_tcc_kids'), 'y queda en productsInterest');
+// El motivo que ve la asesora nombra el producto, no el id del nodo.
+const motivo = TEMPLATES_SENT[0].params.join(' | ');
+assert.ok(motivo.includes('Oxford TCC Kids'), `el ticket nombra el producto (params: ${motivo})`);
+assert.ok(!motivo.includes('nodo n_1_1'), 'y ya no muestra el id interno del nodo');
+ok('el ticket de la asesora llega CON el producto (campo + motivo), no vacío');
+
+// Navegar a OTRO producto refleja la elección más reciente y acumula el interés.
+resetState();
+DB_CONV.flowNode = 'cat_1';
+await handleMessage(msg('3'), 'pnid');                    // → n_1_3 (Oxford ETC)
+assert.strictEqual(DB_CONV.flowNode, 'n_1_3');
+assert.strictEqual(DB_LEAD.primaryProduct, 'english_teaching_certificate', '"Oxford ETC (Certificación para docentes)" → ETC, no el TCC genérico');
+await handleMessage(msg('Menú'), 'pnid');
+DB_CONV.flowNode = 'cat_1';
+await handleMessage(msg('2'), 'pnid');                    // → n_1_2 (Oxford TCC)
+assert.strictEqual(DB_LEAD.primaryProduct, 'oxford_tcc', 'el primario es el ÚLTIMO producto visto');
+assert.deepStrictEqual([...DB_LEAD.productsInterest].sort(), ['english_teaching_certificate', 'oxford_tcc'], 'productsInterest acumula los dos');
+ok('el producto sigue la navegación: primario = el último, productsInterest acumula');
+
+// Dos trampas encontradas probando contra el menú REAL: un patrón laxo metía el
+// producto EQUIVOCADO en el ticket, que es peor que dejarlo vacío.
+//   "Oxford Checkpoint Kids" (examen diagnóstico) ≠ "Oxford TCC Kids" (certificación)
+//   "English Life" (programa de viajes)           ≠ "Oxford LIFE" (la app)
+resetState();
+flowRowsOverride = [
+  ...FULL_FLOW_ROWS,
+  row('cat_trampa', 'Elige:\n1.- Oxford Checkpoint Kids\n2.- English Life', { 1: 'n_chk_kids', 2: 'n_eng_life' }, 90),
+  row('n_chk_kids', 'Oxford Checkpoint Kids evalúa a niños de 6 a 12 años. ¿Te interesa?', {}, 91),
+  row('n_eng_life', 'English Life ofrece inmersión total en inglés en el extranjero. ¿Te interesa?', {}, 92),
+];
+DB_CONV.flowNode = 'cat_trampa';
+await handleMessage(msg('1'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'n_chk_kids');
+assert.strictEqual(DB_LEAD.primaryProduct, null, '"Oxford Checkpoint Kids" NO debe caer en oxford_tcc_kids');
+assert.strictEqual(DB_LEAD.primaryProductLabel, 'Oxford Checkpoint Kids', 'pero sí se captura con su nombre real');
+DB_CONV.flowNode = 'cat_trampa';
+await handleMessage(msg('2'), 'pnid');
+assert.strictEqual(DB_LEAD.primaryProduct, null, '"English Life" NO debe caer en oxford_life');
+assert.strictEqual(DB_LEAD.primaryProductLabel, 'English Life', 'y también se captura con su nombre real');
+ok('los nombres parecidos no se confunden: el enum queda vacío, la etiqueta es la correcta');
+
+// El objetivo del cambio: CUALQUIER producto del menú llega al ticket, tenga o
+// no valor en el enum (que solo cubre 7 de los ~16).
+resetState();
+flowRowsOverride = [
+  ...FULL_FLOW_ROWS,
+  row('cat_aula', 'Plataformas para el aula:\n1.- Smile and Learn\n2.- AINARA', { 1: 'n_sl', 2: 'n_ai' }, 95),
+  row('n_sl', 'Smile and Learn es una app educativa con miles de actividades. ¿Te interesa?', {}, 96),
+  row('n_ai', 'AINARA usa IA generativa para crear contenidos. ¿Te interesa?', {}, 97),
+];
+DB_LEAD.state = 'Jalisco';
+DB_CONV.flowNode = 'cat_aula';
+await handleMessage(msg('1'), 'pnid');
+assert.strictEqual(DB_LEAD.primaryProductLabel, 'Smile and Learn', 'Smile and Learn se captura aunque no esté en el enum');
+assert.strictEqual(DB_LEAD.primaryProduct, null, 'y no se inventa un valor de enum que no existe');
+
+TEMPLATES_SENT.length = 0;
+await handleMessage(msg('sí, me interesa'), 'pnid');      // CTA → handoff real
+assert.strictEqual(TEMPLATES_SENT.length, 1, 'se notificó a la asesora');
+assert.ok(TEMPLATES_SENT[0].params.includes('Smile and Learn'), `el ticket lleva el producto (params: ${TEMPLATES_SENT[0].params.join(' | ')})`);
+assert.ok(!TEMPLATES_SENT[0].params.includes('no capturado'), 'el apartado Producto ya NO llega vacío');
+ok('un producto fuera del enum (Smile and Learn) llena el apartado Producto del ticket');
+flowRowsOverride = FULL_FLOW_ROWS;
 
 // ============================================================================
 // Escenario B — Número inválido
