@@ -135,5 +135,22 @@ assert.ok(/AINARA.*Smile and Learn.*Visual Camp/.test(prompt), 'con ejemplos de 
 assert.ok(/\[CAPTURAR_DATO:product_label:AINARA\]/.test(prompt), 'y un ejemplo concreto de uso');
 ok('El prompt sabe registrar productos fuera del enum (product_label)');
 
+// ── 9. Plazo de contacto: respuesta oficial, no improvisada ──────────────────
+// El 22-sep, a "¿en cuánto tiempo me contactan?" Ori contestó "depende de su
+// agenda, pero normalmente es en el transcurso del día hábil". El prompt no
+// decía nada del plazo, así que lo inventaba distinto cada vez — y prometiendo
+// de menos, que es lo que hace que el prospecto se sienta ignorado.
+assert.ok(prompt.includes('Un asesor te contactará en un periodo máximo de 48 horas hábiles. Agradecemos tu paciencia 🙂'),
+  'la respuesta oficial debe estar VERBATIM en el prompt');
+assert.ok(/NO la improvises/.test(prompt), 'y marcada como no improvisable');
+assert.ok(/Nunca inventes plazos más cortos/.test(prompt), 'con los plazos cortos prohibidos');
+assert.ok(/en el transcurso del día/.test(prompt), 'incluida la frase exacta que usó en producción');
+ok('El prompt fija el plazo de contacto (48 horas hábiles) en vez de improvisarlo');
+
+// No puede chocar con la regla general de no prometer fechas.
+assert.ok(/La ÚNICA excepción es el plazo de contacto \(48 horas hábiles\), que sí es oficial/.test(prompt),
+  'la regla de no prometer fechas reconoce la excepción');
+ok('La excepción queda declarada donde vive la regla de no prometer fechas');
+
 console.log(`\nAll ${passed} checks passed ✅`);
 process.exit(0);
