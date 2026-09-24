@@ -908,4 +908,13 @@ for (const frase of ['ESTATUS DE INSCRIPCIÓN Y PAGOS', 'NUNCA confirmes, niegue
 }
 ok('el prompt de travel prohíbe explícitamente confirmar inscripciones y pagos');
 
+// Plazo de contacto: respuesta oficial, no improvisada. Ori improvisaba esto
+// ("depende de su agenda… en el transcurso del día hábil") y Miri tenía el mismo
+// hueco: ninguno de los dos prompts decía nada del plazo.
+assert.ok(promptSrc.includes('Un asesor te contactará en un periodo máximo de 48 horas hábiles. Agradecemos tu paciencia 🙂'),
+  'la respuesta oficial está VERBATIM en el prompt de Miri');
+assert.ok(/NO la improvises/.test(promptSrc), 'marcada como no improvisable');
+assert.ok(/Nunca inventes plazos más cortos/.test(promptSrc), 'con los plazos cortos prohibidos');
+ok('el prompt de travel fija el plazo de contacto (48 horas hábiles), igual que Ori');
+
 console.log(`\n✅ ${pass} escenarios en verde\n`);
