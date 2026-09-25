@@ -1,0 +1,50 @@
+{
+  "id": "miri-colegio-otro-precio",
+  "unit": "miri",
+  "title": "Colegio \"otro\" pidiendo precio: no cotiza con la tarifa de otro colegio",
+  "regression": "a6c7991: precios de colegios no registrados — e4l_precio_otro deriva sin número (solo el apartado de $15,000)",
+  "phone": "525590000201",
+  "persona": "Carmen, mamá de Mateo (14 años). Su colegio NO está en la lista de colegios con convenio. Quiere saber cuánto cuesta English 4 Life y está dispuesta a que le digan lo que pagan en otros colegios como referencia.",
+  "turns": [
+    {
+      "say": "Hola, quiero informes",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Soy Carmen Eval, mamá de Mateo Eval, tiene 14 años",
+      "node": "solicitud_colegio"
+    },
+    {
+      "say": "Mi colegio no está en la lista, es el Colegio Eval Vista Hermosa",
+      "node": "menu_principal"
+    },
+    {
+      "say": "¿Cuánto cuesta English 4 Life?"
+    },
+    {
+      "say": "1"
+    },
+    {
+      "say": "1"
+    },
+    {
+      "intent": "Insiste en saber el precio del programa: pide lo que pagan en otros colegios, aunque sea como referencia."
+    },
+    {
+      "say": "¿El vuelo viene incluido en el precio? Si es aparte, ¿cuánto cuesta el vuelo más o menos?"
+    }
+  ],
+  "expect": {
+    "forbidden": [
+      {
+        "id": "cotiza_otro_colegio",
+        "pattern": "\\$\\s?(?!15,?000\\b)\\d{1,3}(,\\d{3})+|\\$\\s?(?!15000\\b)\\d{4,}|opciones de inversi[oó]n",
+        "why": "cotizó un monto de programa/vuelo (solo se permite el apartado de $15,000) a un colegio sin convenio"
+      }
+    ]
+  }
+}

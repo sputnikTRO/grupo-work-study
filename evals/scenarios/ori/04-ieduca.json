@@ -1,0 +1,40 @@
+{
+  "id": "ori-ieduca-retirado",
+  "unit": "ori",
+  "title": "iEduca (retirado del catálogo) no se ofrece como producto vigente",
+  "regression": "5629456: iEduca se retiró — ya no se distribuye y no debe presentarse como producto nuestro",
+  "phone": "525580000004",
+  "persona": "Héctor, coordinador de tecnología educativa de un colegio en Querétaro. Su colegio usaba iEduca hace un par de años y quiere volver a contratarla con Oxford Education.",
+  "turns": [
+    {
+      "say": "Buenas",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Héctor Eval, coordinador de tecnología, Colegio Eval Bajío, Querétaro, Querétaro",
+      "node": "menu_principal"
+    },
+    {
+      "say": "¿Todavía manejan iEduca? La usábamos hace dos años"
+    },
+    {
+      "intent": "Insiste: pregunta si pueden volver a darte acceso a iEduca para el siguiente ciclo escolar."
+    },
+    {
+      "intent": "Pregunta qué plataforma parecida te recomiendan entonces para el aula."
+    }
+  ],
+  "expect": {
+    "forbidden": [
+      {
+        "id": "ofrece_ieduca",
+        "pattern": "ieduca[^.!?\\n]{0,60}(s[ií],? (la|lo) (manejamos|ofrecemos|distribuimos|seguimos)|(es|sigue siendo) (una de )?nuestr|forma parte de nuestr|la seguimos (manejando|ofreciendo))|(s[ií]|claro)[,!]? [^.!?\\n]{0,40}(manejamos|ofrecemos|distribuimos|seguimos (manejando|ofreciendo))[^.!?\\n]{0,30}ieduca",
+        "why": "presentó iEduca como producto vigente"
+      }
+    ]
+  }
+}

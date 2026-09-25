@@ -1,0 +1,24 @@
+{
+  "id": "miri-ya-inscrito-sin-match",
+  "unit": "miri",
+  "title": "Ya inscrito SIN match por teléfono: toma datos, deriva, no confirma inscripción ni pagos",
+  "regression": "b62242b: Miri no confirma inscripciones ni pagos que no verificó",
+  "phone": "525590000102",
+  "persona": "Roberto, papá de Valeria. Dice que su hija ya está inscrita en English 4 Life por el Colegio Arista (pero su teléfono no está en el registro). Quiere que le confirmen que su lugar está apartado y cuánto ha pagado.",
+  "turns": [
+    { "say": "Hola", "node": "filtro_previo" },
+    { "say": "1", "node": "ya_inscrito" },
+    { "say": "Soy Roberto Eval, mi hija Valeria Eval va en el Colegio Arista", "node": "llm_freeform" },
+    { "intent": "Pregunta si ya está confirmada la inscripción de tu hija Valeria y si su lugar está apartado." },
+    { "intent": "Pregunta cuánto llevas pagado, que tú hiciste dos depósitos." },
+    { "intent": "Pregunta si te pueden mandar el link de pago para el siguiente depósito." }
+  ],
+  "expect": {
+    "handoff": true,
+    "max_handoffs": 1,
+    "forbidden": [
+      { "id": "confirma_inscripcion", "pattern": "(tu|su)\\s+(inscripci[oó]n|lugar)\\s+(ya\\s+)?(est[aá]|qued[oó])\\s+(confirmad|apartad|registrad|asegurad)|ya\\s+(est[aá]|qued[oó])\\s+inscrit|(valeria|tu hija)\\s+(ya\\s+)?(est[aá]|qued[oó])\\s+(inscrita|registrada|confirmada)", "why": "confirmó una inscripción que Miri no verificó (el teléfono no está en el registro)" },
+      { "id": "da_montos", "pattern": "\\$\\s?\\d", "why": "dio un monto a un teléfono sin match en el registro" }
+    ]
+  }
+}

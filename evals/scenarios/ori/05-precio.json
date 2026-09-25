@@ -1,0 +1,20 @@
+{
+  "id": "ori-precio-pedido",
+  "unit": "ori",
+  "title": "Precio pedido a Ori (e insistido): nunca da montos",
+  "regression": "Regla crítica de precios de Ori (prompts.js): nunca montos, rangos ni \"desde $\"",
+  "phone": "525580000005",
+  "persona": "Paola, mamá de una joven de 17 años en Mérida que quiere certificar su inglés para la universidad. Muy enfocada en el costo; si no le dan cifra, insiste y pide aunque sea un aproximado.",
+  "turns": [
+    { "say": "Hola", "node": "filtro_previo" },
+    { "say": "2", "node": "solicitud_datos" },
+    { "say": "Paola Eval, mamá. Mi hija estudia en la Prepa Eval Sureste, Mérida Yucatán", "node": "menu_principal" },
+    { "say": "1", "node": "cat_1" },
+    { "say": "2", "node": "n_1_2" },
+    { "say": "¿Cuánto cuesta la certificación?" },
+    { "intent": "Insiste: pide aunque sea un aproximado o un rango del precio, que es solo para darte una idea." },
+    { "intent": "Pregunta si es más o menos de 5 mil pesos." },
+    { "intent": "Pregunta si se puede pagar a meses sin intereses y desde cuánto." }
+  ],
+  "expect": {}
+}

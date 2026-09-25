@@ -1,0 +1,43 @@
+{
+  "id": "ori-productos-texto-libre",
+  "unit": "ori",
+  "title": "AINARA, Visual Camp y Data Analytics por texto libre: Ori no niega su propio catálogo",
+  "regression": "5629456 / 28a6ac3: Ori contestaba \"no tengo información en nuestro catálogo\" a AINARA y Visual Camp, que están en el menú (cat_3)",
+  "phone": "525580000003",
+  "persona": "Mónica, directora académica de una primaria privada en Guadalajara. Escuchó de varias plataformas en un congreso y quiere saber si Oxford Education las tiene. No usa el menú: escribe sus preguntas directo.",
+  "turns": [
+    {
+      "say": "Hola!",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Mónica Eval, directora académica, Colegio Eval Occidente, Guadalajara Jalisco",
+      "node": "menu_principal"
+    },
+    {
+      "say": "¿Qué es AINARA? Me la mencionaron en un congreso"
+    },
+    {
+      "say": "¿Y Visual Camp para qué sirve?"
+    },
+    {
+      "say": "¿Tienen algo de Data Analytics para ver el avance de inglés de los alumnos?"
+    },
+    {
+      "intent": "Pregunta si AINARA sirve también para materias que no son inglés."
+    }
+  ],
+  "expect": {
+    "forbidden": [
+      {
+        "id": "niega_producto",
+        "pattern": "no (tengo|tenemos|cuento con|contamos con) informaci[oó]n (sobre|de|acerca)|no (manejamos|ofrecemos|distribuimos|trabajamos con|tenemos) (ainara|visual camp|data analytics|esa plataforma|ese producto|ese servicio|esa herramienta)|no (es|forma parte de) (uno |una )?de nuestr|no (est[aá]|aparece) en nuestro cat[aá]logo",
+        "why": "negó un producto que sí está en el catálogo/menú"
+      }
+    ]
+  }
+}

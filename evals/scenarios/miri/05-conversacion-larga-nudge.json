@@ -1,0 +1,61 @@
+{
+  "id": "miri-conversacion-larga-nudge",
+  "unit": "miri",
+  "title": "Conversación larga en Miri: el recordatorio de Menú no se repite",
+  "regression": "b1d897e / bug abierto: \"Escribe Menú\" duplicado en Miri",
+  "phone": "525590000202",
+  "persona": "Alejandra, mamá de Emilia (15 años), del Colegio Arista. Hace muchas preguntas en texto libre sobre el viaje (seguridad, comida, clima, celulares); pocas veces usa los números del menú.",
+  "turns": [
+    {
+      "say": "Hola!",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Alejandra Eval, mamá de Emilia Eval de 15 años",
+      "node": "solicitud_colegio"
+    },
+    {
+      "say": "Arista",
+      "node": "menu_principal"
+    },
+    {
+      "say": "1",
+      "node": "cat_e4l"
+    },
+    {
+      "intent": "Pregunta quién acompaña a los alumnos durante el viaje."
+    },
+    {
+      "intent": "Pregunta si pueden llevar celular y si hay wifi en la casa de la familia anfitriona."
+    },
+    {
+      "intent": "Pregunta qué pasa si tu hija tiene alguna alergia alimentaria."
+    },
+    {
+      "say": "2"
+    },
+    {
+      "intent": "Pregunta qué clima hace en Londres en mayo."
+    },
+    {
+      "intent": "Pregunta si necesitan visa para viajar."
+    },
+    {
+      "say": "2"
+    },
+    {
+      "intent": "Pregunta si hay descuento por hermanos."
+    },
+    {
+      "intent": "Pregunta si hay juntas informativas para papás antes del viaje."
+    },
+    {
+      "intent": "Agradece y di que lo vas a platicar con tu esposo."
+    }
+  ],
+  "expect": {}
+}

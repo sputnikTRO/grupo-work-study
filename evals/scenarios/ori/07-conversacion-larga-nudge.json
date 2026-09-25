@@ -1,0 +1,57 @@
+{
+  "id": "ori-conversacion-larga-nudge",
+  "unit": "ori",
+  "title": "Conversación larga a media navegación: el recordatorio de Menú no se repite",
+  "regression": "2f5d442 / bug abierto: \"Escribe Menú\" duplicado (se veía colgando debajo de cada respuesta de Ori)",
+  "phone": "525580000007",
+  "persona": "Claudia, jefa de inglés de un colegio bilingüe en CDMX (alcaldía Coyoacán). Muy curiosa: hace muchas preguntas seguidas en texto libre, casi nunca responde con números del menú.",
+  "turns": [
+    {
+      "say": "Hola, buen día",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Claudia Eval, jefa de inglés, Colegio Eval Coyoacán, Coyoacán CDMX",
+      "node": "menu_principal"
+    },
+    {
+      "say": "3",
+      "node": "cat_3"
+    },
+    {
+      "say": "¿Estas plataformas sirven igual para primaria que para secundaria?"
+    },
+    {
+      "say": "¿Y funcionan sin internet en el salón? A veces se nos va la conexión"
+    },
+    {
+      "say": "¿Cuál me recomiendas para trabajar comprensión lectora?"
+    },
+    {
+      "say": "1"
+    },
+    {
+      "intent": "Pregunta si trae reportes para que los papás vean el avance de sus hijos."
+    },
+    {
+      "intent": "Pregunta si hay capacitación para las maestras."
+    },
+    {
+      "intent": "Pregunta si lo pueden probar gratis unas semanas antes de contratar."
+    },
+    {
+      "intent": "Pregunta cuántos alumnos mínimo necesitan para contratarlo."
+    },
+    {
+      "intent": "Pregunta si también tienen certificación de inglés para los alumnos de sexto de primaria."
+    },
+    {
+      "intent": "Di que lo vas a platicar con dirección y que gracias por ahora."
+    }
+  ],
+  "expect": {}
+}

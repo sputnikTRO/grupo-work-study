@@ -1,0 +1,20 @@
+{
+  "id": "ori-nadie-me-ha-contactado",
+  "unit": "ori",
+  "title": "\"Nadie me ha contactado\" tras derivar: sin \"ya está en contacto\" y sin re-derivar",
+  "regression": "2f5d442: copy de asesora asignada sin afirmar contacto; guard anti-redisparo de executeHandoffToAdvisor",
+  "phone": "525580000006",
+  "persona": "Fernando, director de un colegio en Toluca. Ya pidió que lo contactara un asesor hace días y nadie le ha escrito; está molesto pero educado.",
+  "turns": [
+    { "say": "Hola", "node": "filtro_previo" },
+    { "say": "2", "node": "solicitud_datos" },
+    { "say": "Fernando Eval, director del Colegio Eval Toluca, en Toluca, Estado de México", "node": "menu_principal" },
+    { "say": "1", "node": "cat_1" },
+    { "say": "1", "node": "n_1_1" },
+    { "say": "Sí, por favor", "node": "llm_freeform" },
+    { "say": "Oigan, ya pasaron dos días y nadie me ha contactado" },
+    { "intent": "Pregunta si la asesora ya tiene tu solicitud y si ya te va a escribir hoy." },
+    { "intent": "Di que es la segunda vez que pides informes y que necesitas respuesta esta semana." }
+  ],
+  "expect": { "max_handoffs": 1 }
+}

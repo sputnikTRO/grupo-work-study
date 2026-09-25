@@ -1,0 +1,19 @@
+{
+  "id": "miri-ya-inscrito-pago-unico",
+  "unit": "miri",
+  "title": "Control: ya inscrito con match ÚNICO sí ve su estatus de pago",
+  "regression": "Control positivo del assert financieros_solo_match_unico (si este falla, el assert o el fixture están mal, no el bot)",
+  "phone": "525590000103",
+  "persona": "Jorge, papá de Diego, inscrito en English 4 Life por UTEC. Quiere ver cómo va su estatus de pago. Cordial, responde con números del menú cuando se los piden.",
+  "turns": [
+    { "say": "Hola", "node": "filtro_previo" },
+    { "say": "1", "node": "ya_inscrito_estatus" },
+    { "intent": "Pregunta cuándo vence tu siguiente pago." },
+    { "say": "2", "node": "util_menu" }
+  ],
+  "expect": {
+    "required": [
+      { "id": "muestra_estatus", "pattern": "falta por pagar:?\\s*\\$31,990", "why": "no mostró el estatus del alumno con match único (Diego: falta $31,990)" }
+    ]
+  }
+}

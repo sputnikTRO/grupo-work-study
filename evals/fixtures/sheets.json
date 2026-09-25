@@ -1,0 +1,2538 @@
+{
+ "main": {
+  "Viajes": [
+   [
+    "Código",
+    "Destino",
+    "Descripción",
+    "Fecha Salida",
+    "Fecha Regreso",
+    "Estado"
+   ],
+   [
+    "LON2027",
+    "Londres 2027",
+    "Viaje English 4 Life a Londres - Programa inmersivo de inglés con actividades y retos diseñados para practicar el idioma en situaciones reales",
+    "1 mayo 2027",
+    "1 mayo 2027",
+    "activo"
+   ],
+   [
+    "DUB2027",
+    "Dublín 2027",
+    "Viaje English 4 Life a Dublín - Programa inmersivo de inglés con actividades y retos diseñados para practicar el idioma en situaciones reales",
+    "1 mayo 2027",
+    "1 mayo 2027",
+    "activo"
+   ],
+   [
+    "WIN2027-PS",
+    "Windsor 2027 - Primaria/Secundaria",
+    "Rising Stars - Programa especial con beca 50% para estudiantes destacados Oxford TCC",
+    "21 enero 2027",
+    "30 enero 2027",
+    "activo"
+   ],
+   [
+    "WIN2027-PH",
+    "Windsor 2027 - Preparatoria/Higher Education",
+    "Rising Stars - Programa especial con beca 50% para estudiantes destacados Oxford TCC",
+    "29 enero 2027",
+    "07 febrero 2027",
+    "activo"
+   ],
+   [
+    "WB2027",
+    "Winter Break Londres 2027",
+    "English 4 Life Winter Break: viaje académico de invierno de corta duración (9 días / 8 noches) en Londres, con excursión guiada a Oxford y actividades en Windsor. Clases de inglés integradas, hospedaje (opción LEGOLAND), traslados, seguro y diploma. Para estudiantes de 13 años en adelante.",
+    "marzo 2027",
+    "",
+    "Activo"
+   ]
+  ],
+  "Precios": [
+   [
+    "Colegio",
+    "Destino",
+    "Modalidad",
+    "Código Viaje",
+    "Precio Programa",
+    "Precio Vuelo",
+    "Apartado",
+    "Periodo Pago",
+    "Notas"
+   ],
+   [
+    "TODOS",
+    "Dublín",
+    "Homestay",
+    "DUB2027",
+    "",
+    "",
+    "10000",
+    "Abril-Junio 2026",
+    "Precio general Dublín 2027 (programa + vuelo = $69,990)"
+   ],
+   [
+    "Instituto J. Francisco Rodriguez",
+    "Dublín",
+    "Homestay",
+    "DUB2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez"
+   ],
+   [
+    "Colegio Luz del Tepeyac",
+    "Dublín",
+    "Homestay",
+    "DUB2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez"
+   ],
+   [
+    "Instituto Ramiro Kolbe",
+    "Dublín",
+    "Homestay",
+    "DUB2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez"
+   ],
+   [
+    "Instituto Kino de San Luis",
+    "Dublín",
+    "Homestay",
+    "DUB2027",
+    "39990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez - PRECIO ESPECIAL"
+   ],
+   [
+    "Instituto Martha Christlieb",
+    "Dublín",
+    "Homestay",
+    "DUB2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez"
+   ],
+   [
+    "Colegio The Hills Institute",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Camila Serafin"
+   ],
+   [
+    "Colegio Profr. Francisco Errasquin Gomez",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez"
+   ],
+   [
+    "Colegio Arista",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez"
+   ],
+   [
+    "UTEC",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Camila Serafin"
+   ],
+   [
+    "Belfortt",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "34990",
+    "35000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Camila Serafin"
+   ],
+   [
+    "Global Skills",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "35000",
+    "37000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Camila Serafin - Vuelo especial"
+   ],
+   [
+    "Centro de Estudios Naucalpan",
+    "Londres",
+    "Homestay",
+    "LON2027",
+    "39990",
+    "36000",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Cecilia Rodríguez - PRECIOS ESPECIALES"
+   ],
+   [
+    "Colegio Columbia",
+    "Londres",
+    "Hotel",
+    "LON2027",
+    "85000",
+    "0",
+    "10000",
+    "Abril-Junio 2026",
+    "Asesora: Camila Serafin - HOTEL (vuelo incluido)"
+   ],
+   [
+    "TODOS",
+    "Windsor",
+    "Hotel",
+    "WIN2027-PS",
+    "Por definir",
+    "Por definir",
+    "10000",
+    "Por definir",
+    "Rising Stars Primaria/Secundaria - Beca 50% - Legoland Resort Hotel"
+   ],
+   [
+    "TODOS",
+    "Windsor",
+    "Hotel",
+    "WIN2027-PH",
+    "Por definir",
+    "Por definir",
+    "10000",
+    "Por definir",
+    "Rising Stars Preparatoria/Higher Ed - Beca 50% - Legoland Resort Hotel"
+   ],
+   [
+    "TODOS",
+    "Windsor",
+    "Hotel",
+    "WIN2027-PH",
+    "Por definir",
+    "Por definir",
+    "Por definir",
+    "Por definir",
+    "Rising Stars Preparatoria/Higher Ed - Beca 50% - Legoland Resort Hotel"
+   ]
+  ],
+  "Colegios": [
+   [
+    "Nombre Colegio",
+    "Asesora",
+    "Destino",
+    "WhatsApp Asesora",
+    "Email Asesora",
+    "Zona"
+   ],
+   [
+    "Instituto J. Francisco Rodriguez",
+    "Cecilia Rodríguez",
+    "Dublín",
+    "5215500000001",
+    "asesora1@eval.invalid",
+    "Dublín"
+   ],
+   [
+    "Colegio Luz del Tepeyac",
+    "Cecilia Rodríguez",
+    "Dublín",
+    "5215500000002",
+    "asesora2@eval.invalid",
+    "Dublín"
+   ],
+   [
+    "Instituto Ramiro Kolbe",
+    "Cecilia Rodríguez",
+    "Dublín",
+    "5215500000003",
+    "asesora3@eval.invalid",
+    "Dublín"
+   ],
+   [
+    "Colegio The Hills Institute",
+    "Camila Serafin",
+    "Londres",
+    "5215500000004",
+    "asesora4@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Colegio Profr. Francisco Errasquin Gomez",
+    "Cecilia Rodríguez",
+    "Londres",
+    "5215500000005",
+    "asesora5@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Colegio Arista",
+    "Cecilia Rodríguez",
+    "Londres",
+    "5215500000006",
+    "asesora6@eval.invalid",
+    "Londres"
+   ],
+   [
+    "UTEC",
+    "Camila Serafin",
+    "Londres",
+    "5215500000007",
+    "asesora7@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Belfortt",
+    "Camila Serafin",
+    "Londres",
+    "5215500000008",
+    "asesora8@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Instituto Kino de San Luis",
+    "Cecilia Rodríguez",
+    "Dublín",
+    "5215500000009",
+    "asesora9@eval.invalid",
+    "Dublín"
+   ],
+   [
+    "Global Skills",
+    "Camila Serafin",
+    "Londres",
+    "5215500000010",
+    "asesora10@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Centro de Estudios Naucalpan",
+    "Cecilia Rodríguez",
+    "Londres",
+    "5215500000011",
+    "asesora11@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Colegio Columbia",
+    "Camila Serafin",
+    "Londres",
+    "5215500000012",
+    "asesora12@eval.invalid",
+    "Londres"
+   ],
+   [
+    "Instituto Martha Christlieb",
+    "Cecilia Rodríguez",
+    "Dublín",
+    "5215500000013",
+    "asesora13@eval.invalid",
+    "Dublín"
+   ]
+  ],
+  "Actividades Extra": [
+   [
+    "Código Viaje",
+    "Nombre",
+    "Precio",
+    "Descripción",
+    "Incluido",
+    "Fecha Límite"
+   ]
+  ],
+  "Info General": [
+   [
+    "Código Viaje",
+    "Categoría",
+    "Título",
+    "Contenido",
+    "Orden"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿De qué trata el programa English 4 Life?",
+    "English 4 Life es un programa inmersivo de inglés que combina un viaje educativo a Londres o Dublín con actividades y retos diseñados para practicar el idioma en situaciones reales.",
+    "1"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Cuál es el objetivo del programa?",
+    "El objetivo es que los estudiantes mejoren su inglés mientras viven experiencias culturales reales, ganan confianza al comunicarse y desarrollar habilidades para la vida.",
+    "2"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿A qué países se viaja con English 4 Life?",
+    "El programa 2027 se realiza en dos destinos principales: Londres, en Inglaterra, y Dublín, en Irlanda.",
+    "3"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Cuánto dura el viaje?",
+    "El viaje tiene una duración de 9 días y 8 noches, 10 días totales de viaje del 21 al 30 de Mayo 2027.",
+    "4"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Cuánto cuesta el programa?",
+    "El lugar se puede apartar con $10,000 MXN. Para conocer el precio completo y el plan de pagos específico para tu colegio, una asesora te lo prepara personalizado.",
+    "5"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Mi hijo puede viajar solo aunque sus compañeros de colegio no lo hagan?",
+    "Sí, es posible, se integraría al grupo de edad que se forme para el viaje, con Staff nuestro como responsable.",
+    "6"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿El viaje es seguro para los estudiantes?",
+    "Los estudiantes están supervisados durante las actividades del programa. Se hospedan en familias anfitrionas y se trasladan en transporte público local como parte del aprendizaje. Cuentan con Group Leaders y equipo local que pueden asistirles cuando sea necesario",
+    "7"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Cuál es la edad mínima y máxima para participar?",
+    "El programa está diseñado para alumnos de 13 años en adelante. Hay subdivisiones por edades y nivel de idioma, se definen al momento de armar los grupos.",
+    "8"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Se necesita nivel avanzado de inglés?",
+    "No es necesario tener un nivel avanzado de inglés; el programa está diseñado para que los estudiantes practiquen y mejoren su fluidez y la confianza al hablarlo. Para la parte académica se hacen grupos de acuerdo a su nivel de manejo del idioma.",
+    "9"
+   ],
+   [
+    "TODOS",
+    "Trámites",
+    "¿Se necesita visa para viajar?",
+    "No es necesario tramitar visa. Para Londres se requiere tramitar la ETA (Electronic Travel Authorisation) con anticipación. Para Dublín no se requiere ningún trámite de ingreso. Otras nacionalidades diferentes a la mexicana se deben validar en la página de la embajada de cada país.",
+    "10"
+   ],
+   [
+    "TODOS",
+    "Trámites",
+    "¿Qué vigencia mínima debe tener el pasaporte?",
+    "Por ley todos los pasaportes deben tener una vigencia mínima de 6 meses posteriores a la fecha de regreso del viaje. Para English 4 Life Mayo 2027, el pasaporte debe tener vigencia mínima de noviembre de 2027 en adelante.",
+    "11"
+   ],
+   [
+    "TODOS",
+    "Trámites",
+    "¿Cómo funciona la ETA?",
+    "El costo de la ETA es de 16 libras. Debe solicitarse en https://www.gov.uk/eta. Una vez cerrado el grupo, se acompaña en el proceso para completar correctamente los trámites. Solo se requiere para Londres, NO para Dublín.",
+    "12"
+   ],
+   [
+    "TODOS",
+    "Hospedaje",
+    "¿Cómo es el hospedaje?",
+    "El hospedaje es en casas de familia anfitriona (homestay), previamente evaluadas y autorizadas. 2 estudiantes por habitación en camas individuales. Hasta 4 estudiantes en una misma casa, regularmente del mismo colegio. No se mezclan géneros en la asignación. Las casas se ubican en zonas residenciales seguras.",
+    "13"
+   ],
+   [
+    "TODOS",
+    "Hospedaje",
+    "¿A qué se refiere con que el hospedaje es en familia anfitriona y con quién se comparte habitación?",
+    "El hospedaje es en casas de familia anfitriona (homestay), previamente evaluadas y autorizadas bajo lineamientos oficiales del país. Estas familias cumplen estándares de seguridad, comodidad e instalaciones adecuadas para recibir estudiantes internacionales. Las casas se ubican en zonas residenciales seguras, con acceso a transporte público y dentro de rutas previamente definidas para el programa. La asignación contempla: 2 estudiantes por habitación en camas individuales, hasta 4 estudiantes en una misma casa (regularmente del mismo colegio), no se mezclan géneros en la asignación.",
+    "14"
+   ],
+   [
+    "TODOS",
+    "Pagos",
+    "¿Cómo inscribo a mi hijo y cuánto es el pago inicial?",
+    "Puedes reservar el lugar de tu hijo con un pago mínimo de $10,000 MXN. El esquema de pagos vigente (abril-junio 2026) contempla un apartado de $15,000 MXN. Una asesora te contactará para preparar tu plan de pagos personalizado.",
+    "15"
+   ],
+   [
+    "TODOS",
+    "Pagos",
+    "¿Se puede cancelar después del apartado?",
+    "Contamos con un seguro de cancelación de $1,500 MXN. Si la cancelación es 90 días antes del viaje, se regresa el 100% del monto pagado. Si se cancela 60 días antes, se reembolsa el 50%. Y una cancelación 30 días antes permite el reembolso del 30%. En todos los casos se retiene $7,500 pesos por concepto de inscripción.",
+    "16"
+   ],
+   [
+    "TODOS",
+    "Pagos",
+    "¿Cuánto cuesta el vuelo?",
+    "El vuelo internacional redondo sale desde la Ciudad de México y tiene un costo aproximado de $35,000 a $37,000 pesos mexicanos. El precio exacto se confirma al momento de cerrar los primeros grupos, y se ofrece un plan de pagos flexible a meses sin intereses.",
+    "17"
+   ],
+   [
+    "TODOS",
+    "Pagos",
+    "¿Qué pasa si no se forma el grupo?",
+    "En caso de que el grupo no se forme, se reembolsa todo el monto pagado, incluida la inscripción. O bien las familias pueden decidir que los estudiantes viajen prorrateando el costo del profesor entre ellos.",
+    "18"
+   ],
+   [
+    "TODOS",
+    "Seguros",
+    "¿Qué cubre el seguro de gastos médicos?",
+    "El programa incluye un seguro de gastos médicos mayores con cobertura amplia en Reino Unido e Irlanda. Cubre atención médica por enfermedad o accidente durante la estancia, incluyendo consultas, hospitalización, estudios y tratamientos. No requiere deducible ni coaseguro por parte de la familia. En caso de requerir atención médica, el staff acompaña al estudiante y activa el seguro conforme al protocolo establecido.",
+    "19"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Cuánto deben considerar para gastos adicionales?",
+    "El programa incluye desayuno y cena. Para el almuerzo, se recomienda considerar un promedio de £20 por día. En cuanto a souvenirs o compras personales, el monto es a criterio de cada familia.",
+    "20"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Este viaje aporta algo para su futuro académico?",
+    "Sí. English 4 Life es una experiencia académica internacional que fortalece el perfil del estudiante. Además de la mejora en el idioma, reciben un diploma de participación con valor curricular y desarrollan habilidades como autonomía, adaptación cultural y comunicación intercultural, competencias valoradas en procesos universitarios.",
+    "21"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿El pago incluye la entrada a todas las actividades del itinerario?",
+    "Así es, el pago contempla todas las actividades incluidas en el itinerario base. Sin embargo, contamos con un paquete de actividades adicionales que pueden adquirirse una vez que tenemos formados los grupos de viaje.",
+    "22"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Qué actividades diarias hay para practicar inglés?",
+    "El programa combina actividades formales de inglés con actividades prácticas diseñadas para fomentar el uso constante del idioma. Los estudiantes participan en dinámicas, retos culturales, actividades guiadas y proyectos donde deben usar el inglés en situaciones reales. El objetivo es practicar el idioma todos los días en contextos auténticos.",
+    "23"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Los estudiantes cuentan con supervisión durante el viaje?",
+    "Los estudiantes cuentan con acompañamiento permanente del staff y del profesor del colegio. Todas las actividades se desarrollan bajo un itinerario organizado y con supervisión continua, priorizando en todo momento la seguridad y el bienestar del grupo. En caso de cualquier situación extraordinaria, el equipo actúa conforme a los protocolos establecidos para garantizar el bienestar del grupo.",
+    "24"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Cuál es el protocolo en caso de una emergencia?",
+    "Contamos con protocolos para situaciones médicas, operativas o extraordinarias y de fuerza mayor. El staff actúa de inmediato según el tipo de caso, activa el seguro cuando es necesario y mantiene comunicación constante con las familias. Siempre priorizamos la seguridad y seguimos las indicaciones de las autoridades locales en caso de situaciones mayores.",
+    "25"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Cómo se maneja la comunicación con padres?",
+    "La comunicación con padres se realiza mediante un grupo oficial de WhatsApp administrado por el Group Leader y el staff. Se comparten actualizaciones generales y, de ser necesario, se contacta a las familias de forma privada. Los estudiantes pueden comunicarse con sus padres en horarios establecidos, considerando actividades y diferencia de horario.",
+    "26"
+   ],
+   [
+    "TODOS",
+    "General",
+    "¿Desde qué aeropuerto sale el vuelo y quién acompaña a los estudiantes?",
+    "Todos los vuelos salen desde el Aeropuerto Internacional de la Ciudad de México, Benito Juárez. En todo momento contarán con staff de acompañamiento al grupo, desde el proceso de check-in y vuelo hasta llegar al destino.",
+    "27"
+   ],
+   [
+    "LON2027",
+    "Trámites",
+    "ETA (Electronic Travel Authorization)",
+    "Descargar app UK ETA del App Store o Google Play. Se requiere foto del pasaporte (vigencia 6 meses post-viaje), escaneo de rostro del menor, contestar preguntas. Pago con Visa o Mastercard. Precio: 16 libras. Vigencia: 2 años. Realizarlo con 1 mes de anticipación.",
+    "28"
+   ],
+   [
+    "LON2027",
+    "Trámites",
+    "Formato SAM (Salida de Menores)",
+    "Autorización para que menores salgan de México. Indispensable, sin él NO puede viajar. Vigencia 6 meses. Costo $294 MXN pagado en línea. Requiere: pasaporte original del menor, ID del padre/tutor, acta de nacimiento, comprobante de pago (original y 3 copias). Debe ser sellada por Agente Federal de Migración del INM. El menor y profesor acompañante deben estar presentes. Tramitar con 30 días de anticipación en aeropuerto. Página: https://www.inm.gob.mx/spublic/portal/inmex.html",
+    "29"
+   ],
+   [
+    "LON2027",
+    "Trámites",
+    "¿Qué trámites migratorios requiere el estudiante para salir del país?",
+    "El estudiante deberá contar con: Pasaporte vigente, con una validez mínima de 6 meses posteriores a la fecha de término del viaje. Para viajar a Reino Unido, los estudiantes con nacionalidad mexicana deberán tramitar una ETA (Electronic Travel Authorisation) previa al viaje. En el caso de menores de edad que viajen sin ambos padres, se requerirá el Formato SAM (Salida de Menores) conforme a la normativa mexicana vigente.",
+    "30"
+   ],
+   [
+    "LON2027",
+    "Clima",
+    "Clima en Londres - Mayo",
+    "Templado y variable, días frescos a ligeramente cálidos con posibles lluvias intermitentes. Temperaturas aprox 10-18°C, mezcla de nubes y ratos de sol.",
+    "31"
+   ],
+   [
+    "LON2027",
+    "Equipaje",
+    "Lista de equipaje recomendada",
+    "NECESER: desodorante, cepillo y pasta dental, shampoo, acondicionador, jabón, cremas, bloqueador, cepillo de cabello. ROPA: 1-2 sudaderas, 9-10 playeras, 1 chamarra impermeable, 4-6 pantalones, 10-13 pares calcetines, 10-13 mudas ropa interior, pijama abrigadora, chanclas de baño, 1-2 calza. IMPORTANTE: móvil (opcional), laptop/tablet, cargadores, batería externa, adaptadores UK, tarjeta Visa/Mastercard, auriculares. COMPLEMENTOS: paraguas, cojín para cuello, botiquín, botella de agua rellenable. NO LLEVAR: plancha de cabello, secadora, plancha de ropa. BACKPACK: cargador, dispositivos, adaptador, batería. CARRY ON: cambio de ropa, snacks.",
+    "32"
+   ],
+   [
+    "LON2027",
+    "Equipaje",
+    "Botiquín recomendado",
+    "Paracetamol, Ibuprofeno, Buscapina, Graneodin B, Antigripal, Dramamine, Pepto Bismol, Melox Plus. Si el medicamento es de venta controlada, llevar medicamento y receta médica.",
+    "33"
+   ],
+   [
+    "LON2027",
+    "Equipaje",
+    "¿Qué debe llevar en la maleta y cuáles son las restricciones?",
+    "1 maleta de 23kg + equipaje de mano de 10kg. Ver lista de equipaje recomendada para detalles completos.",
+    "34"
+   ],
+   [
+    "LON2027",
+    "Conectividad",
+    "Opciones de conectividad en Londres",
+    "Opción 1: SIM local (EE, Vodafone, Three, O2) con planes prepago. Opción 2: eSIM internacional antes de viajar (Airalo, Holafly, TravSIM). Opción 3: Roaming con Telcel, AT&T o Movistar (más costoso). Tips: asegurar que el celular esté desbloqueado, usar WhatsApp para llamadas con datos o WiFi.",
+    "35"
+   ],
+   [
+    "LON2027",
+    "Finanzas",
+    "Información financiera recomendada",
+    "Llevar tarjetas de crédito o débito desbloqueadas para compras. Opcional llevar aprox 50 libras esterlinas en efectivo.",
+    "36"
+   ],
+   [
+    "DUB2027",
+    "Trámites",
+    "Formato SAM (Salida de Menores)",
+    "Autorización para que menores salgan de México. Indispensable, sin él NO puede viajar. Vigencia 6 meses. Costo $294 MXN pagado en línea. Requiere: pasaporte original del menor, ID del padre/tutor, acta de nacimiento, comprobante de pago (original y 3 copias). Debe ser sellada por Agente Federal de Migración del INM. El menor y profesor acompañante deben estar presentes. Tramitar con 30 días de anticipación en aeropuerto. Página: https://www.inm.gob.mx/spublic/portal/inmex.html",
+    "37"
+   ],
+   [
+    "DUB2027",
+    "Trámites",
+    "¿Qué trámites migratorios requiere el estudiante para viajar a Dublín?",
+    "El estudiante deberá contar con: Pasaporte vigente, con una validez mínima de 6 meses posteriores a la fecha de término del viaje. Para viajar a Irlanda (Dublín), los estudiantes mexicanos no requieren visa para estancias cortas. En el caso de menores de edad que viajen sin ambos padres, se requerirá el Formato SAM (Salida de Menores) conforme a la normativa mexicana vigente.",
+    "38"
+   ],
+   [
+    "DUB2027",
+    "Clima",
+    "Clima en Dublín - Mayo",
+    "Templado y húmedo, días frescos con posibles lluvias frecuentes. Temperaturas aprox 8-15°C. Se recomienda llevar ropa impermeable y capas para adaptarse al clima variable.",
+    "39"
+   ],
+   [
+    "DUB2027",
+    "Equipaje",
+    "Lista de equipaje recomendada",
+    "NECESER: desodorante, cepillo y pasta dental, shampoo, acondicionador, jabón, cremas, bloqueador, cepillo de cabello. ROPA: 1-2 sudaderas, 9-10 playeras, 1 chamarra impermeable, 4-6 pantalones, 10-13 pares calcetines, 10-13 mudas ropa interior, pijama abrigadora, chanclas de baño, 1-2 calza. IMPORTANTE: móvil (opcional), laptop/tablet, cargadores, batería externa, adaptadores UK/Irlandeses, tarjeta Visa/Mastercard, auriculares. COMPLEMENTOS: paraguas, cojín para cuello, botiquín, botella de agua rellenable. NO LLEVAR: plancha de cabello, secadora, plancha de ropa. BACKPACK: cargador, dispositivos, adaptador, batería. CARRY ON: cambio de ropa, snacks.",
+    "40"
+   ],
+   [
+    "DUB2027",
+    "Conectividad",
+    "Opciones de conectividad en Dublín",
+    "Opción 1: SIM local (Three, Vodafone, Eir) con planes prepago. Opción 2: eSIM internacional antes de viajar (Airalo, Holafly, TravSIM). Opción 3: Roaming con Telcel, AT&T o Movistar (más costoso). Tips: asegurar que el celular esté desbloqueado, usar WhatsApp para llamadas con datos o WiFi.",
+    "41"
+   ],
+   [
+    "DUB2027",
+    "Finanzas",
+    "Información financiera recomendada",
+    "Llevar tarjetas de crédito o débito desbloqueadas para compras. Opcional llevar aprox 50 euros en efectivo.",
+    "42"
+   ],
+   [
+    "LON2026",
+    "Actividades Extra",
+    "Opción 1: London Eye + West End Musical + Estadio",
+    "Incluye ingreso al London Eye (30 min), entradas a Musical de West End, visita a estadio de futbol (Wembley o Chelsea, sujeto a disponibilidad, 75 min). Precio: $5,300 MXN. Confirmar antes del 27 de febrero. Liquidar antes del 15 de marzo. El grupo completo debe escoger la misma opción.",
+    "43"
+   ],
+   [
+    "LON2026",
+    "Actividades Extra",
+    "Opción 2: Harry Potter Studio Tour",
+    "Visita por sets de grabación, efectos visuales, vestuarios originales. Actividades interactivas: volar en escoba, probar butter beer. Tiempo aprox 3.5 horas sin límite. Precio: $4,500 MXN. Confirmar antes del 27 de febrero. Liquidar antes del 15 de marzo.",
+    "44"
+   ],
+   [
+    "LON2026",
+    "Extensión",
+    "Extensión a París",
+    "Precio: $42,990 MXN por estudiante. Confirmar antes del 30 de enero (grupo completo). Pago antes del 15 de febrero. Incluye: traslado Londres-París, hospedaje hotel tipo ejecutivo (ej: Ibis), desayunos, walking tours, entrada a Disney Paris, entrada a Versalles, traslados, transfer al hotel, seguro de gastos médicos mayores, seguro de viaje, staff 24/7. Itinerario: Día 11 llegada + tour guiado + Trocadero noche. Día 12 Louvre + Eiffel Tower. Día 13 Disneyland. Día 14 Versalles + Montmartre. Día 15 Champs Elysees + partida.",
+    "45"
+   ],
+   [
+    "LON2026",
+    "Sesiones",
+    "Sesiones Pre-Viaje",
+    "1era sesión: Marzo. 2da sesión: Abril. 3ra sesión: Mayo.",
+    "46"
+   ],
+   [
+    "WIN2027-PS",
+    "FAQ",
+    "¿Qué es Rising Stars?",
+    "Rising Stars es un programa especial con beca del 50% para estudiantes destacados que participaron en Oxford TCC (The Complete Competence) y ocuparon primeros lugares en su grupo.",
+    "100"
+   ],
+   [
+    "WIN2027-PH",
+    "FAQ",
+    "¿Qué es Rising Stars?",
+    "Rising Stars es un programa especial con beca del 50% para estudiantes destacados que participaron en Oxford TCC (The Complete Competence) y ocuparon primeros lugares en su grupo.",
+    "100"
+   ],
+   [
+    "WIN2027-PS",
+    "FAQ",
+    "¿Dónde se lleva a cabo Rising Stars?",
+    "Rising Stars se realiza en Windsor, UK. El hospedaje es en Legoland Resort Hotel.",
+    "101"
+   ],
+   [
+    "WIN2027-PH",
+    "FAQ",
+    "¿Dónde se lleva a cabo Rising Stars?",
+    "Rising Stars se realiza en Windsor, UK. El hospedaje es en Legoland Resort Hotel.",
+    "101"
+   ],
+   [
+    "WIN2027-PS",
+    "FAQ",
+    "¿Qué incluye el programa Rising Stars?",
+    "El programa incluye: 4 Workshops, 4 Challenges, 1 Masterclass sobre Public Speaking, 1 Final Challenge. Temas: Leadership Legacy, Creative Thinking, Persuasion, Improvisation. Incluye hospedaje en Legoland Resort Hotel, seguro médico, traslados, recorrido por Oxford, 2 visitas a Londres, todas las comidas y staff 24/7.",
+    "102"
+   ],
+   [
+    "WIN2027-PH",
+    "FAQ",
+    "¿Qué incluye el programa Rising Stars?",
+    "El programa incluye: 4 Workshops, 4 Challenges, 1 Masterclass sobre Public Speaking, 1 Final Challenge. Temas: Leadership Legacy, Creative Thinking, Persuasion, Improvisation. Incluye hospedaje en Legoland Resort Hotel, seguro médico, traslados, recorrido por Oxford, 2 visitas a Londres, todas las comidas y staff 24/7.",
+    "102"
+   ],
+   [
+    "WIN2027-PS",
+    "FAQ",
+    "¿Quién puede participar en Rising Stars?",
+    "Rising Stars es exclusivo para estudiantes que: 1) Participaron en Oxford TCC (The Complete Competence), 2) Obtuvieron primeros lugares en su grupo, 3) Cuentan con beca del 50%.",
+    "103"
+   ],
+   [
+    "WIN2027-PH",
+    "FAQ",
+    "¿Quién puede participar en Rising Stars?",
+    "Rising Stars es exclusivo para estudiantes que: 1) Participaron en Oxford TCC (The Complete Competence), 2) Obtuvieron primeros lugares en su grupo, 3) Cuentan con beca del 50%.",
+    "103"
+   ],
+   [
+    "WIN2027-PS",
+    "FAQ",
+    "¿Cuándo es el programa Rising Stars para Primaria/Secundaria?",
+    "El programa para Primaria y Secundaria es del 21 al 30 de enero de 2027 (10 días, 9 días/8 noches en UK).",
+    "104"
+   ],
+   [
+    "WIN2027-PH",
+    "FAQ",
+    "¿Cuándo es el programa Rising Stars para Preparatoria?",
+    "El programa para Preparatoria y Higher Education es del 29 de enero al 07 de febrero de 2027 (10 días, 9 días/8 noches en UK).",
+    "104"
+   ],
+   [
+    "WIN2027-PS",
+    "Trámites",
+    "¿Se necesita visa para Rising Stars?",
+    "No es necesario tramitar visa. Se requiere tramitar la ETA (Electronic Travel Authorisation) con anticipación, igual que para Londres. El costo es de 16 libras en https://www.gov.uk/eta",
+    "105"
+   ],
+   [
+    "WIN2027-PH",
+    "Trámites",
+    "¿Se necesita visa para Rising Stars?",
+    "No es necesario tramitar visa. Se requiere tramitar la ETA (Electronic Travel Authorisation) con anticipación, igual que para Londres. El costo es de 16 libras en https://www.gov.uk/eta",
+    "105"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Cómo funciona el acompañamiento y los traslados?",
+    "Los estudiantes se hospedan con familias anfitrionas seleccionadas, entre 2 y 4 estudiantes por hogar. Cada mañana, tras el desayuno, se trasladan al meeting point donde se reúne todo el grupo para las actividades del día. Al terminar, regresan juntos al mismo punto y de ahí a sus hogares.\n\nLos trayectos se hacen en transporte público local como parte del aprendizaje cultural y desarrollo de autonomía. Antes del viaje y durante los primeros días, los estudiantes reciben orientación detallada sobre rutas, uso de la tarjeta de transporte, normas de seguridad y protocolos ante imprevistos.\n\nLas rutas son supervisadas por el equipo del programa. Los estudiantes nunca hacen desplazamientos improvisados y cuentan con el apoyo de sus Group Leaders y el equipo local cuando sea necesario.",
+    "10"
+   ],
+   [
+    "TODOS",
+    "FAQ",
+    "¿Cómo funciona el acompañamiento y los traslados?",
+    "Los estudiantes se hospedan con familias anfitrionas seleccionadas, entre 2 y 4 estudiantes por hogar. Cada mañana, tras el desayuno, se trasladan al meeting point donde se reúne todo el grupo para las actividades del día. Al terminar, regresan juntos al mismo punto y de ahí a sus hogares.\n\nLos trayectos se hacen en transporte público local como parte del aprendizaje cultural y desarrollo de autonomía. Antes del viaje y durante los primeros días, los estudiantes reciben orientación detallada sobre rutas, uso de la tarjeta de transporte, normas de seguridad y protocolos ante imprevistos.\n\nLas rutas son supervisadas por el equipo del programa. Los estudiantes nunca hacen desplazamientos improvisados y cuentan con el apoyo de sus Group Leaders y el equipo local cuando sea necesario.",
+    "10"
+   ],
+   [
+    "WB2027",
+    "FAQ",
+    "¿Qué es Winter Break?",
+    "Winter Break es la versión de invierno de English 4 Life: un viaje académico y cultural de corta duración, 9 días y 8 noches en Londres, para practicar inglés en situaciones reales, conocer otra cultura y vivir una experiencia internacional. Para estudiantes de 13 años en adelante.",
+    "1"
+   ],
+   [
+    "WB2027",
+    "FAQ",
+    "¿Cuándo se realiza Winter Break?",
+    "Se realiza en temporada de invierno: noviembre 2026 o marzo 2027 (según el material, la salida está programada en marzo 2027).",
+    "2"
+   ],
+   [
+    "WB2027",
+    "FAQ",
+    "¿Cuánto dura y a dónde viaja Winter Break?",
+    "Dura 9 días y 8 noches. El destino principal es Londres, con excursión guiada a Oxford y actividades en Windsor (Royal Borough of Windsor y Windsor Great Park). Incluye días completos en Londres con recorridos por Westminster, City of London y el Millennium Bridge.",
+    "3"
+   ],
+   [
+    "WB2027",
+    "FAQ",
+    "¿Qué incluye Winter Break?",
+    "Incluye hospedaje (opción LEGOLAND, cuartos para 2-4 personas con baño propio), clases de inglés integradas, excursión guiada a Oxford, actividades culturales y visitas guiadas, acompañamiento de staff y seguimiento operativo, seguro con cobertura de gastos médicos, material de trabajo, traslados y diploma de participación.",
+    "4"
+   ],
+   [
+    "WB2027",
+    "FAQ",
+    "¿En qué se diferencia Winter Break del English 4 Life regular?",
+    "English 4 Life regular es en mayo (Londres o Dublín); Winter Break es la edición de invierno, de corta duración (9 días/8 noches) en Londres, con el mismo enfoque inmersivo de usar el inglés 24/7.",
+    "5"
+   ]
+  ],
+  "Materiales": [
+   [
+    "ID",
+    "Nombre",
+    "Tipo",
+    "URL",
+    "Código Viaje",
+    "Código Colegio",
+    "Descripción"
+   ],
+   [
+    "JDP_LONDRES_2027",
+    "Presentación English 4 Life Londres 2027",
+    "PDF",
+    "https://drive.google.com/uc?id=1xMZcGlfsSGtZzzZVW-XUoalGGBv3lnPc&export=download",
+    "LON2027",
+    "TODOS",
+    "Presentación completa del programa E4L Londres 2027 - Junta de Padres"
+   ],
+   [
+    "JDP_DUBLIN_2027",
+    "Presentación English 4 Life Dublín 2027",
+    "PDF",
+    "https://drive.google.com/uc?id=1vs04wAaEBQ3E4QMam3vcXee7wCBOLA7l&export=download",
+    "DUB2027",
+    "TODOS",
+    "Presentación completa del programa E4L Dublín 2027 - Junta de Padres"
+   ],
+   [
+    "RISING_STARS_2027",
+    "Presentación Rising Stars 2027",
+    "PDF",
+    "https://drive.google.com/uc?id=1SrRH6cH3Bh-vELh9tsPez7V9VsyKtZ4J&export=download",
+    "WIN2027-PS",
+    "TODOS",
+    "Presentación del programa Rising Stars 2027 - Windsor UK"
+   ],
+   [
+    "WB_LONDRES_2027",
+    "Winter Break Londres 2027",
+    "PDF",
+    "https://drive.google.com/uc?id=1VxvnrF8Qqyb9qpaPszli0jx3UJWA-j4T&export=download",
+    "TODOS",
+    "TODOS",
+    "Presentación de Winter Break English 4 Life 2027 (Londres, viaje académico de invierno, 9 días/8 noches)."
+   ]
+  ],
+  "FAQ Oxford": [
+   [
+    "Programa",
+    "Categoría",
+    "Pregunta",
+    "Respuesta",
+    "Orden"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿Para qué edad es adecuada esta certificación?",
+    "La certificación Oxford TCC se recomienda para estudiantes mayores de 12 años, sin límite de edad máxima. Para niños de 7 a 12 años se ofrece la versión Oxford TCC Kids.",
+    "1"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿Qué niveles de inglés evalúa?",
+    "Evalúa los niveles A1 a C2 según el Marco Común Europeo de Referencia para las Lenguas (MCER), cubriendo todo el espectro de dominio del idioma.",
+    "2"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿En qué consiste el proceso de certificación?",
+    "Tiene 3 etapas totalmente en línea: Diagnóstico (60-240 min) para detectar el nivel de dominio, Mock (110-265 min): examen simulado realista, y Certificación (110-265 min): evaluación definitiva con las 5 habilidades.",
+    "3"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿El certificado tiene reconocimiento internacional?",
+    "Sí, es internacional y comparable con otras certificaciones. Oxford Education es miembro de la Association of Language Testers in Europe (ALTE), garantizando estándares de calidad internacionales.",
+    "4"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿Cuánto tiempo toma obtener el certificado físico?",
+    "Los resultados se consultan 5 días hábiles después de cada etapa, y el certificado físico se entrega 3 semanas después de concluir todo el proceso.",
+    "5"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿Cuánto tiempo de vigencia tiene el certificado?",
+    "El OTCC es una certificación vitalicia. Es la institución que la requiere quien define los términos de validez.",
+    "6"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿Esta certificación tiene validez para el CENNI de la SEP?",
+    "Si lo requieres puedes solicitarlo previo a tu evaluación; en ese caso la vigencia cambia: A1 - Constancia por 1 año, A2 hasta C1 - Certificado por 5 años, C2 - Diploma por 10 años.",
+    "7"
+   ],
+   [
+    "oxford_tcc",
+    "FAQ",
+    "¿Cómo se evalúa la expresión oral?",
+    "La prueba oral es realizada por hablantes nativos o expertos (en línea o presencial), evaluando: fluidez, coherencia, interacción, variedad lingüística, pronunciación, entonación y gestión de la comunicación.",
+    "8"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Qué es Oxford TCC Kids?",
+    "Es una certificación de inglés para niños de 7 a 12 años que evalúa habilidades lingüísticas de manera integral en una plataforma digital.",
+    "1"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Para qué edades está diseñado?",
+    "Está diseñado para niños de 7 a 12 años.",
+    "2"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Qué niveles certifica?",
+    "Evalúa niveles desde Pre A1 hasta B1.",
+    "3"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Cómo está estructurado el proceso?",
+    "El proceso tiene tres etapas: diagnóstico, mock y certificación.",
+    "4"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Cuánto dura la evaluación?",
+    "Depende del nivel y la etapa. El diagnóstico dura de 20 a 50 minutos, el mock de 50 a 90 minutos o más, y la certificación de 60 minutos en adelante.",
+    "5"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Qué beneficios ofrece al estudiante?",
+    "Permite reconocer su progreso real, recibir retroalimentación y obtener una certificación internacionalmente reconocida.",
+    "6"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Qué beneficios ofrece a la escuela?",
+    "Ayuda a monitorear el progreso de los alumnos, ofrece reportes por habilidad y brinda soporte técnico y pedagógico.",
+    "7"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Cómo se verifica la identidad del estudiante?",
+    "Mediante grabación de video y revisión de identificación oficial al inicio de la evaluación.",
+    "8"
+   ],
+   [
+    "oxford_tcc_kids",
+    "FAQ",
+    "¿Qué controles de seguridad tiene la evaluación?",
+    "Incluye barrido de cámara en 360°, uso de audífonos con cable, cámara encendida y control del entorno durante toda la sesión.",
+    "9"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿Qué es el Oxford ETC?",
+    "Es una certificación internacional para docentes de inglés que fortalece sus competencias pedagógicas y metodológicas.",
+    "1"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿Quién puede tomar el ETC?",
+    "Cualquier docente de inglés o profesional interesado en mejorar sus habilidades para enseñar el idioma.",
+    "2"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿Necesito tener experiencia docente?",
+    "Sí, está diseñado principalmente para personas que ya imparten clases o desean profesionalizar su práctica docente.",
+    "3"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿Cuánto dura el programa?",
+    "La certificación contempla aproximadamente 130 horas de formación y evaluación.",
+    "4"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿Qué calificación necesito para aprobar?",
+    "El desempeño se reporta por niveles: Experto, Competente, Aceptable y En Desarrollo.",
+    "5"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿Recibo un certificado?",
+    "Sí. Al concluir satisfactoriamente obtienes tu Oxford English Teaching Certificate.",
+    "6"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿El certificado tiene vigencia?",
+    "No. El certificado es vitalicio.",
+    "7"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿El curso de preparación está incluido?",
+    "Si lo deseas, el programa puede incluir un curso de preparación con sesiones estructuradas.",
+    "8"
+   ],
+   [
+    "english_teaching_certificate",
+    "Certificación",
+    "¿La certificación tiene reconocimiento internacional?",
+    "Sí, es una certificación respaldada por Oxford Education.",
+    "9"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Quiénes pueden inscribirse en ETC?",
+    "Pueden inscribirse docentes o académicos interesados en fortalecer su práctica pedagógica del inglés: maestros de inglés como actualización, o profesionales que quieren enriquecer su metodología.",
+    "10"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Se necesita un nivel mínimo de inglés?",
+    "El requisito mínimo de entrada es tener un nivel igual o superior a B2 (MCER).",
+    "11"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿El Training Course es obligatorio para certificarse?",
+    "No. El Training Course es opcional: sirve como preparación y guía (recomendado para mejorar resultados), pero la certificación ETC puede realizarse sin haberlo tomado.",
+    "12"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Cuánto dura el Training Course y cuántas horas implica?",
+    "Se completa en promedio en 12 semanas, con una carga total de 90 a 130 horas. Módulo 1: 30-40 h, Módulo 2: 40-60 h, Módulo 3: 15-30 h, Módulo 4 opcional (primaria): 90-120 h.",
+    "13"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Cómo está estructurada la certificación y cuántos exámenes hay?",
+    "La certificación es digital y consta de 3 o 4 exámenes. Cada examen tiene entre 80 y 160 preguntas; los tres primeros duran ~90 minutos cada uno, el cuarto ~120-150 minutos.",
+    "14"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Cuál es la escala de calificaciones?",
+    "A (Experto) 91-100, B (Competente) 81-90, C (Aceptable) 70-80, D (En Desarrollo) 0-69.",
+    "15"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Qué sucede si obtengo menos de 70 puntos?",
+    "Recibes un certificado de participación que indica los módulos certificados, el porcentaje obtenido y el nivel \"En Desarrollo\".",
+    "16"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Cuándo recibiré mi certificado?",
+    "El certificado se entrega cuatro semanas después de finalizar los exámenes. En certificaciones grupales, la emisión puede esperar hasta que concluya el último candidato del grupo.",
+    "17"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Qué materiales incluye el Training Course?",
+    "El paquete incluye 4 libros digitales, material multimedia de autogestión (videos, recursos didácticos), exámenes MOCK de 60 reactivos al finalizar cada módulo, y apoyo del equipo de educadores.",
+    "18"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿En qué modalidades se ofrece?",
+    "La plataforma principal es asíncrona y autogestiva. Existe también una versión síncrona con foros y discusiones en línea.",
+    "19"
+   ],
+   [
+    "english_teaching_certificate",
+    "Training Course",
+    "¿Qué diferencia tiene el Módulo 4?",
+    "Está diseñado para la enseñanza en la infancia (6-12 años): aborda desarrollo cognitivo, lectoescritura, planeación de clase y aprendizaje socioemocional. Es opcional, para docentes de educación primaria.",
+    "20"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿A quién está dirigido Alphable?",
+    "Es ideal para niños (a partir de 10 años), jóvenes, universitarios, profesionistas y empresas. Para personas que desean aprender un idioma para viajar, trabajar o estudiar.",
+    "1"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Qué niveles ofrece?",
+    "Cursos alineados con el MCER, desde Pre A1 hasta C2.",
+    "2"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Cómo funcionan las clases?",
+    "Las clases son en línea y se desarrollan mediante actividades comunicativas con profesores expertos.",
+    "3"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Qué idiomas ofrecen?",
+    "Alphable ofrece diversos idiomas. Puedes consultar la disponibilidad del idioma de tu interés.",
+    "4"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Necesito hacer un examen para comenzar?",
+    "Sí. Se realiza un examen diagnóstico gratuito para conocer tu nivel.",
+    "5"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Las clases son individuales o grupales?",
+    "Puedes elegir entre clases individuales, grupos pequeños o Conversation Clubs.",
+    "6"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Cuánto duran las clases?",
+    "Las clases tienen una duración de 50 minutos.",
+    "7"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Cuántas clases incluye la suscripción mensual?",
+    "La suscripción mensual incluye 7 clases por mes.",
+    "8"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Puedo elegir mis horarios?",
+    "Sí, dependiendo de la modalidad contratada.",
+    "9"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Qué son los Conversation Clubs?",
+    "Son sesiones enfocadas únicamente en practicar conversación con profesores expertos.",
+    "10"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Recibo algún certificado al finalizar?",
+    "Sí. Al finalizar recibirás una constancia de estudios.",
+    "11"
+   ],
+   [
+    "alphable",
+    "FAQ",
+    "¿Puedo certificar mi nivel de inglés?",
+    "Sí. Los estudiantes de inglés pueden presentar la certificación Oxford TCC.",
+    "12"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Qué es Oxford LIFE?",
+    "Es una plataforma digital que ayuda a practicar inglés todos los días mediante actividades interactivas y gamificadas.",
+    "1"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Quién puede utilizar Oxford LIFE?",
+    "Está dirigido principalmente a estudiantes desde los 11 años y a instituciones educativas.",
+    "2"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Oxford LIFE sustituye las clases?",
+    "No. Es una herramienta complementaria que fortalece el aprendizaje fuera del aula.",
+    "3"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿El estudiante recibe retroalimentación?",
+    "Sí. La plataforma proporciona retroalimentación inmediata después de cada actividad.",
+    "4"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Se puede usar fuera del horario escolar?",
+    "Sí. Está diseñada para practicar desde cualquier lugar y en cualquier momento.",
+    "5"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Los docentes pueden monitorear el avance?",
+    "Sí. Oxford LIFE cuenta con un sistema de seguimiento individual por estudiante.",
+    "6"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Cómo mantiene motivados a los estudiantes?",
+    "Mediante elementos de gamificación, retos y actividades dinámicas.",
+    "7"
+   ],
+   [
+    "oxford_life",
+    "FAQ",
+    "¿Oxford LIFE ayuda a preparar certificaciones?",
+    "Sí. Refuerza las habilidades lingüísticas necesarias para certificaciones internacionales de inglés.",
+    "8"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Puedo trabajar en España con este programa?",
+    "Sí. La autorización permite trabajar hasta 30 horas por semana mientras realizas tus estudios.",
+    "1"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿El programa me consigue trabajo?",
+    "No. El programa no garantiza empleo; te brinda la autorización legal para trabajar mientras estudias.",
+    "2"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Cuánto dura el programa?",
+    "Tiene una duración de 6 meses.",
+    "3"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Qué necesito para aplicar?",
+    "Debes ser mayor de 18 años, tener pasaporte vigente, no contar con antecedentes penales, demostrar solvencia económica, contratar un seguro médico e inscribirte en uno de los programas académicos.",
+    "4"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Hay límite de edad?",
+    "No existe una edad máxima; únicamente debes ser mayor de 18 años.",
+    "5"
+   ],
+   [
+    "work_study_spain",
+    "Requisitos",
+    "¿Tengo que demostrar recursos económicos?",
+    "Sí. Actualmente se solicita acreditar aproximadamente 3,600 € para cubrir tu estancia de seis meses.",
+    "6"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Puedo viajar por Europa?",
+    "Sí. Una vez aprobada tu estancia por estudios, podrás viajar dentro del Espacio Schengen conforme a la normativa vigente.",
+    "7"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Puedo llevar a mi familia?",
+    "Sí. Tu cónyuge e hijos pueden solicitar un visado de acompañante o participar en el programa, según corresponda.",
+    "8"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Qué incluye el costo del programa?",
+    "Incluye la matrícula al curso superior, la gestión inicial de la visa o estancia, asesoría legal, curso de inglés y acompañamiento académico y de viaje. No incluye el trámite para cambiar posteriormente a una residencia por trabajo.",
+    "9"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Qué pasa después de los seis meses?",
+    "Si consigues una oferta laboral y cumples con los requisitos de la legislación española, podrás solicitar el cambio a una residencia o permiso de trabajo.",
+    "10"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Puedo aplicar si ya estoy en España?",
+    "Sí, siempre que te encuentres en situación legal y cumplas con las condiciones para solicitar la estancia por estudios.",
+    "11"
+   ],
+   [
+    "work_study_spain",
+    "FAQ",
+    "¿Cuánto tarda el proceso?",
+    "Una vez presentada toda la documentación, el tiempo de resolución varía según la provincia, normalmente de 1 a 3 meses.",
+    "12"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Qué es Smile and Learn?",
+    "Es una plataforma educativa con más de 14,000 recursos interactivos para niños de 3 a 12 años.",
+    "1"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Para qué edades está diseñada?",
+    "Para niñas y niños entre 3 y 12 años.",
+    "2"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Qué tipo de contenido incluye?",
+    "Juegos, videos, cuentos, actividades educativas y recursos de apoyo.",
+    "3"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Cuántos recursos tiene?",
+    "Más de 14,000 recursos educativos.",
+    "4"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Puede usarse en tablet o celular?",
+    "Sí. Es una plataforma multiplataforma y funciona en diferentes dispositivos.",
+    "5"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Necesito internet para utilizarla?",
+    "No siempre. Smile and Learn cuenta con función offline para acceder a ciertos contenidos sin conexión.",
+    "6"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿La plataforma es segura para los niños?",
+    "Sí. Está diseñada específicamente para estudiantes de kínder y primaria, ofreciendo un entorno seguro.",
+    "7"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Se adapta al nivel de cada estudiante?",
+    "Sí. Permite personalizar la experiencia de aprendizaje por estudiante y por institución.",
+    "8"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Es útil para estudiantes con necesidades educativas especiales?",
+    "Sí. La plataforma cuenta con características inclusivas para atender diferentes necesidades educativas.",
+    "9"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Los docentes pueden dar seguimiento al progreso?",
+    "Sí. Incluye analíticas, gestión de grupos y herramientas de seguimiento para docentes.",
+    "10"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿En cuántos idiomas está disponible?",
+    "Está disponible en 6 idiomas, lo que favorece programas bilingües y multilingües.",
+    "11"
+   ],
+   [
+    "smile_and_learn",
+    "FAQ",
+    "¿Qué hace diferente a Smile and Learn?",
+    "Combina miles de recursos educativos, aprendizaje personalizado, analíticas para docentes, contenido inclusivo y acceso desde múltiples dispositivos en una sola plataforma.",
+    "12"
+   ],
+   [
+    "TODOS",
+    "Política",
+    "¿Qué pasa si no apruebo el examen o la certificación?",
+    "Si no alcanzas el puntaje mínimo para aprobar, no se realiza reembolso. Recibes un diploma de participación que reconoce tu avance: los módulos certificados, el porcentaje obtenido y el nivel alcanzado. Esto aplica a cualquiera de nuestras certificaciones.",
+    "1"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Qué es The Oxford Data Analytics y para qué sirve?",
+    "Es un proceso de evaluación diseñado para diagnosticar y medir de forma integral las competencias en las habilidades fundamentales del inglés: Use of English, Reading Comprehension, Writing, Listening Comprehension y Speaking. Sirve para obtener un perfil inicial de la población estudiantil, evaluar el nivel de inglés con base en el MCER y medir el progreso de los alumnos.",
+    "1"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Qué instrumentos incluye y cuándo se utiliza cada uno?",
+    "Incluye dos instrumentos: Examen diagnóstico multinivel: permite identificar el nivel real de inglés de una población y diagnosticar necesidades generales. Es recomendable cuando se necesita obtener un panorama inicial amplio. Examen Checkpoint: está estructurado por nivel y cuenta con más de 200 reactivos. Es ideal para medir con precisión el dominio de un nivel previamente asignado y monitorear avances concretos.",
+    "2"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿A cuántos alumnos debe aplicarse y en qué grupos?",
+    "Se recomienda aplicarlo a por lo menos dos grados completos, es decir, a todos los grupos del mismo grado. Esto permite obtener muestras representativas, analizar los resultados por grupo y comparar generaciones.",
+    "3"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Qué áreas o habilidades evalúa la prueba?",
+    "Dependiendo del instrumento elegido, evalúa: Use of English: gramática y vocabulario. Reading Comprehension. Listening Comprehension. Writing. Speaking. El examen diagnóstico evalúa tres habilidades: Use of English, Reading y Listening. El examen Checkpoint puede evaluar cinco habilidades al incluir Writing y Speaking.",
+    "4"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Cómo se evalúa la expresión oral (Speaking)?",
+    "El estudiante graba sus respuestas directamente en la plataforma OxEd. Posteriormente, las grabaciones son evaluadas por académicos especialistas en certificaciones, quienes aplican criterios y rúbricas para calificar aspectos como: Pronunciación. Fluidez. Coherencia. Corrección lingüística. En la modalidad presencial, los examinadores pueden acudir a la sede seleccionada por la institución.",
+    "5"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Qué tipo de reportes entrega y qué información contienen?",
+    "La institución recibe dos tipos de reportes: Reporte cuantitativo: presenta el desglose numérico de los resultados por alumno y por habilidad, incluyendo puntajes y porcentajes de acierto. Reporte cualitativo: analiza los resultados por grupo, nivel y grado; identifica patrones, tendencias y áreas comunes de oportunidad; además, incluye recomendaciones pedagógicas y medidas de acción.",
+    "6"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Cómo pueden los docentes usar los resultados para mejorar la enseñanza?",
+    "Los docentes pueden utilizar los resultados para: Agrupar a los alumnos según sus necesidades. Priorizar contenidos por habilidad. Planear unidades de refuerzo. Asignar recursos. Diseñar actividades específicas. Monitorear la eficacia de las intervenciones mediante evaluaciones posteriores.",
+    "7"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Qué garantía de alineación con estándares ofrece?",
+    "Tanto el examen diagnóstico como el examen Checkpoint están alineados con el Marco Común Europeo de Referencia para las Lenguas (MCER). Esto permite obtener resultados comparables y útiles para tomar decisiones basadas en estándares internacionales.",
+    "8"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Qué logística y requisitos técnicos se necesitan?",
+    "Se requiere: Acceso a la plataforma OxEd. Dispositivos con capacidad de audio para las grabaciones. Conexión estable a internet. Coordinación operativa para calendarizar las sesiones. Alimentación de la base de datos. Verificación de la información de los alumnos. La implementación se coordina con el área de Operación para definir las sesiones, el volumen de aplicación y la validación de datos.",
+    "9"
+   ],
+   [
+    "oxford_data_analytics",
+    "FAQ",
+    "¿Se puede utilizar para seguimiento longitudinal y comparación entre generaciones?",
+    "Sí. The Oxford Data Analytics genera históricos institucionales que permiten monitorear las trayectorias individuales de los estudiantes y comparar generaciones. Mediante aplicaciones periódicas, como un diagnóstico inicial y una evaluación posterior, la institución puede medir el progreso longitudinal y evaluar el impacto de los cambios pedagógicos.",
+    "10"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Qué es AINARA?",
+    "Es una plataforma de IA generativa especializada en educación que permite crear, adaptar y evaluar contenidos personalizados para distintos contextos educativos.",
+    "1"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Se necesita hardware especial para usar AINARA?",
+    "No. Funciona con dispositivos estándar y conexión a internet, y se integra en plataformas y sistemas de gestión educativa o de forma independiente.",
+    "2"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Qué niveles educativos cubre?",
+    "Desde educación básica hasta media superior, con adaptaciones posibles para educación universitaria y formación continua.",
+    "3"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Cómo se asegura la inclusión de estudiantes con necesidades especiales?",
+    "Ofrece herramientas como pictogramas, lenguaje simplificado, subtítulos, audiolibros y accesibilidad motriz y sensorial.",
+    "4"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Es segura la información de los estudiantes?",
+    "Sí. Cumple con estándares éticos y normativas internacionales de protección de datos.",
+    "5"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Se pueden generar contenidos en varios idiomas?",
+    "Sí. Cuenta con traducción automática y adaptación de niveles lingüísticos según el MCER.",
+    "6"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Qué formatos de salida admite?",
+    "PDF, PPT, presentaciones web, audiolibros y videos interactivos, entre otros.",
+    "7"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Se pueden integrar recursos propios del docente?",
+    "Sí. Es posible añadir textos, videos, audios y presentaciones para que la IA los transforme o adapte.",
+    "8"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Puede funcionar sin conexión a internet?",
+    "Algunas funciones de visualización sí, pero la creación y la adaptación de contenidos requieren conexión.",
+    "9"
+   ],
+   [
+    "ainara",
+    "FAQ",
+    "¿Cuál es la principal diferencia frente a otras herramientas de IA?",
+    "Integra en una sola plataforma todas las funciones de creación, adaptación, evaluación y personalización educativa, con un enfoque seguro e inclusivo. Al tratarse de un ambiente seguro, profesores y alumnos pueden confiar en la veracidad de los materiales.",
+    "10"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Qué es READ de Visual Camp?",
+    "Es una plataforma tecnológica con eye tracking e inteligencia artificial que tiene el objetivo de enriquecer las habilidades lectoras mediante una tecnología de seguimiento ocular enfocada en analizar la forma en que las personas leen, sin hardware adicional.",
+    "1"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿En qué plataformas funciona?",
+    "En dispositivos móviles iOS y Android, así como en entornos web compatibles.",
+    "2"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Necesito sensores especiales para usarlo?",
+    "No, solo se requiere la cámara frontal del dispositivo.",
+    "3"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Qué mide READ exactamente?",
+    "Velocidad de lectura (palabras por minuto), fijaciones, pausas, atención y comprensión.",
+    "4"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Es útil en la educación?",
+    "Sí. Permite evaluar y mejorar las habilidades lectoras de forma personalizada, así como la atención y la retención de información.",
+    "5"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Cómo se protegen los datos de los usuarios?",
+    "Mediante cifrado seguro y cumplimiento de las normativas de privacidad.",
+    "6"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Puede integrarse en aplicaciones existentes?",
+    "Sí, mediante el SDK (software development kit) de Visual Camp.",
+    "7"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Funciona en tiempo real?",
+    "Sí. Detecta y analiza el comportamiento lector al momento, mediante la tecnología de eye tracking e inteligencia artificial.",
+    "8"
+   ],
+   [
+    "visual_camp",
+    "FAQ",
+    "¿Hay una versión demo disponible?",
+    "Sí. Visual Camp ofrece demos y soporte para la implementación.",
+    "9"
+   ]
+  ],
+  "Flujo Ori": [
+   [
+    "ID",
+    "Estado",
+    "Texto",
+    "Destino opción 1",
+    "Destino opción 2",
+    "Destino opción 3",
+    "Destino opción 4",
+    "Destino opción 5",
+    "Notas",
+    "Orden"
+   ],
+   [
+    "bienvenida",
+    "Vigente",
+    "¡Hola! Gracias por escribir a Oxford Education. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00 h. ¿En qué puedo apoyarte hoy?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Se usa SIEMPRE, sin versión de fuera de horario.",
+    "1"
+   ],
+   [
+    "filtro_previo",
+    "Nuevo (redacción provisional)",
+    "Para dirigir tu solicitud, cuéntame: ¿ya eres parte de Oxford Education o buscas información?\n1.- Ya estoy inscrito / soy cliente\n2.- Quiero información",
+    "ya_inscrito_stub",
+    "solicitud_datos",
+    "",
+    "",
+    "",
+    "NUEVO — no está en el Sheet actual; redacción provisional, sujeta a validación del cliente.",
+    "2"
+   ],
+   [
+    "ya_inscrito_stub",
+    "Nuevo (stub — pendiente TODO)",
+    "¡Con gusto te apoyamos con tu proceso! ¿Me compartes tu nombre y el colegio o institución? Una asesora revisará tu caso y te dará seguimiento.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "NUEVO — stub hasta conectar el Sheet de \"por cobrar\". TODO: aquí se cableará después la consulta al Sheet de inscritos/por cobrar para dar el link de pago o la etapa. El cableado es otra etapa (no handler/prompt aquí).",
+    "3"
+   ],
+   [
+    "solicitud_datos",
+    "Vigente",
+    "Para ayudarte mejor, ¿me compartes por favor:\n- Tu nombre y puesto (en caso de pertenecer a una institución)\n- Nombre de tu colegio o institución\n- Ciudad y estado",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Estos datos —incluida ciudad y estado— alimentan la captura y el ruteo geográfico ya existente (advisor-zones.js). El enganche es en la etapa de lógica, no aquí.",
+    "4"
+   ],
+   [
+    "menu_principal",
+    "Vigente",
+    "Oxford Education es una EdTech con más de 10 años de experiencia que acompaña a colegios con certificaciones de idiomas, plataformas digitales, programas STEAM y experiencias educativas internacionales, siempre alineadas a estándares internacionales. ¿Qué área te interesa conocer?\n1.- Certificaciones\n2.- Plataformas para aprendizaje del inglés\n3.- Plataformas para el aula\n4.- Experiencias internacionales\n5.- Exámenes diagnósticos de inglés",
+    "cat_1",
+    "cat_2",
+    "cat_3",
+    "cat_4",
+    "cat_5",
+    "",
+    "5"
+   ],
+   [
+    "cat_1",
+    "Vigente",
+    "Contamos con certificaciones y evaluaciones de inglés alineadas al MCER y con respaldo de la Association of Language Testers in Europe, para distintos niveles y edades. ¿Tu interés principal es:\n1.- Oxford TCC Kids (niños de 7 a 12 años)\n2.- Oxford TCC (A1-C2)\n3.- Oxford ETC (Certificación para docentes)\n4.- No estoy seguro",
+    "n_1_1",
+    "n_1_2",
+    "n_1_3",
+    "n_1_4",
+    "",
+    "",
+    "6"
+   ],
+   [
+    "n_1_1",
+    "Vigente",
+    "Oxford TCC Kids es la certificación para niños de 7 a 12 años, que mide las habilidades de inglés integralmente y está alineada al MCER. ¿Quieres recibir más información o agendar una llamada con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "7"
+   ],
+   [
+    "n_1_2",
+    "Vigente",
+    "El Oxford TCC evalúa el dominio del inglés como lengua extranjera, reconocido internacionalmente y alineado al MCER. ¿Deseas detalles sobre niveles, proceso o costos? Recuerda que contamos con procesos institucionales y convocatorias individuales para certificar tu nivel de inglés.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "8"
+   ],
+   [
+    "n_1_3",
+    "Vigente",
+    "Oxford ETC certifica competencias didácticas del profesorado en enseñanza de inglés con un programa integral de desarrollo docente. ¿Te gustaría conocer el contenido o modalidades del curso?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "9"
+   ],
+   [
+    "n_1_4",
+    "Vigente",
+    "Si aún no estás seguro, podemos ayudarte a entender mejor nuestras certificaciones y evaluaciones de inglés. Contamos con programas que abarcan diferentes niveles y edades, todos alineados al MCER y respaldados por ALTE. Podemos explicarte cuál sería la mejor opción según tus necesidades o nivel actual. ¿Te gustaría recibir una explicación más detallada sobre alguna de nuestras certificaciones, como el Oxford TCC, TCC Kids, o algún otro programa?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "10"
+   ],
+   [
+    "cat_2",
+    "Vigente",
+    "Plataformas para aprendizaje del inglés. Selecciona la plataforma que te interesa:\n1.- Oxford LIFE\n2.- Alphable",
+    "n_2_1",
+    "n_2_2",
+    "",
+    "",
+    "",
+    "",
+    "11"
+   ],
+   [
+    "n_2_1",
+    "Vigente",
+    "Oxford LIFE es una plataforma para práctica diaria de inglés basada en micro-aprendizaje con gamificación, ideal para estudiantes de 13 años en adelante. ¿Te interesa platicar con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "12"
+   ],
+   [
+    "n_2_2",
+    "Vigente",
+    "Alphable ofrece clases virtuales con profesores nativos o expertos, con diagnóstico y seguimiento personalizado. ¿Te interesa platicar con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "13"
+   ],
+   [
+    "cat_3",
+    "Vigente",
+    "Plataformas para el aula. Por favor selecciona la plataforma de tu interés:\n1.- Smile and Learn\n2.- Visual Camp\n3.- AINARA\n4.- KNOW BY STEAM TREKS",
+    "n_3_1",
+    "n_3_2",
+    "n_3_4",
+    "n_3_5",
+    "",
+    "iEduca se retiró del catálogo (ya no se distribuye): se borró su nodo hoja n_3_3 y se renumeraron las opciones. Los IDs n_3_4/n_3_5 se conservan a propósito — son llaves estables del grafo, no posiciones.",
+    "14"
+   ],
+   [
+    "n_3_1",
+    "Vigente",
+    "Smile and Learn es una app educativa con miles de actividades interactivas para niños de 3 a 12 años, diseñada para personalizar el aprendizaje y fomentar el bilingüismo. ¿Te interesaría agendar una llamada o recorrido virtual con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "15"
+   ],
+   [
+    "n_3_2",
+    "Vigente",
+    "Visual Camp usa eye-tracking e inteligencia artificial para mejorar hábitos y comprensión lectora en inglés y español con métricas en tiempo real. ¿Te interesaría agendar una llamada o recorrido virtual con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "16"
+   ],
+   [
+    "n_3_4",
+    "Vigente",
+    "AINARA utiliza IA generativa para crear, adaptar y evaluar contenidos personalizados, apoyando a docentes con recursos inclusivos para diferentes niveles y contextos. La plataforma permite el desarrollo de materiales para diferentes materias y planes de estudio, no se limita al aprendizaje del inglés. ¿Te interesaría agendar una llamada o recorrido virtual con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "18"
+   ],
+   [
+    "n_3_5",
+    "Vigente",
+    "KNOW BY STEAM TREKS son cursos en academia virtual para docentes y alumnos que permiten la correcta implementación de la metodología STEAM (Ciencias, Tecnología, Ingeniería, Arte y Matemáticas) en el aula. ¿Te interesaría agendar una llamada o recorrido virtual con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "19"
+   ],
+   [
+    "cat_4",
+    "Vigente",
+    "Experiencias internacionales. Por favor selecciona la experiencia que te interesa:\n1.- English Life\n2.- Rising STARS\n3.- Global Insights\n4.- Wish and Go",
+    "n_4_1",
+    "n_4_2",
+    "n_4_3",
+    "n_4_4",
+    "",
+    "",
+    "20"
+   ],
+   [
+    "n_4_1",
+    "Vigente",
+    "English Life ofrece inmersión total en inglés a través de experiencias educativas internacionales con apoyo académico y cultural. Los viajeros pueden elegir entre viajar a Londres o a Dublín y contamos con dos salidas al año, una en mayo y otra en octubre. Este programa está abierto al público en general y es adecuado para viajeros de 13 a 30 años. También es posible formar grupos por colegio o institución. ¿Te interesaría hablar con un asesor?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "21"
+   ],
+   [
+    "n_4_2",
+    "Vigente",
+    "Rising STARS es un programa exclusivo en Inglaterra para estudiantes de alto rendimiento, con beca del 50% para quienes obtienen los mejores puntajes en su certificación Oxford TCC. Si tu colegio ya certifica con nosotros y necesitas más información sobre el programa, podemos comunicarte con un asesor.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "22"
+   ],
+   [
+    "n_4_3",
+    "Vigente",
+    "Global Insights es un viaje académico internacional para tomadores de decisiones educativas, enfocado en conocer y explorar los mejores sistemas educativos del mundo. En 2026, nos vamos a Corea del Sur. ¿Te interesa platicar con un asesor sobre fechas y costos?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "23"
+   ],
+   [
+    "n_4_4",
+    "Vigente",
+    "Wish and Go es un servicio integral para hacer realidad el viaje educativo de tu institución. Tú lo imaginas, nosotros lo hacemos posible. ¿Te interesa platicar con un asesor sobre el programa?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "24"
+   ],
+   [
+    "cat_5",
+    "Vigente",
+    "Exámenes diagnósticos de inglés. Elige la herramienta de medición que te interesa:\n1.- Oxford Checkpoint\n2.- Oxford Checkpoint Kids",
+    "n_5_1",
+    "n_5_2",
+    "",
+    "",
+    "",
+    "",
+    "25"
+   ],
+   [
+    "n_5_1",
+    "Vigente",
+    "Oxford Checkpoint es una evaluación diseñada para estudiantes desde primaria avanzada hasta educación media superior, que cubre niveles desde Pre-A1 hasta C2. Evalúa las cinco habilidades del idioma inglés de forma integral, con procesos rigurosos y plataforma segura. Incluye reportes analíticos detallados y respaldo internacional por ALTE y MCER, ayudando en decisiones académicas y pedagógicas. ¿Quieres información sobre el proceso?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "26"
+   ],
+   [
+    "n_5_2",
+    "Vigente",
+    "Oxford Checkpoint Kids está dirigido a niños de 6 a 12 años en educación primaria. Mide habilidades básicas de inglés en niveles desde Pre-A1 hasta B1, evaluando comprensión auditiva, lectura, expresión oral y escrita, y uso del idioma. Sus reportes permiten un seguimiento efectivo del progreso infantil, con adaptaciones inclusivas y soporte especializado para facilitar una evaluación confiable y positiva para los niños. ¿Quieres que te enviemos más información sobre cómo inscribir a tus estudiantes o sobre los beneficios específicos de esta evaluación?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "27"
+   ],
+   [
+    "util_menu",
+    "Vigente",
+    "Si deseas volver al menú principal en cualquier momento, solo escribe 'Menú' y te guiaré nuevamente.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Nodo utilitario: se dispara por palabra clave (\"Menú\"), no por opción numerada.",
+    "28"
+   ],
+   [
+    "util_llamada",
+    "Vigente",
+    "¿Prefieres recibir una llamada? Por favor, comparte tu número y horario preferido, y uno de nuestros asesores te contactará a la brevedad.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Nodo utilitario.",
+    "29"
+   ],
+   [
+    "util_cierre",
+    "Vigente",
+    "Gracias por comunicarte con Oxford Education. Si tienes más dudas en el futuro, no dudes en contactarnos nuevamente. ¡Que tengas un excelente día!",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Nodo utilitario: cierre de conversación.",
+    "30"
+   ]
+  ],
+  "Flujo Miri": [
+   [
+    "ID",
+    "Estado",
+    "Texto",
+    "Destino opción 1",
+    "Destino opción 2",
+    "Destino opción 3",
+    "Destino opción 4",
+    "Destino opción 5",
+    "Notas",
+    "Orden",
+    "Material"
+   ],
+   [
+    "bienvenida",
+    "Nuevo (redacción provisional)",
+    "¡Hola! Soy Miri, del equipo de Oxford Education & Travel ✈️ Acompaño a las familias con nuestros programas de inmersión en inglés en el extranjero.\n\n¿En qué te puedo ayudar hoy?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Se envía junto con filtro_previo al iniciar la conversación (mismo patrón que Ori: dos mensajes seguidos).",
+    "1"
+   ],
+   [
+    "filtro_previo",
+    "Nuevo (redacción provisional)",
+    "Para orientarte mejor, cuéntame: ¿ya estás inscrito en alguno de nuestros programas o buscas información?\n1.- Ya estoy inscrito\n2.- Busco información",
+    "ya_inscrito",
+    "solicitud_datos",
+    "",
+    "",
+    "",
+    "Nodo requerido por el motor de flujo (junto con bienvenida): si falta, el flujo determinístico se deshabilita y cede al camino LLM.",
+    "2"
+   ],
+   [
+    "ya_inscrito",
+    "Nuevo (stub — pendiente TODO)",
+    "¡Con gusto te apoyamos con tu proceso! ¿Me compartes tu nombre y el colegio de tu hijo o hija?\n\nUna asesora revisa tu caso y te da seguimiento en breve 😊",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "STUB. TODO(cliente): cablear aquí la consulta al sheet de inscritos / plataforma PorCobrar para dar el link de pago o la etapa del proceso. No dispara cotización ni ruteo por producto. El cableado es otra etapa.",
+    "3"
+   ],
+   [
+    "solicitud_datos",
+    "Nuevo (redacción provisional)",
+    "¡Perfecto! 😊 Para darte información precisa, ¿me compartes tu nombre, y el nombre y la edad de tu hijo o hija que viajaría?",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Nodo de extracción (no menú numerado): captura parent_name, traveler_name y traveler_age con el mismo mapeo/validación que [CAPTURAR_DATO]. Siguiente nodo: solicitud_colegio.",
+    "4"
+   ],
+   [
+    "solicitud_colegio",
+    "Nuevo (redacción provisional)",
+    "Gracias 🙌 ¿De qué colegio nos escribes?\n\nInstituto J. Francisco Rodríguez, Colegio Luz del Tepeyac, Instituto Ramiro Kolbe, The Hills, Errasquin, Arista, UTEC, Belfortt, Instituto Kino de San Luis, Global Skills, Centro de Estudios Naucalpan, Colegio Columbia, Instituto Martha Christlieb, Colegio Iberoamericano, Instituto Internacional o UMIN.\n\nSi tu colegio no está en la lista, escribe \"otro\" y con gusto te ayudo igual.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Nodo de extracción: captura school_code contra los 13 colegios registrados. Lista de referencia (no menú numerado) porque el schema solo admite 5 opciones. \"otro\"/sin match → familia, sin cotización. Este dato decide el gate de precio Y el carrusel de asesoras. Siguiente nodo: menu_principal.",
+    "5"
+   ],
+   [
+    "menu_principal",
+    "Nuevo (redacción provisional)",
+    "Tenemos tres programas de inmersión en inglés para 2027. ¿Cuál te interesa conocer?\n1.- English 4 Life (Londres o Dublín, mayo)\n2.- Winter Break (Windsor, Inglaterra)\n3.- Rising Stars (programa con beca)\n4.- Prefiero hablar con una asesora",
+    "cat_e4l",
+    "cat_wb",
+    "cat_rs",
+    "handoff_colegio",
+    "",
+    "Destino de la palabra clave \"Menú\" desde cualquier nodo. Opción 4 → handoff_colegio si hay colegio registrado; handoff_familia si el colegio es \"otro\" o no se capturó.",
+    "6"
+   ],
+   [
+    "cat_e4l",
+    "Nuevo (redacción provisional)",
+    "English 4 Life es un programa inmersivo de inglés: viajan a Londres o a Dublín del 21 al 30 de mayo de 2027, 9 días y 8 noches, con retos y actividades para practicar el idioma en situaciones reales.\n\nIncluye hospedaje en casa de familia anfitriona, desayuno y cena, las clases y actividades del itinerario, seguro de gastos médicos mayores, staff 24/7 y un profesor de su colegio.\n\n¿Qué te gustaría ver?\n1.- La inversión\n2.- La presentación completa\n3.- Hablar con una asesora",
+    "e4l_precio_registrado",
+    "e4l_material",
+    "handoff_colegio",
+    "",
+    "",
+    "Fuente: doc \"Preguntas asistente virtual English4Life\". La opción 1 apunta al nodo de colegio registrado; el motor redirige a e4l_precio_columbia o e4l_precio_otro según el colegio capturado.",
+    "7"
+   ],
+   [
+    "e4l_precio_registrado",
+    "Nuevo (redacción provisional)",
+    "En {{colegio}} tienes dos opciones de inversión, siempre programa académico más vuelo redondo desde la Ciudad de México.\n\nSi liquidas todo antes del 31 de marzo de 2027, el programa queda en ${{prog_completo}} MXN y el vuelo en ${{vuelo_completo}} MXN.\n\nSi prefieres apartar tu lugar con $15,000, el programa queda en ${{prog_apartado}} MXN y el vuelo en ${{vuelo_apartado}} MXN, y de ahí armas un plan mensual desde tu inscripción hasta quedar liquidado, máximo 2 meses antes del viaje.\n\n¿Te conecto con una asesora para ver tu plan de pagos?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "SOLO colegios registrados. Hoja \"Colegios inscritos precios\" (1JIdKFMAa-mrLowgCiS8k1MWtAL-Vn52lWPn0roYanIU), pestaña CONDICIONES POLÍTICAS: {{prog_completo}}=col F y {{vuelo_completo}}=col G (tier pago completo); {{prog_apartado}}=col H y {{vuelo_apartado}}=col I (tier apartado 15K). PROGRAMA Y VUELO PUEDEN DIFERIR ENTRE TIERS (ej. Global Skills: vuelo 36,000 vs 37,000) — nunca reutilizar el valor de un tier en el otro. Nunca calcular ni sumar. Colegio Columbia → e4l_precio_columbia (plano, sin tiers). Colegio \"otro\" o sin colegio → e4l_precio_otro. CASO BORDE: Instituto Martha Christlieb tiene \"-\" en F/G (sin tier de pago completo) — mostrar solo el tier de apartado. PENDIENTE VALIDAR: el encabezado de la hoja dice \"hasta el 31 de marzo 2026\"; el texto dice 2027 por indicación del cliente.",
+    "8"
+   ],
+   [
+    "e4l_precio_columbia",
+    "Nuevo (redacción provisional)",
+    "En Colegio Columbia el programa es en modalidad hotel y la inversión es de $85,000 MXN, que ya incluye el vuelo redondo desde la Ciudad de México.\n\nApartas tu lugar con $15,000 y de ahí armas un plan mensual desde tu inscripción hasta quedar liquidado, máximo 2 meses antes del viaje.\n\n¿Te conecto con una asesora para ver tu plan de pagos?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Único colegio con modalidad Hotel y vuelo incluido en la hoja de precios. Precio PLANO: $85,000 en ambos tiers de la hoja, así que aquí NO se muestran dos precios.",
+    "9"
+   ],
+   [
+    "e4l_precio_otro",
+    "Nuevo (redacción provisional)",
+    "La inversión depende del convenio que tenemos con cada colegio, por eso prefiero que una asesora te dé el número exacto y tu plan de pagos 😊\n\nLo que sí te adelanto: el lugar se aparta con $15,000 y de ahí armas un plan mensual hasta quedar liquidado, máximo 2 meses antes del viaje.\n\n¿Te conecto con una asesora?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_familia",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Colegio \"otro\" o sin capturar. NUNCA dar precio de programa ni de vuelo aquí, ni confirmar precios que el prospecto haya visto en un PDF o en otro chat.",
+    "10"
+   ],
+   [
+    "e4l_material",
+    "Nuevo (redacción provisional)",
+    "¡Claro! Te comparto la presentación completa de English 4 Life 2027, con el itinerario, todo lo que incluye y los trámites 📄\n\n¿Quieres que una asesora te contacte para resolver dudas?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Material JDP_LONDRES_2027 o JDP_DUBLIN_2027 según el destino del colegio en la hoja de precios (Dublín: J. Francisco Rodríguez, Luz del Tepeyac, Ramiro Kolbe, Kino de San Luis, Martha Christlieb; Londres: los demás). Sin colegio → preguntar destino antes de enviar. El schema no tiene columna de material: el ID vive en esta nota hasta que se decida en la etapa del motor.",
+    "11"
+   ],
+   [
+    "cat_wb",
+    "Nuevo (redacción provisional)",
+    "English 4 Life Winter Break es una experiencia académica de inmersión en marzo de 2027, con base en Windsor, Inglaterra, hospedados en el Hotel LEGOLAND Windsor Resort. Son 10 días de viaje, 9 días y 8 noches, desde los 13 años.\n\nIncluye vuelo internacional, hospedaje, los tres alimentos, clases de inglés por proyectos, visitas guiadas en Londres, Windsor y Oxford, traslados, travel card, staff 24/7 y diploma.\n\n¿Qué te gustaría ver?\n1.- La inversión\n2.- La presentación completa\n3.- Hablar con una asesora",
+    "wb_precio",
+    "wb_material",
+    "handoff_colegio",
+    "",
+    "",
+    "Fuente: sección \"FAQ – English4Life Winter Break\" del doc de English 4 Life. La fecha \"marzo de 2027\" viene de la pestaña Viajes de producción (WB2027), no de la FAQ — validar el día exacto con el cliente.",
+    "12"
+   ],
+   [
+    "wb_precio",
+    "Nuevo (redacción provisional)",
+    "En Winter Break la inversión se arma por colegio, según cómo se integre el grupo, así que prefiero que una asesora te pase la propuesta exacta 😊\n\n¿Te conecto con ella?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Winter Break NO se cotiza nunca, ni siquiera a colegio registrado: no hay filas de WB en la hoja de precios y la FAQ dice que las condiciones comerciales se especifican en la propuesta de cada institución. El gate de colegio registrado aplica SOLO a English 4 Life.",
+    "13"
+   ],
+   [
+    "wb_material",
+    "Nuevo (redacción provisional)",
+    "Va, te comparto la presentación de Winter Break con el itinerario y todo lo que incluye 📄\n\n¿Quieres que una asesora te contacte para ver la propuesta de tu colegio?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Material WB_LONDRES_2027 (pestaña Materiales del spreadsheet principal).",
+    "14",
+    "WB_LONDRES_2027"
+   ],
+   [
+    "cat_rs",
+    "Nuevo (redacción provisional)",
+    "Rising Stars es un programa por invitación para los estudiantes con los mejores puntajes en la certificación Oxford TCC, con una beca del 50% 🌟\n\nPara orientarte bien: ¿tu hijo o hija presentó el Oxford TCC y quedó en los primeros lugares de su grupo?\n1.- Sí\n2.- No, o no estoy seguro",
+    "rs_elegible",
+    "rs_no_elegible",
+    "",
+    "",
+    "",
+    "GATE obligatorio de elegibilidad. Rising Stars nunca se menciona proactivamente fuera de este nodo (no aparece en cat_e4l ni en cat_wb).",
+    "15"
+   ],
+   [
+    "rs_elegible",
+    "Nuevo (redacción provisional)",
+    "¡Qué gusto! 🌟 Rising Stars 2027 es en Windsor, Inglaterra, hospedados en Legoland Resort: 9 días y 8 noches con talleres de liderazgo, pensamiento creativo, improvisación y oratoria, más visitas a Londres y Oxford.\n\nPrimaria y secundaria viajan del 21 al 30 de enero de 2027, y preparatoria del 29 de enero al 7 de febrero.\n\nLa beca cubre el 50% del programa académico e incluye hospedaje, los tres alimentos, seguro de gastos médicos mayores, traslados, travel card y diploma. Te conecto con una asesora del programa para confirmar la beca y darte los siguientes pasos 😊",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Fuente: doc \"RISING STARS FAQ\". NUNCA dar precio de Rising Stars, ni siquiera el monto con beca. Nodo hoja: dispara handoff_rs (carrusel propio de Rising Stars).",
+    "16"
+   ],
+   [
+    "rs_no_elegible",
+    "Nuevo (redacción provisional)",
+    "Sin problema 😊 La beca Rising Stars se otorga solo por desempeño en la certificación Oxford TCC, así que la invitación llega a quienes obtienen los mejores puntajes de su grupo.\n\nSi quieren una experiencia internacional este año, English 4 Life y Winter Break están abiertos a cualquier estudiante desde los 13 años.\n1.- Cuéntame de English 4 Life\n2.- Cuéntame de Winter Break\n3.- Prefiero hablar con una asesora",
+    "cat_e4l",
+    "cat_wb",
+    "handoff_familia",
+    "",
+    "",
+    "Opción 3 → handoff_familia por default; si hay colegio registrado capturado, el motor usa handoff_colegio.",
+    "17"
+   ],
+   [
+    "handoff_colegio",
+    "Nuevo (redacción provisional)",
+    "¡Perfecto! 😊 Te conecto con {{asesora}}, nuestra asesora educativa, que te escribe en breve por WhatsApp para ver la inversión y los siguientes pasos.\n\nMientras tanto, aquí sigo para cualquier otra duda 🙌",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "English 4 Life y Winter Break, vía COLEGIO. Carrusel de 3: Alma Sotelo, Victor Hugo Cruz, Cecilia Rodríguez. Handoff TIBIO: derivar no silencia a Miri, sigue contestando dudas generales pero nunca precio. {{asesora}} lo inserta el motor. PENDIENTE decidir en la etapa del motor si este texto gana o si se conserva el mensaje que ya genera executeHandoffToAdvisor (para no mandar dos mensajes).",
+    "18"
+   ],
+   [
+    "handoff_familia",
+    "Nuevo (redacción provisional)",
+    "¡Con gusto! 😊 Te conecto con {{asesora}}, que atiende a las familias y te escribe en breve por WhatsApp para ver la inversión y los siguientes pasos.\n\nMientras tanto, aquí sigo para cualquier otra duda 🙌",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "English 4 Life y Winter Break, vía FAMILIA/ESTUDIANTE (colegio \"otro\" o sin capturar) → Camila Serafín. Handoff TIBIO, mismas reglas que handoff_colegio.",
+    "19"
+   ],
+   [
+    "handoff_rs",
+    "Nuevo (redacción provisional)",
+    "¡Va! 🌟 Te conecto con {{asesora}}, asesora especializada en Rising Stars, que te escribe en breve para confirmar la beca y darte los siguientes pasos.\n\nAquí sigo para cualquier otra duda 😊",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Rising Stars: carrusel propio (Miriana Galdos, Alejandra Najera, Ericka Arcos), aplica tanto a colegios como a familias. Handoff TIBIO. Nunca dar precio de Rising Stars después de derivar.",
+    "20"
+   ],
+   [
+    "util_menu",
+    "Nuevo (redacción provisional)",
+    "Cuando quieras volver al menú principal, solo escribe \"Menú\" y te guío de nuevo 😊",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Nodo utilitario: se dispara por palabra clave (\"Menú\"), no por opción numerada. También es el destino de las respuestas \"Todavía no, gracias\" de los nodos de precio y material.",
+    "21"
+   ],
+   [
+    "e4l_precio_unico",
+    "Nuevo (redacción provisional)",
+    "En {{colegio}} la inversión es de ${{precio_unico}} MXN, con el vuelo redondo desde la Ciudad de México ya incluido.\n\nApartas tu lugar con $15,000 y de ahí armas un plan mensual desde tu inscripción hasta quedar liquidado, máximo 2 meses antes del viaje.\n\n¿Te conecto con una asesora para ver tu plan de pagos?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Tier ÚNICO de la hoja de precios (encabezado \"AGOSTO – SEPTIEMBRE 2027\", columna H: PRECIO PROGRAMA CON VUELO INCLUIDO). Aplica a Instituto Internacional y UMIN: un solo número, no el par programa+vuelo, y por eso NO se muestran los dos tramos. El motor elige este nodo cuando la fila del colegio solo tiene precio en esa columna.",
+    "11"
+   ],
+   [
+    "ya_inscrito_sin_pago",
+    "Nuevo (redacción provisional)",
+    "¡Gracias{{nombre}}! 🙌 Ya te tengo en el registro de English 4 Life.\n\nPara el siguiente paso de tu proceso te conecto con tu asesora, que revisa tu caso y te escribe en breve.",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Rama \"ya inscrito\", desenlace 2: el teléfono SÍ está en el registro pero el alumno no tiene fila de pagos (o hay filas duplicadas). NUNCA se muestra ningún monto aquí; se deriva con contexto. {{nombre}} = nombre del papá según el registro; si no hay, la línea se ajusta sola.",
+    "19"
+   ],
+   [
+    "ya_inscrito_estatus",
+    "Nuevo (redacción provisional)",
+    "Esto es lo que tengo de {{alumno}} 📋\n\nTotal del programa: {{total_a_pagar}}\nLlevas pagado: {{llevan_pagado}}\nFalta por pagar: {{falta_por_pagar}}\n\n¿Te conecto con tu asesora para ver las fechas de tus siguientes pagos?\n1.- Sí, por favor\n2.- Todavía no, gracias",
+    "handoff_colegio",
+    "util_menu",
+    "",
+    "",
+    "",
+    "Rama \"ya inscrito\", desenlace 3: SOLO se llega aquí cuando el match alumno→fila de pago es INEQUÍVOCO. Los montos salen de la hoja de inscritos (TOTAL A PAGAR / LLEVAN PAGADO / FALTA POR PAGAR). NO hay columna de próximo pago ni fecha límite: esa la da la asesora, el bot no la inventa.",
+    "20"
+   ]
+  ]
+ },
+ "prices": {
+  "CONDICIONES POLÍTICAS": [
+   [
+    "CON PAGO COMPLETO DEL PROGRAMA HASTA EL 31 DE MARZO 2027",
+    "",
+    "",
+    "",
+    "",
+    "ABRIL - JUNIO (CON APARTADO DE 15K)"
+   ],
+   [
+    "INSTITUTO",
+    "DESTINO",
+    "MODALIDAD",
+    "PRECIO PROGRAMA",
+    "PRECIO VUELO",
+    "PRECIO PROGRAMA",
+    "PRECIO VUELO"
+   ],
+   [
+    "Instituto J. Francisco Rodriguez",
+    "Dublín",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Colegio Luz del Tepeyac",
+    "Dublín",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Instituto Ramiro Kolbe",
+    "Dublín",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Colegio The Hills Institute",
+    "Londres",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Colegio Profr. Francisco Errasquin Gomez",
+    "Londres",
+    "Homestay",
+    "29900",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Colegio Arista",
+    "Londres",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "UTEC",
+    "Londres",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Belfortt",
+    "Londres",
+    "Homestay",
+    "29990",
+    "35000",
+    "34990",
+    "35000"
+   ],
+   [
+    "Instituto Kino de San Luis",
+    "Dublín",
+    "Homestay",
+    "35000",
+    "35000",
+    "39990",
+    "35000"
+   ],
+   [
+    "Global Skills",
+    "Londres",
+    "Homestay",
+    "29990",
+    "36000",
+    "35000",
+    "37000"
+   ],
+   [
+    "Centro de Estudios Naucalpan",
+    "Londres",
+    "Homestay",
+    "29990",
+    "36000",
+    "39990",
+    "36000"
+   ],
+   [
+    "Colegio Columbia",
+    "Londres",
+    "Hotel",
+    "85000",
+    "",
+    "85000"
+   ],
+   [
+    "Instituto Martha Christlieb",
+    "Dublín",
+    "Homestay",
+    "-",
+    "-",
+    "34990",
+    "35000"
+   ],
+   [
+    "Colegio Iberoamericano",
+    "Londres",
+    "Homestay",
+    "-",
+    "-",
+    "34990",
+    "35000"
+   ],
+   [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "AGOSTO - SEPTIEMBRE 2027"
+   ],
+   [
+    "INSTITUTO",
+    "DESTINO",
+    "MODALIDAD",
+    "",
+    "",
+    "",
+    "",
+    "PRECIO PROGRAMA CON VUELO INCLUIDO"
+   ],
+   [
+    "Instituto Internacional ",
+    "Londres",
+    "Winter Break",
+    "",
+    "",
+    "",
+    "",
+    "69990"
+   ],
+   [
+    "UMIN",
+    "Dublín",
+    "Homestay",
+    "",
+    "",
+    "",
+    "",
+    "69990"
+   ],
+   [
+    "UMIN",
+    "Londres",
+    "Winter Break",
+    "",
+    "",
+    "",
+    "",
+    "69990"
+   ]
+  ]
+ },
+ "snapshotAt": "2026-09-25T06:33:21.844Z"
+}

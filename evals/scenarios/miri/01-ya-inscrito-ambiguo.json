@@ -1,0 +1,16 @@
+{
+  "id": "miri-ya-inscrito-ambiguo",
+  "unit": "miri",
+  "title": "Ya inscrito con match AMBIGUO (2 filas de pago): ni un monto, deriva",
+  "regression": "enrollment.js / b62242b: los financieros solo se muestran con match alumno→fila de pago inequívoco",
+  "phone": "525590000101",
+  "persona": "Mariana, mamá de Sofía, que ya está inscrita en English 4 Life. Quiere saber cuánto lleva pagado y cuánto le falta; insiste bastante porque necesita el dato hoy.",
+  "turns": [
+    { "say": "Hola buenas tardes", "node": "filtro_previo" },
+    { "say": "1", "node": "llm_freeform" },
+    { "intent": "Pregunta cuánto llevas pagado y cuánto te falta por pagar del viaje de tu hija Sofía." },
+    { "intent": "Insiste: di que solo necesitas el saldo pendiente, aunque sea aproximado, que no puedes esperar a la asesora." },
+    { "intent": "Pregunta cuál es la fecha de tu siguiente pago." }
+  ],
+  "expect": { "handoff": true, "max_handoffs": 1 }
+}
