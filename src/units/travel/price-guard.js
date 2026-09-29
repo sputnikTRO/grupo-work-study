@@ -10,13 +10,47 @@
  * lo citaba aunque el prompt lo prohibiera. Si el dato no está en el prompt, no
  * hay forma de que lo diga.
  *
- * Se filtra por el CONTENIDO (cualquier monto en pesos), no por el título de
- * la fila: la FAQ la edita el cliente en Sheets y una pregunta nueva con precio
- * tiene que quedar fuera igual. Puro, sin dependencias, para poder probarlo.
+ * Se filtra por el CONTENIDO, no por el título de la fila: la FAQ la edita el
+ * cliente en Sheets y una pregunta nueva con precio tiene que quedar fuera
+ * igual. Puro, sin dependencias, para poder probarlo contra filas reales
+ * (tests/units/travel/price-guard.test.js).
+ *
+ * Qué cuenta como dinero (y solo eso):
+ *   - "$", "£" o "€" seguido de cifra ........... "$35,000", "$ 294", "£20"
+ *   - cifra + moneda ............................ "1500 pesos", "20 mil MXN", "16 libras", "50 euros"
+ *   - cifra + "mil" ............................. "20 mil"
+ *   - cifra con separador de miles .............. "64,990", "15,000.00"
+ *   - cifra justo después de una palabra de precio  "precio: 42990", "apartado de 15000"
+ * Qué NO, aunque tenga números: fechas y años, edades, duraciones ("48 horas",
+ * "3 semanas"), horarios, teléfonos, noches, viajeros/alumnos, porcentajes.
  */
 
-// "$35,000" · "$ 900" · "$10k". Un número sin "$" (edades, fechas, horas) no cuenta.
-const MONEY_RE = /\$\s?\d/;
+// Lo que viene DESPUÉS de una cifra y la vuelve un conteo o una medida, no dinero.
+const NOT_MONEY_UNIT = String.raw`(?!\s*(?:%|a[ñn]os?|mes(?:es)?|semanas?|d[ií]as?|noches?|horas?|hrs?\b|minutos?|min\b|segundos?|km\b|kil[oó]metros?|metros?|alumn[oa]s?|estudiantes?|viajer[oa]s?|personas?|familias?|ni[ñn][oa]s?|j[oó]venes|participantes?|lugares|plazas|recursos|actividades|p[aá]ginas?|:\d))`;
+
+const RULES = [
+  { id: 'signo_moneda', re: /[$£€]\s?\d/ },
+  { id: 'moneda', re: /\d[\d.,]*\s*(?:mil\s+)?(?:pesos|mxn|usd|d[oó]lares|euros?|libras(?:\s+esterlinas)?)(?![a-záéíóúñ])/i },
+  { id: 'mil', re: new RegExp(String.raw`(?<![\d.,])\d{1,3}\s+mil(?![a-záéíóúñ])${NOT_MONEY_UNIT}`, 'i') },
+  { id: 'separador_miles', re: new RegExp(String.raw`(?<![\d.,])\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?(?![\d,])${NOT_MONEY_UNIT}`) },
+  {
+    id: 'palabra_de_precio',
+    // La PRIMERA cifra tras la palabra de precio (sin otro número en medio),
+    // que no sea un año (19xx/20xx) ni vaya seguida de una unidad de tiempo o conteo.
+    re: new RegExp(String.raw`(?:precios?|costos?|cuestan?|tarifas?|inversi[oó]n|apartados?|anticipos?|pagos?\s+(?:inicial|m[ií]nimo))(?![a-záéíóúñ])[^\d.\n]{0,25}(?<![\d.,])(?!(?:19|20)\d{2}(?!\d))\d[\d.,]*${NOT_MONEY_UNIT}`, 'i'),
+  },
+];
+
+/**
+ * ¿El texto menciona un monto de dinero? Devuelve el id de la regla que casó
+ * (útil para revisar por qué se filtró una fila) o null.
+ * @param {string} text
+ * @returns {string|null}
+ */
+export function moneyRule(text) {
+  const t = String(text ?? '');
+  return RULES.find((r) => r.re.test(t))?.id ?? null;
+}
 
 /**
  * Filas de Info General / FAQ aptas para un prospecto SIN colegio registrado:
@@ -26,5 +60,5 @@ const MONEY_RE = /\$\s?\d/;
  * @returns {Array<Object>}
  */
 export function withoutAmounts(rows) {
-  return (rows || []).filter((r) => !MONEY_RE.test(`${r['Título'] ?? ''} ${r['Contenido'] ?? ''}`));
+  return (rows || []).filter((r) => !moneyRule(`${r['Título'] ?? ''} ${r['Contenido'] ?? ''}`));
 }
