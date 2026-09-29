@@ -1,0 +1,20 @@
+{
+  "id": "ori-menu-nudge-variantes",
+  "unit": "ori",
+  "title": "Recordatorio de Menú venga del LLM, del copy del flujo o del handler: máximo uno por turno y por nodo",
+  "regression": "Bug \"Escribe Menú\" duplicado (fix/nudge-dedupe): el LLM también invita a escribir *Menú* y el handler agrega el suyo; el copy del decline ya lo trae y el modo libre lo repite",
+  "phone": "525580000009",
+  "persona": "Patricia, maestra de inglés de secundaria en Morelia. Se pierde en los menús y pregunta seguido cómo regresar a las opciones.",
+  "turns": [
+    { "say": "Hola", "node": "filtro_previo" },
+    { "say": "2", "node": "solicitud_datos" },
+    { "say": "Patricia Eval, maestra de inglés, Secundaria Eval Morelia, Morelia Michoacán", "node": "menu_principal" },
+    { "say": "1", "node": "cat_1" },
+    { "say": "Perdón, ¿cómo le hago para volver a ver todas las opciones del principio?" },
+    { "say": "3", "node": "n_1_3" },
+    { "say": "no gracias", "node": "llm_freeform" },
+    { "say": "¿Y cómo regreso a las opciones si luego quiero ver otra cosa?" },
+    { "intent": "Pregunta si Oxford ETC sirve para maestras de secundaria como tú." }
+  ],
+  "expect": {}
+}
