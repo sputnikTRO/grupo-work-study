@@ -16,7 +16,8 @@ import * as messageService from '../../services/message.service.js';
 import * as leadService from '../../services/lead.service.js';
 import * as sheetsCache from '../../core/sheets/cache.js';
 import { syncLeadToSheet } from '../../core/sheets/leads-sync.js';
-import { tryDeterministicFlow } from './flow-engine.js';
+import { tryDeterministicFlow, showMainMenu } from './flow-engine.js';
+import { createNudgeGuard } from '../../core/flow/nudge.js';
 
 /**
  * Travel Unit Message Handler
@@ -138,29 +139,39 @@ export async function handleMessage(message, phoneNumberId) {
       // es número/"Menú"/respuesta clara), cede el turno COMPLETO al camino LLM
       // de siempre (processMessageWithAI, sin cambios). El handoff tibio y la
       // captura son los MISMOS en ambos caminos: el flujo los reutiliza.
+      // Un solo guardia por turno decide qué recordatorio de "Menú" sale, venga
+      // del texto de un nodo (util_menu ya lo trae), del copy del flujo, del LLM
+      // o del propio handler (ver core/flow/nudge.js).
+      const meta = conv.metadata || {};
+      const nudge = createNudgeGuard({ nudgedHere: Boolean(conv.flowNode) && meta.nudgedNode === conv.flowNode });
+
       const flowResult = await tryDeterministicFlow({
-        phone, content, conv, lead, contact, phoneNumberId, log: msgLogger,
+        phone, content, conv, lead, contact, phoneNumberId, log: msgLogger, nudge,
       });
 
       if (!flowResult.handled) {
-        await processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId);
+        const { handoffOccurred } = await processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId, nudge);
 
         // El flujo seguía activo (flowNode intacto) pero el mensaje no matcheó
         // ninguna opción → el LLM ya respondió; lo reencauzamos al menú con un
         // recordatorio corto, SIN tocar flowNode.
         //
-        // El recordatorio sale UNA SOLA VEZ por nodo: repetirlo en cada mensaje
-        // ensucia la conversación (se veía debajo de cada respuesta de Miri).
-        // Se recuerda en conversation.metadata, que ya existe y es Json libre.
-        const meta = conv.metadata || {};
-        if (flowResult.midFlowFallback && meta.nudgedNode !== conv.flowNode) {
+        // Nunca después de derivar (el "te conecto con…" ya cierra el turno;
+        // mismo criterio que Ori), una sola vez por nodo y nunca si ya salió
+        // otro recordatorio en este turno: lo decide el guardia.
+        if (flowResult.midFlowFallback && !handoffOccurred && nudge.claimReminder()) {
           const reminder = 'Escribe *Menú* cuando quieras ver las opciones de nuevo 😊';
           await sendTextMessage(phone, reminder, phoneNumberId);
           await messageService.createOutbound(conv.id, reminder);
           await conversation.addMessage(conv.id, 'assistant', reminder);
-          await conversationService.update(conv.id, { metadata: { ...meta, nudgedNode: conv.flowNode } });
-          conv.metadata = { ...meta, nudgedNode: conv.flowNode };
         }
+      }
+
+      // Si en este turno salió un recordatorio (de donde sea), queda registrado
+      // contra el nodo donde se quedó la conversación, en conversation.metadata.
+      if (nudge.nudged && meta.nudgedNode !== conv.flowNode) {
+        conv.metadata = { ...meta, nudgedNode: conv.flowNode };
+        await conversationService.update(conv.id, { metadata: conv.metadata });
       }
 
     } finally {
@@ -197,8 +208,10 @@ export async function handleMessage(message, phoneNumberId) {
  * @param {Object} lead - TravelLead object
  * @param {Object} contact - Contact object
  * @param {string} phoneNumberId - WhatsApp phone number ID
+ * @param {Object} [nudge] - Guardia de recordatorios de "Menú" del turno (core/flow/nudge.js)
+ * @returns {Promise<{handoffOccurred: boolean}>}
  */
-async function processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId) {
+async function processMessageWithAI(phone, content, conv, lead, contact, phoneNumberId, nudge) {
   const processLogger = logger.child({
     phone,
     conversationId: conv.id,
@@ -232,8 +245,12 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
     const actions = parseActions(claudeResponse);
     processLogger.info({ actionCount: actions.length, actions }, 'Action tags parsed');
 
-    // Clean response (remove action tags)
-    const cleanText = cleanResponse(claudeResponse);
+    // Clean response (remove action tags). Si el LLM repite un recordatorio de
+    // "Menú" que ya salió (en este turno o en este nodo), se le quita esa
+    // oración. Si la respuesta ERA solo eso, más abajo se muestra el menú.
+    const rawText = cleanResponse(claudeResponse);
+    const deduped = nudge ? nudge.forReply(rawText) : rawText;
+    const cleanText = deduped || rawText;
 
     // Execute actions with REAL implementation
     const { handoffOccurred } = await executeActions(actions, lead, conv, phone, phoneNumberId);
@@ -245,17 +262,28 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
 
     // When a handoff occurred, the farewell message was already sent inside executeActions.
     // Skip sending Claude's text to avoid a double message to the prospect.
-    if (!handoffOccurred) {
+    //
+    // Si la respuesta era SOLO repetir "escribe Menú" (el prospecto preguntó
+    // cómo volver a las opciones y ya se le había dicho), se le muestra el menú
+    // en vez de la misma instrucción otra vez.
+    let menuShown = false;
+    if (!handoffOccurred && !deduped && rawText) {
+      menuShown = await showMainMenu({ phone, conv, lead, contact, phoneNumberId, log: processLogger, nudge });
+    }
+    if (!handoffOccurred && !menuShown) {
       await sendTextMessage(phone, cleanText, phoneNumberId);
       processLogger.info('Response sent to WhatsApp');
       await messageService.createOutbound(conv.id, cleanText);
+    } else if (menuShown) {
+      processLogger.info('Respuesta del LLM era solo un recordatorio repetido — se mostró el menú principal');
     } else {
       processLogger.info('Handoff occurred — skipping Claude text send (farewell already sent)');
     }
 
-    // Add both messages to conversation history in Redis
+    // Add both messages to conversation history in Redis (si se mostró el menú,
+    // sendNodeText ya guardó ese turno de Miri en el historial).
     await conversation.addMessage(conv.id, 'user', content.text);
-    await conversation.addMessage(conv.id, 'assistant', cleanText);
+    if (!menuShown) await conversation.addMessage(conv.id, 'assistant', cleanText);
 
     // SCORING: Analyze user message and update score
     const scoringResult = updateScore(content.text, lead, conv.interestScore);
@@ -288,6 +316,10 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
 
     // NOTA: el sync a Google Sheets se hace ahora en el finally de handleMessage,
     // para que también corra en los turnos del flujo determinístico.
+
+    // El llamador lo usa para NO agregar el recordatorio de "Menú" después de un
+    // "te conecto con…" (antes lo agregaba igual).
+    return { handoffOccurred };
 
   } catch (error) {
     processLogger.error({ err: error }, 'Error processing message with AI');

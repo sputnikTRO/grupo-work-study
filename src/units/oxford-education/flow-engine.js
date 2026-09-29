@@ -77,11 +77,12 @@ const YA_INSCRITO_FIELDS = [
  * @param {Object} params.lead - OxfordLead (se mutará in-place al capturar datos)
  * @param {Object} params.contact - Contact row
  * @param {Object} params.log - Logger child ya scopeado (de handler.js)
+ * @param {Object} [params.nudge] - Guardia de recordatorios de "Menú" del turno (core/flow/nudge.js)
  * @returns {Promise<{handled: boolean, midFlowFallback?: boolean, handoffOccurred?: boolean}>}
  */
-export async function tryDeterministicFlow({ phone, content, conv, lead, contact, log }) {
+export async function tryDeterministicFlow({ phone, content, conv, lead, contact, log, nudge }) {
   const text = (content.text || '').trim();
-  const ctx = { phone, conv, lead, contact, log };
+  const ctx = { phone, conv, lead, contact, log, nudge };
 
   const graph = await loadFlowGraph();
   if (!graph) return { handled: false }; // Sheet no disponible → camino LLM de siempre, intacto
@@ -142,6 +143,20 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
   if (verdict === 'ambiguous') return { handled: false, midFlowFallback: true }; // respaldo LLM, flowNode intacto
   await store.addMessage(conv.id, 'user', text);
   return await handleCtaLeaf(graph, node, verdict, ctx);
+}
+
+/**
+ * Muestra el menú principal desde fuera del flujo (camino LLM). Lo usa el
+ * handler cuando la respuesta del LLM iba a ser SOLO repetir "escribe Menú"
+ * (el prospecto preguntó cómo volver a las opciones y ya se le había dicho):
+ * en vez de repetir la instrucción, se le da lo que pidió.
+ * @returns {Promise<boolean>} false si el grafo no está disponible
+ */
+export async function showMainMenu({ phone, conv, lead, contact, log, nudge }) {
+  const graph = await loadFlowGraph();
+  if (!graph || !getNode(graph, 'menu_principal')) return false;
+  await jumpToNode(graph, 'menu_principal', { phone, conv, lead, contact, log, nudge });
+  return true;
 }
 
 // ── Helpers de envío/persistencia ───────────────────────────────────────────
@@ -215,8 +230,15 @@ async function capturarProductoDelNodo(graph, node, ctx) {
     'Producto capturado desde el menú (para el ticket de la asesora)');
 }
 
-/** Envía un texto de Ori y lo persiste igual que el camino LLM (Postgres + Redis). */
-async function sendNodeText(text, ctx) {
+/**
+ * Envía un texto de Ori y lo persiste igual que el camino LLM (Postgres + Redis).
+ * Pasa por el guardia de recordatorios del turno: si el texto trae un "escribe
+ * Menú" y ya salió otro en este turno, se quita esa oración (o el mensaje entero
+ * si no traía nada más).
+ */
+async function sendNodeText(rawText, ctx) {
+  const text = ctx.nudge ? ctx.nudge.forNode(rawText) : rawText;
+  if (!text) return;
   await sendTextMessage(ctx.phone, text);
   await messageService.createOutbound(ctx.conv.id, text);
   await store.addMessage(ctx.conv.id, 'assistant', text);

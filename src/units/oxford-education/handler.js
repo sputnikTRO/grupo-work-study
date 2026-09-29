@@ -12,7 +12,8 @@ import { buildFullPrompt } from './prompts.js';
 import { buildOxfordKnowledge, buildFlowKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
-import { tryDeterministicFlow, FREEFORM } from './flow-engine.js';
+import { tryDeterministicFlow, showMainMenu, FREEFORM } from './flow-engine.js';
+import { createNudgeGuard } from '../../core/flow/nudge.js';
 
 /**
  * Oxford Education Unit Message Handler
@@ -79,10 +80,16 @@ export async function handleMessage(message, phoneNumberId) {
     // turno COMPLETO al camino LLM de siempre (processWithAI, sin cambios) — el
     // ruteo geográfico y el handoff tibio existentes quedan intactos en ambos
     // caminos (el flujo determinístico los REUTILIZA, nunca los reimplementa).
-    const flowResult = await tryDeterministicFlow({ phone, content, conv, lead, contact, log });
+    // Un solo guardia por turno decide qué recordatorio de "Menú" sale, venga
+    // del texto de un nodo, del copy del flujo, del LLM o del propio handler
+    // (ver core/flow/nudge.js). Sin él, el prospecto lo veía dos veces.
+    const meta = conv.metadata || {};
+    const nudge = createNudgeGuard({ nudgedHere: Boolean(conv.flowNode) && meta.nudgedNode === conv.flowNode });
+
+    const flowResult = await tryDeterministicFlow({ phone, content, conv, lead, contact, log, nudge });
 
     if (!flowResult.handled) {
-      const { handoffOccurred } = await processWithAI(phone, content, conv, lead, contact, log);
+      const { handoffOccurred } = await processWithAI(phone, content, conv, lead, contact, log, nudge);
 
       // Si la derivación OCURRIÓ por el camino del LLM, el guion terminó igual
       // que cuando deriva el menú: se cierra el nodo. Si no, el prospecto queda
@@ -103,20 +110,23 @@ export async function handleMessage(message, phoneNumberId) {
       // número/menú/CTA claro → el LLM ya respondió la duda; lo reencauzamos al
       // menú con un recordatorio corto, SIN tocar flowNode (no rompe el estado).
       //
-      // El recordatorio sale UNA SOLA VEZ por nodo: repetirlo en cada mensaje
-      // ensucia la conversación (se veía colgando debajo de cada respuesta de
-      // Ori, tres veces seguidas en un tramo real). Se recuerda en
-      // conversation.metadata, que ya existe y es Json libre. Mismo patrón que
-      // el handler de Travel; al cambiar de nodo el recordatorio vuelve a salir.
-      const meta = conv.metadata || {};
-      if (flowResult.midFlowFallback && !handoffOccurred && meta.nudgedNode !== conv.flowNode) {
+      // El recordatorio sale UNA SOLA VEZ por nodo y nunca si ya salió otro en
+      // este turno (p.ej. el LLM ya dijo "puedes escribir *Menú*"): el guardia
+      // lo decide. Al cambiar de nodo el recordatorio vuelve a poder salir.
+      if (flowResult.midFlowFallback && !handoffOccurred && nudge.claimReminder()) {
         const reminder = "Escribe *Menú* cuando quieras ver las opciones de nuevo 😊";
         await sendTextMessage(phone, reminder);
         await messageService.createOutbound(conv.id, reminder);
         await store.addMessage(conv.id, 'assistant', reminder);
-        await conversationService.update(conv.id, { metadata: { ...meta, nudgedNode: conv.flowNode } });
-        conv.metadata = { ...meta, nudgedNode: conv.flowNode };
       }
+    }
+
+    // Si en este turno salió un recordatorio (de donde sea), queda registrado
+    // contra el nodo donde se quedó la conversación, en conversation.metadata
+    // (Json libre que ya existe).
+    if (nudge.nudged && meta.nudgedNode !== conv.flowNode) {
+      conv.metadata = { ...meta, nudgedNode: conv.flowNode };
+      await conversationService.update(conv.id, { metadata: conv.metadata });
     }
   } catch (error) {
     log.error({ err: error }, 'Error handling Oxford message');
@@ -139,7 +149,7 @@ export async function handleMessage(message, phoneNumberId) {
  * @returns {Promise<{handoffOccurred: boolean}>} el llamador lo usa para cerrar
  *   el nodo del flujo cuando la derivación de verdad ocurrió.
  */
-async function processWithAI(phone, content, conv, lead, contact, log) {
+async function processWithAI(phone, content, conv, lead, contact, log, nudge) {
   const history = await store.getHistory(conv.id);
   // Ambas leen del cache de Sheets; en paralelo para no sumar latencias al turno.
   const [dynamicKnowledge, flowKnowledge] = await Promise.all([
@@ -178,9 +188,19 @@ async function processWithAI(phone, content, conv, lead, contact, log) {
         ? `Ese detalle lo puedes ver directamente con ${lead.assignedAdvisor}, tu asesor/a asignada 😊 ¿Te ayudo con algo más mientras tanto?`
         : 'Con gusto te ayudo. ¿Sobre qué programa te gustaría saber más? 😊';
     }
-    await sendTextMessage(phone, reply);
-    await messageService.createOutbound(conv.id, reply);
-    await store.addMessage(conv.id, 'assistant', reply);
+    // Si el LLM repite un recordatorio de "Menú" que ya salió (en este turno o
+    // en este nodo), se le quita esa oración. Si la respuesta ERA solo eso (el
+    // prospecto preguntó cómo volver a las opciones y ya se le había dicho), se
+    // le muestra el menú: nunca se queda sin respuesta ni recibe lo mismo otra vez.
+    const deduped = nudge ? nudge.forReply(reply) : reply;
+    if (!deduped && await showMainMenu({ phone, conv, lead, contact, log, nudge })) {
+      reply = '[menú principal]';
+    } else {
+      reply = deduped || reply;
+      await sendTextMessage(phone, reply);
+      await messageService.createOutbound(conv.id, reply);
+      await store.addMessage(conv.id, 'assistant', reply);
+    }
   }
 
   log.info({ handoffOccurred, actionCount: actions.length }, 'Oxford message processed');

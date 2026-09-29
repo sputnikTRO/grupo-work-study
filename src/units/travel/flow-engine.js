@@ -135,14 +135,15 @@ const MATERIAL_NODES = new Set(['e4l_material', 'wb_material']);
  * @param {Object} params.contact - Contact row
  * @param {string} params.phoneNumberId - WhatsApp phone number ID que recibió el mensaje
  * @param {Object} params.log - Logger child ya scopeado (de handler.js)
+ * @param {Object} [params.nudge] - Guardia de recordatorios de "Menú" del turno (core/flow/nudge.js)
  * @returns {Promise<{handled: boolean, midFlowFallback?: boolean, handoffOccurred?: boolean}>}
  */
-export async function tryDeterministicFlow({ phone, content, conv, lead, contact, phoneNumberId, log }) {
+export async function tryDeterministicFlow({ phone, content, conv, lead, contact, phoneNumberId, log, nudge }) {
   const text = (content.text || '').trim();
   // Cualquier derivación que nazca dentro de la rama "ya inscrito" marca el ticket
   // como tal, venga del nodo sembrado en el Sheet o del texto de respaldo.
   const ticketKind = String(conv.flowNode || '').startsWith('ya_inscrito') ? 'ya_inscrito' : undefined;
-  const ctx = { phone, conv, lead, contact, phoneNumberId, log, ticketKind };
+  const ctx = { phone, conv, lead, contact, phoneNumberId, log, ticketKind, nudge };
 
   const graph = await loadFlowGraph();
   if (!graph) return { handled: false }; // Sheet no disponible → camino LLM de siempre, intacto
@@ -259,10 +260,31 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
   return { handled: false, midFlowFallback: true };
 }
 
+/**
+ * Muestra el menú principal desde fuera del flujo (camino LLM). Lo usa el
+ * handler cuando la respuesta del LLM iba a ser SOLO repetir "escribe Menú"
+ * (el prospecto preguntó cómo volver a las opciones y ya se le había dicho):
+ * en vez de repetir la instrucción, se le da lo que pidió.
+ * @returns {Promise<boolean>} false si el grafo no está disponible
+ */
+export async function showMainMenu({ phone, conv, lead, contact, phoneNumberId, log, nudge }) {
+  const graph = await loadFlowGraph();
+  if (!graph || !getNode(graph, 'menu_principal')) return false;
+  await jumpToNode(graph, 'menu_principal', { phone, conv, lead, contact, phoneNumberId, log, nudge });
+  return true;
+}
+
 // ── Helpers de envío/persistencia ───────────────────────────────────────────
 
-/** Envía un texto de Miri y lo persiste igual que el camino LLM (Postgres + Redis). */
-async function sendNodeText(text, ctx) {
+/**
+ * Envía un texto de Miri y lo persiste igual que el camino LLM (Postgres + Redis).
+ * Pasa por el guardia de recordatorios del turno: si el texto trae un "escribe
+ * Menú" y ya salió otro en este turno, se quita esa oración (o el mensaje entero
+ * si no traía nada más).
+ */
+async function sendNodeText(rawText, ctx) {
+  const text = ctx.nudge ? ctx.nudge.forNode(rawText) : rawText;
+  if (!text) return;
   await sendTextMessage(ctx.phone, text, ctx.phoneNumberId);
   await messageService.createOutbound(ctx.conv.id, text);
   await conversation.addMessage(ctx.conv.id, 'assistant', text);
