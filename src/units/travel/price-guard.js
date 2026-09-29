@@ -53,12 +53,41 @@ export function moneyRule(text) {
 }
 
 /**
+ * EXENCIÓN — costos de TERCEROS que no son una cotización nuestra: se le
+ * muestran completos también a un prospecto sin colegio registrado, porque son
+ * información de trámite/viaje, no el precio del programa.
+ *
+ * Va por PREGUNTA (columna "Título"), no por monto: una fila exenta conserva
+ * todas sus cifras, y cualquier fila nueva con dinero se sigue filtrando.
+ * Si el cliente renombra una de estas preguntas en el Sheet, deja de estar
+ * exenta y se filtra (el lado seguro) — hay que actualizar esta lista.
+ *
+ * Se siguen filtrando: programa, apartado, pago inicial, cancelación, vuelo,
+ * los extras 2026 (London Eye, Harry Potter, París) y el formato SAM.
+ */
+const THIRD_PARTY_COST_TITLES = [
+  '¿Cómo funciona la ETA?',                          // TODOS — permiso de viaje UK, 16 libras
+  'ETA (Electronic Travel Authorization)',           // LON2027 — ídem
+  '¿Se necesita visa para Rising Stars?',            // WIN2027-PS / WIN2027-PH — ETA, 16 libras
+  '¿Cuánto deben considerar para gastos adicionales?', // TODOS — gasto personal, £20 por día
+  'Información financiera recomendada',              // LON2027 / DUB2027 — efectivo, 50 libras / 50 euros
+];
+
+const titleKey = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const EXEMPT = new Set(THIRD_PARTY_COST_TITLES.map(titleKey));
+
+/** ¿La fila es un costo de terceros exento del filtro? */
+export function isThirdPartyCost(row) {
+  return EXEMPT.has(titleKey(row?.['Título']));
+}
+
+/**
  * Filas de Info General / FAQ aptas para un prospecto SIN colegio registrado:
- * las que no mencionan ningún monto.
+ * las que no mencionan ningún monto, más las exentas de arriba.
  *
  * @param {Array<Object>} rows - filas con 'Título' y 'Contenido'
  * @returns {Array<Object>}
  */
 export function withoutAmounts(rows) {
-  return (rows || []).filter((r) => !moneyRule(`${r['Título'] ?? ''} ${r['Contenido'] ?? ''}`));
+  return (rows || []).filter((r) => isThirdPartyCost(r) || !moneyRule(`${r['Título'] ?? ''} ${r['Contenido'] ?? ''}`));
 }

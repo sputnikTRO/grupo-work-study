@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { withoutAmounts, moneyRule } from '../../../src/units/travel/price-guard.js';
+import { withoutAmounts, moneyRule, isThirdPartyCost } from '../../../src/units/travel/price-guard.js';
 
 // ── Filas REALES de "Info General" (la FAQ de Miri sale de la misma pestaña) ─
 // Snapshot de evals/fixtures/sheets.json. Si el snapshot se regenera y cambia
@@ -11,22 +11,26 @@ const [header, ...raw] = snap.main['Info General'];
 const ROWS = raw.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
 const key = (r) => `${r['Código Viaje']} | ${r['Categoría']} | ${r['Título']}`;
 
-// Las filas que SÍ traen dinero (revisadas una por una).
+// Las filas con dinero que SE FILTRAN (revisadas una por una).
 const EXPECTED_FILTERED = [
   'TODOS | FAQ | ¿Cuánto cuesta el programa?', // apartado $10,000 MXN
-  'TODOS | Trámites | ¿Cómo funciona la ETA?', // 16 libras
   'TODOS | Pagos | ¿Cómo inscribo a mi hijo y cuánto es el pago inicial?', // $10,000 / $15,000 MXN
   'TODOS | Pagos | ¿Se puede cancelar después del apartado?', // seguro $1,500, retención $7,500
   'TODOS | Pagos | ¿Cuánto cuesta el vuelo?', // $35,000 a $37,000
-  'TODOS | General | ¿Cuánto deben considerar para gastos adicionales?', // £20 por día
-  'LON2027 | Trámites | ETA (Electronic Travel Authorization)', // 16 libras
   'LON2027 | Trámites | Formato SAM (Salida de Menores)', // $294 MXN
-  'LON2027 | Finanzas | Información financiera recomendada', // 50 libras esterlinas
   'DUB2027 | Trámites | Formato SAM (Salida de Menores)', // $294 MXN
-  'DUB2027 | Finanzas | Información financiera recomendada', // 50 euros
   'LON2026 | Actividades Extra | Opción 1: London Eye + West End Musical + Estadio', // $5,300 MXN
   'LON2026 | Actividades Extra | Opción 2: Harry Potter Studio Tour', // $4,500 MXN
   'LON2026 | Extensión | Extensión a París', // $42,990 MXN
+].sort();
+
+// Traen dinero pero son costos de TERCEROS: exentas, se conservan completas.
+const EXPECTED_EXEMPT = [
+  'TODOS | Trámites | ¿Cómo funciona la ETA?', // 16 libras
+  'TODOS | General | ¿Cuánto deben considerar para gastos adicionales?', // £20 por día
+  'LON2027 | Trámites | ETA (Electronic Travel Authorization)', // 16 libras
+  'LON2027 | Finanzas | Información financiera recomendada', // 50 libras esterlinas
+  'DUB2027 | Finanzas | Información financiera recomendada', // 50 euros
   'WIN2027-PS | Trámites | ¿Se necesita visa para Rising Stars?', // 16 libras
   'WIN2027-PH | Trámites | ¿Se necesita visa para Rising Stars?', // 16 libras
 ].sort();
@@ -37,10 +41,24 @@ test('filas reales: se filtran exactamente las que traen montos', () => {
   assert.deepEqual(filtered, EXPECTED_FILTERED);
 });
 
+test('filas reales: los costos de terceros con dinero sobreviven completos (exención por pregunta)', () => {
+  const kept = withoutAmounts(ROWS);
+  const exemptKept = kept.filter((r) => moneyRule(`${r['Título']} ${r['Contenido']}`)).map(key).sort();
+  assert.deepEqual(exemptKept, EXPECTED_EXEMPT);
+  for (const r of ROWS.filter((x) => EXPECTED_EXEMPT.includes(key(x)))) assert.ok(isThirdPartyCost(r), key(r));
+});
+
 test('filas reales: todas las demás sobreviven (fechas, edades, noches, kilos, %)', () => {
-  const survivors = withoutAmounts(ROWS);
-  assert.equal(survivors.length, ROWS.length - EXPECTED_FILTERED.length);
+  const survivors = withoutAmounts(ROWS).filter((r) => !isThirdPartyCost(r));
+  assert.equal(survivors.length, ROWS.length - EXPECTED_FILTERED.length - EXPECTED_EXEMPT.length);
   for (const r of survivors) assert.equal(moneyRule(`${r['Título']} ${r['Contenido']}`), null, key(r));
+});
+
+test('la exención es por pregunta, no por monto: una fila nueva con el mismo monto se filtra', () => {
+  const nueva = { 'Título': '¿Cuánto cuesta el seguro de viaje?', 'Contenido': 'Son 16 libras.' };
+  assert.deepEqual(withoutAmounts([nueva]), []);
+  const exenta = { 'Título': '  ¿como funciona la ETA? ', 'Contenido': 'Cuesta 16 libras.' }; // tolera acentos/espacios
+  assert.deepEqual(withoutAmounts([exenta]), [exenta]);
 });
 
 // ── Casos de la especificación ──────────────────────────────────────────────
