@@ -113,6 +113,8 @@ const { installMocks, installNetworkGuard, captureConsole, OUTBOX, LOGS, CTX } =
 installMocks();
 installNetworkGuard();
 captureConsole();
+const { installUsageTracking, costSummary } = await import('./lib/usage.mjs');
+installUsageTracking();
 
 const { resetSheets } = await import('./lib/fake-sheets.mjs');
 const { nextProspectMessage, PROSPECT_MODEL } = await import('./lib/prospect.mjs');
@@ -320,6 +322,7 @@ const run = {
   models: { bot: env.ANTHROPIC_MODEL, prospect: PROSPECT_MODEL, judge: NO_JUDGE ? '(omitido)' : JUDGE_MODEL },
   git,
   filter: { only: ONLY, unit: UNIT || null },
+  cost: costSummary(),
   scenarios: results,
 };
 
@@ -336,6 +339,7 @@ writeFileSync(`${EVALS}/report.md`, buildReport(run, comparable));
 
 const green = results.filter((r) => r.pass).length;
 console.log(`\n${green}/${results.length} escenarios en verde → evals/report.md`);
+console.log(`Costo estimado: $${run.cost.total} USD — ${Object.entries(run.cost.byModel).map(([m, u]) => `${m} ${u.calls} llamadas $${u.usd}`).join(' · ')}`);
 
 await prisma.$disconnect().catch(() => {});
 await redis.disconnect?.().catch?.(() => {});

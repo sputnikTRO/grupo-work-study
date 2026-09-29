@@ -231,6 +231,16 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
 - Si la respuesta del LLM era SOLO repetir la instrucción, se muestra el menú
   principal (`showMainMenu`) en vez de mandarla otra vez.
 
+## Precios en Miri
+
+- Miri solo cotiza a colegios REGISTRADOS; "otro" o sin colegio siempre deriva,
+  incluido el vuelo. **Una regla del prompt no basta si el dato está en el
+  prompt**: la FAQ "¿Cuánto cuesta el vuelo?" entraba al conocimiento y el LLM la
+  citaba igual. `units/travel/price-guard.js` quita toda fila con montos del
+  conocimiento cuando el colegio no está registrado.
+- No hardcodear montos de negocio en `prompts.js`: se desfasan del Sheet (el
+  prompt decía apartado \$10,000 y la hoja viva \$15,000).
+
 ## Qué NO tocar sin coordinar
 
 - `advisor-zones.js` (ruteo geográfico + handoff tibio) — ya en prod, no rehacer.

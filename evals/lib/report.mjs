@@ -36,6 +36,7 @@ export function buildReport(run, previous) {
   out.push(`- Modelos: bot \`${run.models.bot}\` · prospecto \`${run.models.prospect}\` · juez \`${run.models.judge}\``);
   out.push(`- Rama: \`${run.git.branch}\` @ \`${run.git.sha}\`${run.git.dirty ? ' (con cambios sin commitear)' : ''}`);
   out.push(`- **Escenarios en verde: ${passed}/${scs.length}** · asserts duros fallidos: **${failedChecks}**`);
+  if (run.cost) out.push(`- Costo estimado de la corrida: **$${run.cost.total} USD** (${Object.entries(run.cost.byModel).map(([m, u]) => `${m}: ${u.calls} llamadas, $${u.usd}`).join(' · ')})`);
   if (previous) {
     const prevFailed = previous.scenarios.reduce((n, s) => n + s.checks.filter((c) => !c.pass).length, 0);
     const prevPassed = previous.scenarios.filter((s) => s.pass).length;
