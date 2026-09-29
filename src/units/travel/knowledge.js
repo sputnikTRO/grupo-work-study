@@ -1,4 +1,5 @@
 import * as sheetsCache from '../../core/sheets/cache.js';
+import { withoutAmounts } from './price-guard.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -66,7 +67,10 @@ export async function buildDynamicKnowledge(schoolCode = null) {
     if (trips.length > 0) {
       for (const trip of trips) {
         if (trip['Código']) {
-          const infoGeneral = await sheetsCache.getInfoGeneral(trip['Código']);
+          // Sin colegio registrado, nada con montos (p.ej. "¿Cuánto cuesta el
+          // vuelo?"): Miri solo cotiza a colegios registrados — ver price-guard.js.
+          const allInfo = await sheetsCache.getInfoGeneral(trip['Código']);
+          const infoGeneral = school ? allInfo : withoutAmounts(allInfo);
           if (infoGeneral.length > 0) {
             sections.push(buildInfoGeneralSection(trip['Código'], infoGeneral));
           }
@@ -75,7 +79,8 @@ export async function buildDynamicKnowledge(schoolCode = null) {
     }
 
     // Get FAQ (general info with Código Viaje = TODOS)
-    const faq = await sheetsCache.getFAQ();
+    const allFaq = await sheetsCache.getFAQ();
+    const faq = school ? allFaq : withoutAmounts(allFaq);
     if (faq.length > 0) {
       sections.push(buildFAQSection(faq));
     }
