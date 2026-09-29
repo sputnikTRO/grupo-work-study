@@ -1,0 +1,43 @@
+{
+  "id": "ori-cta-pregunta-con-no",
+  "unit": "ori",
+  "title": "CTA del nodo Oxford TCC: preguntas que contienen \"no\" no son un rechazo",
+  "regression": "fix/cta-preguntas-no-son-no (7fa3ab5): \"¿Qué pasa si no paso la certificación?\" se clasificaba como \"no gracias\" y la duda nunca llegaba al LLM",
+  "phone": "525580000001",
+  "persona": "Laura, coordinadora de inglés de un colegio privado en Puebla. Evalúa certificar a sus alumnos de secundaria con Oxford TCC; le preocupa qué pasa con los alumnos que no aprueban. Escribe breve y directa.",
+  "turns": [
+    {
+      "say": "Hola, buenas tardes",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Soy Laura Eval, coordinadora de inglés del Colegio Montessori Eval, en Puebla, Puebla",
+      "node": "menu_principal"
+    },
+    {
+      "say": "1",
+      "node": "cat_1"
+    },
+    {
+      "say": "2",
+      "node": "n_1_2"
+    },
+    {
+      "say": "¿Qué pasa si no paso la certificación?"
+    },
+    {
+      "say": "Y si un alumno no tiene buen nivel todavía, ¿puede presentar el examen?"
+    },
+    {
+      "intent": "Pregunta cuánto tiempo tardan en entregar los resultados del examen."
+    },
+    {
+      "intent": "Di que sí te gustaría que un asesor te contacte para verlo con tu colegio."
+    }
+  ],
+  "expect": {}
+}

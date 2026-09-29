@@ -1,0 +1,38 @@
+{
+  "id": "ori-opciones-en-prosa-nudge",
+  "unit": "ori",
+  "title": "Pedir \"qué opciones tienen\" a media navegación: el LLM las lista en prosa y no se duplica el recordatorio de Menú",
+  "regression": "Bug abierto \"Escribe Menú\" duplicado: prompts.js ordena al LLM cerrar invitando a escribir *Menú* al listar opciones en prosa, y handler.js agrega su propio recordatorio en el mismo turno",
+  "phone": "525580000008",
+  "persona": "Sergio, dueño de una academia de inglés pequeña en León. No quiere leer menús: pide que le digan las opciones en un solo mensaje y compara.",
+  "turns": [
+    {
+      "say": "Hola",
+      "node": "filtro_previo"
+    },
+    {
+      "say": "2",
+      "node": "solicitud_datos"
+    },
+    {
+      "say": "Sergio Eval, director de Academia Eval León, León Guanajuato",
+      "node": "menu_principal"
+    },
+    {
+      "say": "¿Qué opciones tienen para certificar a niños y a adultos? Dímelas todas en un mensaje"
+    },
+    {
+      "say": "1"
+    },
+    {
+      "say": "¿Y cuál me conviene si tengo alumnos de todas las edades? Dame las opciones"
+    },
+    {
+      "intent": "Pregunta qué otras cosas ofrecen además de certificaciones, que te las enumere."
+    },
+    {
+      "intent": "Pregunta cuál de todas esas es la más popular entre academias como la tuya."
+    }
+  ],
+  "expect": {}
+}

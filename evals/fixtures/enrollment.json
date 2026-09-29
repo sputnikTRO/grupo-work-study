@@ -1,0 +1,29 @@
+{
+  "_nota": "Hoja de INSCRITOS 100% SINTÉTICA (nombres y teléfonos inventados, apellido 'Eval'). Replica la forma de la real (REGISTRO GENERAL con trailing space + pestañas 'INSCRITOS …' con columnas en posiciones distintas) para ejercitar enrollment.js sin datos de familias reales.",
+  "phones": {
+    "ambiguo": "525590000101",
+    "sin_match": "525590000102",
+    "pago_unico": "525590000103"
+  },
+  "tabs": {
+    "REGISTRO GENERAL ": [
+      ["Marca temporal", "Nombre completo (Nombre, apellido paterno, apellido materno) del padre, madre o tutor", "Celular / Whatsapp:", "Nombre completo del estudiante (Nombre, segundo nombre, apellidos)", "Nombre del colegio"],
+      ["01/03/2026 10:00:00", "Mariana Eval Martínez", "55 9000 0101", "Sofía Eval Martínez", "Colegio Arista"],
+      ["02/03/2026 11:30:00", "Jorge Eval Ramírez", "+52 55 9000 0103", "Diego Eval Ramírez", "UTEC"],
+      ["03/03/2026 09:15:00", "Ana Eval López", "5590000199", "Lucía Eval López", "Belfortt"]
+    ],
+    "INSCRITOS LONDRES COLEGIO ARISTA 64990": [
+      ["No.", "ALUMNO", "INSTITUCIÓN", "TOTAL A PAGAR", "LLEVAN PAGADO", "FALTA POR PAGAR"],
+      ["1", "Sofía Eval Martínez", "Colegio Arista", "64,990.00", "20,000.00", "44,990.00"],
+      ["2", "Lucía Eval López", "Belfortt", "64,990.00", "64,990.00", "0.00"]
+    ],
+    "INSCRITOS DUBLIN COLEGIO ARISTA 58990": [
+      ["No.", "GRUPO", "ALUMNO", "INSTITUCIÓN", "TOTAL A PAGAR", "LLEVAN PAGADO", "FALTA POR PAGAR"],
+      ["1", "A", "Sofía Eval Martínez", "Colegio Arista", "58,990.00", "15,000.00", "43,990.00"]
+    ],
+    "INSCRITOS LONDRES UTEC 61990": [
+      ["No.", "ALUMNO", "INSTITUCIÓN", "TOTAL A PAGAR", "LLEVAN PAGADO", "FALTA POR PAGAR"],
+      ["1", "Diego Eval Ramírez", "UTEC", "61,990.00", "30,000.00", "31,990.00"]
+    ]
+  }
+}

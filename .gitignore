@@ -43,3 +43,6 @@ downloads/
 # Respaldos locales (scripts/reset-all-leads.mjs) — llevan conversaciones y
 # datos de leads reales; nunca deben commitearse.
 scratchpad/
+
+# Evals: salidas por corrida (evals/report.md sí se versiona)
+evals/results/

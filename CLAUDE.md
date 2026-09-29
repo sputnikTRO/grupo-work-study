@@ -197,6 +197,27 @@ Dos convenciones conviven en el repo:
   `test-oxford-handler.mjs` como referencia. Lo mismo aplica a mocks de
   `advisor-sla.js`/`advisor-notify.js` si se agregan más consumidores.
 
+## Evals (`evals/`)
+
+Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri — ver
+`evals/README.md`. Infra propia (`evals/docker-compose.yml`, Postgres :5440 / Redis
+:6390); nunca apuntarlo a prod ni a Railway. Lo que no es obvio:
+- **No modificar escenarios, asserts ni la rúbrica para que un fix "pase".** Si uno
+  parece mal, se discute primero. Correcciones del harness se validan con
+  `node --test evals/asserts.test.mjs` y se aplican a corridas viejas con `--rescore`.
+- **Regex con acentos: nada de `\b` después de una vocal acentuada.** En JS `\b` es
+  ASCII: `/men[uú]\b/` no casa con `*Menú*` y el assert del nudge pasó en verde sin
+  contar nada. Usar un lookahead `(?![a-záéíóúñ])`.
+- Un assert necesita un caso que lo haga FALLAR en `asserts.test.mjs`; si no, puede
+  estar pasando por vacuidad. Igual con los escenarios: `"node"` en los turnos de
+  setup evita un verde cuando el flujo ni siquiera llegó al nodo a probar.
+- Los errores de Claude se tragan en la app (el extractor devuelve `{}`, el chat
+  responde un fallback) — el runner los detecta en el log y marca el turno como
+  error. El `ANTHROPIC_MODEL` de un `.env` viejo puede estar retirado (404): el
+  harness usa el default de `env.js` o `EVAL_BOT_MODEL`.
+- Teléfonos de escenario: `52` + 10 dígitos. `normalizePhone('521…')` agrega un `1`
+  de más (`+5211…`).
+
 ## Qué NO tocar sin coordinar
 
 - `advisor-zones.js` (ruteo geográfico + handoff tibio) — ya en prod, no rehacer.

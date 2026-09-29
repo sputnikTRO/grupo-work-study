@@ -1,0 +1,20 @@
+{
+  "id": "ori-no-quiero-asesor",
+  "unit": "ori",
+  "title": "\"No quiero hablar con un asesor\" en un CTA no deriva",
+  "regression": "fix/cta-preguntas-no-son-no (7fa3ab5): la negación debe bloquear la frase de aceptación \"hablar con un asesor\"",
+  "phone": "525580000002",
+  "persona": "Ricardo, papá de un adolescente de 15 años en Monterrey. Quiere clases de conversación para su hijo, pero NO quiere que lo llamen ni lo contacten asesores: prefiere informarse solo por el chat. Algo desconfiado, cortante.",
+  "turns": [
+    { "say": "Hola", "node": "filtro_previo" },
+    { "say": "2", "node": "solicitud_datos" },
+    { "say": "Ricardo Eval, soy papá, mi hijo va en el Colegio Eval Norte, Monterrey Nuevo León", "node": "menu_principal" },
+    { "say": "2", "node": "cat_2" },
+    { "say": "2", "node": "n_2_2" },
+    { "say": "no quiero hablar con un asesor" },
+    { "intent": "Pregunta si las clases de Alphable son en vivo o grabadas, y aclara otra vez que no quieres que te llame nadie." },
+    { "intent": "Pregunta si tu hijo puede elegir el horario de las clases." },
+    { "intent": "Agradece y di que por ahora solo querías la información, que no te contacten." }
+  ],
+  "expect": { "no_handoff": true }
+}

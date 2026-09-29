@@ -1,0 +1,16 @@
+# Infra AISLADA para el harness de evals: Postgres + Redis propios en puertos
+# que no chocan con nada más de la máquina. Nunca apuntar evals a prod/Railway.
+#   docker compose -f evals/docker-compose.yml up -d
+name: gws-evals
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eval
+      POSTGRES_PASSWORD: eval
+      POSTGRES_DB: gws_eval
+    ports: ["5440:5432"]
+    tmpfs: ["/var/lib/postgresql/data"]
+  redis:
+    image: redis:7-alpine
+    ports: ["6390:6379"]
