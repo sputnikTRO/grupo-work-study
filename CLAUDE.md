@@ -218,6 +218,19 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
 - Teléfonos de escenario: `52` + 10 dígitos. `normalizePhone('521…')` agrega un `1`
   de más (`+5211…`).
 
+## Recordatorio de "Menú" (Ori y Miri)
+
+- Todo lo que se le envía al prospecto en un turno pasa por el guardia de
+  `core/flow/nudge.js` (`sendNodeText` → `forNode`, respuesta del LLM →
+  `forReply`, recordatorio del handler → `claimReminder`). **No mandar un
+  "escribe Menú" por fuera del guardia**: el recordatorio salía de 5 lugares
+  (handler, copy del decline, error de nodo, el LLM y el texto de nodos como
+  `util_menu`) y cada uno por separado parecía inofensivo.
+- El dedupe reconoce la INTENCIÓN por regex de variantes, nunca el texto exacto:
+  los nodos los edita el cliente en Sheets.
+- Si la respuesta del LLM era SOLO repetir la instrucción, se muestra el menú
+  principal (`showMainMenu`) en vez de mandarla otra vez.
+
 ## Qué NO tocar sin coordinar
 
 - `advisor-zones.js` (ruteo geográfico + handoff tibio) — ya en prod, no rehacer.
