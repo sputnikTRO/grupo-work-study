@@ -20,7 +20,7 @@ export const ADVISORS = {
   oriana:   { key: 'oriana',   nombre: 'Oriana Pullas',    apodo: 'Oriana',   whatsapp: '+17866332282', international: true, rol: 'back' },
   // CENTRO-OCCIDENTE
   rosaura:  { key: 'rosaura',  nombre: 'Rosaura Pinto',    apodo: 'Rosaura',  whatsapp: '5528996738', rol: 'front' },
-  diana:    { key: 'diana',    nombre: 'Diana Castillo',   apodo: 'Diana',    whatsapp: '5554794875', rol: 'back' },
+  danna:    { key: 'danna',    nombre: 'Danna Paola',      apodo: 'Danna',    whatsapp: '5554794875', rol: 'back' }, // oct-2026: reemplaza a Diana Castillo (mismo número y puesto)
   // SUR + LATAM
   balam:    { key: 'balam',    nombre: 'Balam Hernández',  apodo: 'Balam',    whatsapp: '5541947449', rol: 'front' },
   paola:    { key: 'paola',    nombre: 'Paola Torres',     apodo: 'Paola',    whatsapp: '5534599531', rol: 'back' },
@@ -37,7 +37,7 @@ export const ADVISORS = {
 // cambio aparte en pickAdvisorRoundRobin y en el SLA.
 export const ZONAS = {
   NORTE:  { key: 'NORTE',  advisors: ['enrique', 'mayra', 'silvana', 'oriana'] },
-  CENTRO: { key: 'CENTRO', advisors: ['rosaura', 'diana'] },
+  CENTRO: { key: 'CENTRO', advisors: ['rosaura', 'danna'] },
   SUR:    { key: 'SUR',    advisors: ['balam', 'paola'] },
 };
 

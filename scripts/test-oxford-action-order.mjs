@@ -67,7 +67,7 @@ assert.strictEqual(lead.municipality, 'Xochimilco', 'la alcaldía debió captura
 // CDMX se reparte entre NORTE y CENTRO (la alcaldía ya no decide la zona),
 // así que la aserción es sobre el equipo que toque, no sobre uno fijo.
 assert.ok(['NORTE', 'CENTRO'].includes(lead.zoneKey), `CDMX → NORTE o CENTRO (fue: ${lead.zoneKey})`);
-const EQUIPOS = { NORTE: ['Enrique Ruiz', 'Mayra Villareal', 'Silvana Meza', 'Oriana Pullas'], CENTRO: ['Rosaura Pinto', 'Diana Castillo'] };
+const EQUIPOS = { NORTE: ['Enrique Ruiz', 'Mayra Villareal', 'Silvana Meza', 'Oriana Pullas'], CENTRO: ['Rosaura Pinto', 'Danna Paola'] };
 assert.ok(EQUIPOS[lead.zoneKey].includes(lead.assignedAdvisor), `asesor del equipo ${lead.zoneKey} (fue: ${lead.assignedAdvisor})`);
 ok(`Captura aplicada antes del handoff → zona C, asesor ${lead.assignedAdvisor}`);
 

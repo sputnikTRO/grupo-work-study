@@ -360,7 +360,7 @@ console.log('\n== 4. Se agota el equipo → siguiente zona (CENTRO) ==');
 console.log('\n== 5. nextAdvisorCandidateKey salta a los ya intentados ==');
 {
   const next = nextAdvisorCandidateKey('NORTE', ['enrique', 'mayra', 'silvana', 'oriana', 'rosaura']);
-  assert.strictEqual(next, 'diana', 'agotado NORTE y saltando rosaura (ya intentada) → Diana, de CENTRO');
+  assert.strictEqual(next, 'danna', 'agotado NORTE y saltando rosaura (ya intentada) → Danna, de CENTRO');
   ok('nextAdvisorCandidateKey salta correctamente a los asesores ya intentados');
 }
 
@@ -371,7 +371,7 @@ console.log('\n== 6. Terminal tras agotar TODAS las asesoras ==');
 {
   // Ya van 3 intentos (enrique, oriana, rosaura) de los escenarios 3-4. Se
   // necesitan 5 reasignaciones más para agotar a las 5 asesoras restantes
-  // (diana, alfredo, paola, gilberto, anamaria) → tried.length llega a 8, y UNA
+  // (danna, alfredo, paola, gilberto, anamaria) → tried.length llega a 8, y UNA
   // vuelta MÁS (la 6ª) para que el job detecte que la 8ª tampoco confirmó y
   // recién ahí dispare el terminal (nextAdvisorCandidateKey ya no encuentra a
   // nadie sin intentar).

@@ -6,7 +6,7 @@
  *
  * Organigrama vigente (3 equipos, tamaños distintos):
  *   NORTE  — Enrique Ruiz (coord) · Mayra Villareal · Silvana Meza · Oriana Pullas (back)
- *   CENTRO — Rosaura Pinto · Diana Castillo (back)
+ *   CENTRO — Rosaura Pinto · Danna Paola (back)
  *   SUR    — Balam Hernández · Paola Torres (back)   [+ cartera LATAM]
  */
 import assert from 'node:assert';
@@ -20,7 +20,7 @@ const ok = (n) => { console.log('  ✓ ' + n); pass++; };
 console.log('\n== Equipos ==');
 const ESPERADO = {
   NORTE: ['Enrique Ruiz', 'Mayra Villareal', 'Silvana Meza', 'Oriana Pullas'],
-  CENTRO: ['Rosaura Pinto', 'Diana Castillo'],
+  CENTRO: ['Rosaura Pinto', 'Danna Paola'],
   SUR: ['Balam Hernández', 'Paola Torres'],
 };
 for (const k of ZONA_ORDER) {
