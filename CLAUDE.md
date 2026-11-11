@@ -100,6 +100,15 @@ equipos por el mismo prospecto es peor que no notificar a ninguno.
   el "job diferido" se traduce a polling con `setInterval` (mismo patrón que
   followup.job.js), leyendo `slaDueAt`/`currentAttempt` guardados en el propio
   lead en vez de un payload de cola externa.
+- `sla-hours.js` (feat/ori-sla-horario) — el reloj del SLA solo corre en horario
+  laboral, configurable con `OXED_ADVISOR_SLA_HOURS` (default L–V 9–19, S 9–14,
+  America/Mexico_City; `off` = siempre). Módulo puro: `buildAssignmentFields` le
+  pide el `slaDueAt`. Asignado fuera de horario → vence a la apertura + minutos;
+  si el plazo cruza el cierre, se pausa y el resto corre al abrir. La
+  notificación a la asesora NO se retrasa y `assignedAt` sigue siendo la hora
+  real, así que `responseSeconds` de un lead nocturno incluye la noche. Un
+  horario ilegible usa el default y loguea un warn (nunca desactiva la pausa en
+  silencio). Los mocks de `env.js` sin esa variable dejan el reloj 24/7.
 - `advisor-commands.js` — comandos de asesor por WhatsApp: `PENDIENTES` ·
   `ATIENDO [#]` (feature/ori-advisor-sla, confirma el lead) · `LISTO #` (cierra,
   sin cambios) · `AYUDA`. `REGRESA` es no-op documentado.

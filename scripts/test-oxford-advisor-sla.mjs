@@ -558,5 +558,27 @@ resetSheets();
   ok('Resumen distingue "leads atendidos" de "# reasignado por no confirmar" por asesora');
 }
 
+// ── Horario laboral del SLA (feat/ori-sla-horario) ──────────────────────────
+// Con OXED_ADVISOR_SLA_HOURS, buildAssignmentFields REAL pausa el reloj de noche
+// y la reasignación del poller hereda la pausa (usa la misma función).
+{
+  envMock.OXED_ADVISOR_SLA_HOURS = '1-5 09:00-19:00; 6 09:00-14:00';
+  const noche = new Date('2026-11-09T21:46:00-06:00'); // lunes 21:46 CDMX
+  const f = buildAssignmentFields({ currentAttempt: 0, triedAdvisorKeys: [], advisorAttempts: [] }, ADVISORS.rosaura, noche);
+  assert.strictEqual(f.assignedAt.toISOString(), noche.toISOString(), 'assignedAt sigue siendo la hora real');
+  assert.strictEqual(f.slaDueAt.toISOString(), new Date(`2026-11-10T09:${String(SLA_MINUTES).padStart(2, '0')}:00-06:00`).toISOString(), 'vence a la apertura + SLA');
+  ok('Lead asignado de noche: slaDueAt = apertura del día siguiente + SLA (assignedAt intacto)');
+
+  const dia = new Date('2026-11-09T10:00:00-06:00');
+  const g = buildAssignmentFields({ currentAttempt: 0, triedAdvisorKeys: [], advisorAttempts: [] }, ADVISORS.rosaura, dia);
+  assert.strictEqual(g.slaDueAt.getTime(), dia.getTime() + SLA_MINUTES * 60000);
+  ok('Lead asignado en horario: slaDueAt = ahora + SLA, sin cambios');
+
+  delete envMock.OXED_ADVISOR_SLA_HOURS;
+  const h = buildAssignmentFields({ currentAttempt: 0, triedAdvisorKeys: [], advisorAttempts: [] }, ADVISORS.rosaura, noche);
+  assert.strictEqual(h.slaDueAt.getTime(), noche.getTime() + SLA_MINUTES * 60000);
+  ok('Sin OXED_ADVISOR_SLA_HOURS el reloj corre 24/7 (comportamiento anterior)');
+}
+
 console.log(`\nTODAS las verificaciones pasaron ✅  (${pass})`);
 process.exit(0);

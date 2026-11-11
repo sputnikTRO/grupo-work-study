@@ -7,6 +7,7 @@ import * as oxfordLeadService from './lead.service.js';
 import { ADVISORS, ZONAS, ZONA_ORDER } from './advisor-zones.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
+import { slaDueAt } from './sla-hours.js';
 
 /**
  * Oxford Education — SLA de confirmación del asesor (feature/ori-advisor-sla)
@@ -96,9 +97,14 @@ export function appendAttempt(attempts, advisor, at) {
  */
 export function buildAssignmentFields(lead, advisor, now = new Date(), attemptsBase = lead.advisorAttempts) {
   const slaMinutes = env.OXED_ADVISOR_SLA_MINUTES;
+  // El reloj solo corre en horario laboral (sla-hours.js): un lead asignado de
+  // noche vence a la apertura + slaMinutes, no a media madrugada. assignedAt NO
+  // se mueve (es la hora real de la asignación y de la notificación).
+  const due = slaDueAt(now, slaMinutes, env.OXED_ADVISOR_SLA_HOURS);
+  if (due.warning) logger.warn({ unit: 'oxford_education', fn: 'advisor-sla.buildAssignmentFields' }, due.warning);
   return {
     assignedAt: now,
-    slaDueAt: new Date(now.getTime() + slaMinutes * 60000),
+    slaDueAt: due.dueAt,
     currentAttempt: (lead.currentAttempt || 0) + 1,
     triedAdvisorKeys: Array.from(new Set([...(lead.triedAdvisorKeys || []), advisor.key])),
     advisorAttempts: appendAttempt(attemptsBase, advisor, now),

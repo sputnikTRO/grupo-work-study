@@ -89,6 +89,11 @@ export const env = {
   // asesor asignado para responder ATIENDO antes de que advisor-sla.job.js lo
   // reasigne automáticamente a la siguiente asesora. Ver src/units/oxford-education/advisor-sla.js.
   OXED_ADVISOR_SLA_MINUTES: parseInt(optionalEnv('OXED_ADVISOR_SLA_MINUTES', '10'), 10),
+  // Horario laboral en el que corre el reloj del SLA (America/Mexico_City). Fuera
+  // de él el plazo se pausa: un lead asignado de noche vence a la apertura +
+  // OXED_ADVISOR_SLA_MINUTES. Formato "<días ISO> HH:MM-HH:MM; …" (1 = lunes).
+  // "off" → el reloj corre siempre. Ver src/units/oxford-education/sla-hours.js.
+  OXED_ADVISOR_SLA_HOURS: optionalEnv('OXED_ADVISOR_SLA_HOURS', '1-5 09:00-19:00; 6 09:00-14:00'),
 
   // Travel (Miri) — hoja VIVA de precios por colegio, mantenida por el equipo
   // comercial: "Colegios Inscritos English 4 Life 2027", pestaña
