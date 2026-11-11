@@ -227,6 +227,20 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
 - Teléfonos de escenario: `52` + 10 dígitos. `normalizePhone('521…')` agrega un `1`
   de más (`+5211…`).
 
+## Rastro de notificaciones a asesoras (Ori y Miri)
+
+- `src/services/advisor-notification.service.js` + tabla `advisor_notifications`:
+  cada notificación de lead a una asesora guarda vía (plantilla/texto libre/no
+  salió), plantilla, wamid y el status de entrega que llega por webhook
+  (`sent/delivered/read/failed` + código de error). Lo llaman `advisor-notify.js`
+  (Ori), `sendAdvisorNotification` (Miri) y los dos webhooks.
+- **"Meta aceptó" no es "se entregó"**: la API responde 200 y el rechazo (131049
+  límite de marketing, 131047 fuera de 24h) llega después por status. Un `failed`
+  se loguea a nivel ERROR con "ALERTA: la notificación a la asesora NO se entregó".
+- El servicio **nunca lanza**: si la tabla no existe o la base falla, el handoff y
+  el webhook siguen igual. Los mocks de Prisma de los tests no necesitan el modelo.
+- `scripts/audit-leads.mjs` (solo lectura) cruza leads, handoffs, SLA y este rastro.
+
 ## Recordatorio de "Menú" (Ori y Miri)
 
 - Todo lo que se le envía al prospecto en un turno pasa por el guardia de
