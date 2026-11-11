@@ -418,6 +418,17 @@ export async function executeHandoffToAdvisor(reason, lead, conv, phone, phoneNu
     await sendTextMessage(phone, farewellMessage, phoneNumberId);
     actionLogger.info('Warm handoff message sent to prospect');
 
+    // La despedida SÍ se le envió al prospecto: debe quedar en el historial de la
+    // base. Antes no se guardaba (ni por el flujo ni por el camino LLM), así que
+    // la conversación terminaba en el mensaje del prospecto y parecía que Miri no
+    // había respondido. Guardarla nunca puede tumbar el handoff: si falla, se
+    // loguea y se sigue a asignar y notificar.
+    try {
+      await messageService.createOutbound(conv.id, farewellMessage);
+    } catch (persistErr) {
+      actionLogger.error({ err: persistErr }, 'No se pudo guardar la despedida del handoff (el handoff continúa)');
+    }
+
     // Handoff TIBIO: la conversación queda ACTIVA (NO waiting_human), así Miri
     // sigue respondiendo. Solo marcamos el asesor asignado en la conversación.
     await conversationService.update(conv.id, { assignedAgent: advisor?.nombre || 'Sin asignar' });
