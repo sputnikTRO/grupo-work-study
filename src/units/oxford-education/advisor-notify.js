@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { sendTextMessage, sendTemplateMessage } from './whatsapp.js';
+import { recordAdvisorNotification } from '../../services/advisor-notification.service.js';
 
 /**
  * Oxford Education — Notificación de lead al asesor
@@ -89,14 +90,21 @@ export async function notifyAdvisor(advisor, lead, conv, contact, reason, zonaKe
   // template de siempre (OXED_ADVISOR_TEMPLATE_NAME) — cero cambio de
   // comportamiento mientras la nueva sigue PENDING en Meta.
   const templateName = env.OXED_ADVISOR_SLA_TEMPLATE || env.OXED_ADVISOR_TEMPLATE_NAME;
+  // Rastro de entrega: se guarda el wamid de lo que Meta acepte, para cruzarlo
+  // después con los webhooks de status (services/advisor-notification.service.js).
+  const rastro = {
+    unit: 'oxford_education', lead, advisor, advisorPhone,
+    kind: (lead.reassignCount || 0) > 0 || /^Reasignaci[oó]n/i.test(reason || '') ? 'reasignacion' : 'nuevo_lead',
+  };
   try {
-    await sendTemplateMessage(
+    const apiResponse = await sendTemplateMessage(
       advisorPhone,
       templateName,
       env.OXED_ADVISOR_TEMPLATE_LANG,
       [ticket, nombre, tipo, lead.institutionName || '—', producto, zonaDupla, phoneFormatted, motivo],
     );
-    log.info({ advisor: advisor.nombre, advisorPhone, via: 'template', template: templateName }, 'Advisor notification sent');
+    await recordAdvisorNotification({ ...rastro, via: 'template', templateName, apiResponse });
+    log.info({ advisor: advisor.nombre, advisorPhone, via: 'template', template: templateName, waMessageId: apiResponse?.messages?.[0]?.id }, 'Advisor notification sent');
     return;
   } catch (tplErr) {
     log.warn({ err: tplErr, advisor: advisor.nombre, template: templateName },
@@ -122,9 +130,11 @@ export async function notifyAdvisor(advisor, lead, conv, contact, reason, zonaKe
 
 ---
 ✅ *LISTO ${ticket}* → cuando cierres/atiendas el lead (solo tracking; Ori nunca se silencia)`;
-    await sendTextMessage(advisorPhone, notification);
-    log.info({ advisor: advisor.nombre, advisorPhone, via: 'text' }, 'Advisor notification sent (fallback text)');
+    const apiResponse = await sendTextMessage(advisorPhone, notification);
+    await recordAdvisorNotification({ ...rastro, via: 'text', apiResponse });
+    log.info({ advisor: advisor.nombre, advisorPhone, via: 'text', waMessageId: apiResponse?.messages?.[0]?.id }, 'Advisor notification sent (fallback text)');
   } catch (error) {
+    await recordAdvisorNotification({ ...rastro, via: 'error', error });
     log.error({ err: error, advisor: advisor?.nombre }, 'Error notifying advisor (handoff continues)');
   }
 }

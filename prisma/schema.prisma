@@ -117,6 +117,39 @@ model Message {
   @@map("messages")
 }
 
+// Rastro de cada notificación de lead enviada a una asesora (Ori y Miri) y de su
+// entrega según los webhooks de status de Meta. Ver
+// src/services/advisor-notification.service.js. `leadId` no lleva relación a
+// propósito: apunta a OxfordLead o TravelLead según `unit`, y el rastro debe
+// sobrevivir a un reset de leads.
+model AdvisorNotification {
+  id            String    @id @default(uuid())
+  unit          Unit
+  leadId        String?   @map("lead_id")
+  ticketNumber  Int?      @map("ticket_number")
+  advisorName   String    @map("advisor_name")
+  advisorPhone  String    @map("advisor_phone")
+  kind          String    @default("nuevo_lead")        // nuevo_lead | reasignacion | ya_inscrito
+  via           String                                  // template | text | error (no salió)
+  templateName  String?   @map("template_name")
+  waMessageId   String?   @unique @map("wa_message_id") // wamid que devuelve Meta al aceptar el envío
+  status        String    @default("accepted")          // accepted → sent → delivered → read | failed | send_error
+  errorCode     Int?      @map("error_code")            // p. ej. 131049 (límite de marketing), 131047 (fuera de 24h)
+  errorTitle    String?   @map("error_title")
+  errorDetail   String?   @map("error_detail")
+  sentAt        DateTime? @map("sent_at")
+  deliveredAt   DateTime? @map("delivered_at")
+  readAt        DateTime? @map("read_at")
+  failedAt      DateTime? @map("failed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt      @map("updated_at")
+
+  @@index([unit, leadId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("advisor_notifications")
+}
+
 // ==========================================
 // TRAVEL: Tablas específicas de Travel (Fase 1)
 // ==========================================

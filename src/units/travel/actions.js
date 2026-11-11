@@ -8,6 +8,7 @@ import { normalizePhone } from '../../utils/phone.js';
 import * as conversationService from '../../services/conversation.service.js';
 import * as messageService from '../../services/message.service.js';
 import { sendTextMessage, sendTemplateMessage, sendMediaMessage, sendMediaMessageByUrl } from '../../core/whatsapp/client.js';
+import { recordAdvisorNotification } from '../../services/advisor-notification.service.js';
 import * as conversation from '../../core/ai/conversation.js';
 import { getOrUploadMedia, getMimeType } from '../../core/whatsapp/media-uploader.js';
 import { pickAdvisor, resolveTrack, advisorByName } from './advisors.js';
@@ -548,6 +549,9 @@ export async function sendAdvisorNotification(advisor, lead, conv, prospectPhone
     // normalizePhone adds +521 prefix, then strip '+' for WhatsApp Cloud API (E.164 without +)
     const advisorPhone = normalizePhone(advisor.whatsapp).replace('+', '');
     const clean = (v, n) => String(v ?? '—').replace(/\s+/g, ' ').trim().slice(0, n) || '—';
+    // Rastro de entrega: wamid de lo que Meta acepte, para cruzarlo con los
+    // webhooks de status (services/advisor-notification.service.js).
+    const rastro = { unit: 'travel', lead, advisor, advisorPhone, kind: ticketKind === 'ya_inscrito' ? 'ya_inscrito' : 'nuevo_lead' };
     // El motivo ya viene prefijado con "YA INSCRITO — " desde el motor de flujo,
     // así la asesora distingue el ticket también en la plantilla aprobada, que no
     // se puede cambiar sin volver a pasar por revisión de Meta.
@@ -582,8 +586,9 @@ export async function sendAdvisorNotification(advisor, lead, conv, prospectPhone
 
       const templateName = v2 || env.TRAVEL_ADVISOR_TEMPLATE_NAME;
       const components = [{ type: 'body', parameters: params.map((x) => ({ type: 'text', text: String(x) })) }];
-      await sendTemplateMessage(advisorPhone, templateName, env.TRAVEL_ADVISOR_TEMPLATE_LANG, components, phoneNumberId);
-      actionLogger.info({ advisorPhone, via: 'template', template: templateName }, 'Advisor notification sent');
+      const apiResponse = await sendTemplateMessage(advisorPhone, templateName, env.TRAVEL_ADVISOR_TEMPLATE_LANG, components, phoneNumberId);
+      await recordAdvisorNotification({ ...rastro, via: 'template', templateName, apiResponse });
+      actionLogger.info({ advisorPhone, via: 'template', template: templateName, waMessageId: apiResponse?.messages?.[0]?.id }, 'Advisor notification sent');
       return;
     } catch (tplErr) {
       actionLogger.warn({ err: tplErr, template: env.TRAVEL_ADVISOR_TEMPLATE_NAME }, 'Template notification failed, falling back to free-form text');
@@ -605,10 +610,12 @@ export async function sendAdvisorNotification(advisor, lead, conv, prospectPhone
 
 ---
 Responde *LISTO ${f.ticket}* cuando lo cierres.`;
-    await sendTextMessage(advisorPhone, notification, phoneNumberId);
-    actionLogger.info({ advisorPhone, via: 'text' }, 'Advisor notification sent (fallback text)');
+    const apiResponse = await sendTextMessage(advisorPhone, notification, phoneNumberId);
+    await recordAdvisorNotification({ ...rastro, via: 'text', apiResponse });
+    actionLogger.info({ advisorPhone, via: 'text', waMessageId: apiResponse?.messages?.[0]?.id }, 'Advisor notification sent (fallback text)');
 
   } catch (error) {
+    await recordAdvisorNotification({ unit: 'travel', lead, advisor, advisorPhone: advisor?.whatsapp, via: 'error', error });
     actionLogger.error({ err: error }, 'Error sending advisor notification');
     // Don't throw - handoff should continue even if notification fails
   }
