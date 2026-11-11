@@ -25,8 +25,13 @@ import { sendTextMessage, sendTemplateMessage } from './whatsapp.js';
  *     si el envío por plantilla falla se conserva sin cambios en ambos casos.
  */
 
-/** Etiquetas legibles del producto para el mensaje al asesor. */
-const PRODUCT_LABELS = {
+/**
+ * Etiquetas legibles del producto para el mensaje al asesor.
+ * Exportadas: actions.js las usa en buildLeadUpdate (al mover notifyAdvisor a este
+ * módulo la constante dejó de existir allá y [CAPTURAR_DATO:primary_product]
+ * tronaba con ReferenceError → el ticket salía con "Producto: no capturado").
+ */
+export const PRODUCT_LABELS = {
   oxford_tcc: 'Oxford TCC',
   oxford_tcc_kids: 'Oxford TCC Kids',
   english_teaching_certificate: 'English Teaching Certificate',

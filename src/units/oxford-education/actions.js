@@ -8,7 +8,7 @@ import { sendTextMessage } from './whatsapp.js';
 import { HANDOFF_MEETING_URL } from './prompts.js';
 import { resolveZona, zonaAdvisors, CDMX_SENTINEL, CDMX_ZONAS } from './advisor-zones.js';
 import { handoffToTravel, isTravelProduct } from './travel-handoff.js';
-import { notifyAdvisor } from './advisor-notify.js';
+import { notifyAdvisor, PRODUCT_LABELS } from './advisor-notify.js';
 import { buildAssignmentFields } from './advisor-sla.js';
 
 /**
