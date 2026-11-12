@@ -150,6 +150,28 @@ model AdvisorNotification {
   @@map("advisor_notifications")
 }
 
+// Bitácora de mensajes ENTRANTES de las asesoras (ATIENDO/LISTO/PENDIENTES…) y de
+// la respuesta del bot (aceptado/rechazado + motivo). También es la fuente para
+// saber si la ventana de 24h de una asesora está abierta. Ver
+// src/services/advisor-command.service.js.
+model AdvisorCommand {
+  id            String   @id @default(uuid())
+  unit          Unit
+  advisorName   String   @map("advisor_name")
+  advisorPhone  String   @map("advisor_phone")           // normalizado, sin '+'
+  text          String                                    // lo que escribió (recortado)
+  command       String                                    // ATIENDO | LISTO | PENDIENTES | AYUDA | REGRESA | OTRO
+  ticketNumber  Int?     @map("ticket_number")
+  outcome       String                                    // aceptado | rechazado | info | ignorado | error
+  detail        String?                                   // motivo del rechazo / nota
+  waMessageId   String?  @map("wa_message_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([unit, advisorPhone, createdAt])
+  @@index([unit, ticketNumber])
+  @@map("advisor_commands")
+}
+
 // ==========================================
 // TRAVEL: Tablas específicas de Travel (Fase 1)
 // ==========================================
