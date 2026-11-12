@@ -9,7 +9,7 @@ import { HANDOFF_MEETING_URL } from './prompts.js';
 import { resolveZona, zonaAdvisors, CDMX_SENTINEL, CDMX_ZONAS } from './advisor-zones.js';
 import { handoffToTravel, isTravelProduct } from './travel-handoff.js';
 import { notifyAdvisor, PRODUCT_LABELS } from './advisor-notify.js';
-import { buildAssignmentFields } from './advisor-sla.js';
+import { buildAssignmentFields, buildTeamAssignmentFields } from './advisor-sla.js';
 
 /**
  * Oxford Education action tags
@@ -197,19 +197,41 @@ export async function executeActions(actions, lead, conv, contact) {
  * @param {'NORTE'|'CENTRO'|'SUR'} zonaKey
  * @returns {Promise<Object|null>} advisor object o null si la zona es inválida
  */
+// Cuántos leads recientes de la zona se miran para repartir.
+const ROUND_ROBIN_WINDOW = 200;
+
 async function pickAdvisorRoundRobin(zonaKey) {
   const advisors = zonaAdvisors(zonaKey);
   if (advisors.length <= 1) return advisors[0] || null;
 
   try {
-    const counts = await prisma.oxfordLead.groupBy({
-      by: ['assignedAdvisor'],
-      where: { assignedAdvisor: { in: advisors.map((a) => a.nombre) } },
-      _count: { assignedAdvisor: true },
+    // Reparto por PRIMERA asignación (advisorAttempts[0]), no por quién tiene el
+    // lead hoy. Antes se contaba assignedAdvisor, que la cadena del SLA
+    // sobreescribe: todos los leads terminaban en la última asesora, las del
+    // equipo quedaban empatadas en 0 y SIEMPRE ganaba la primera de la lista
+    // (auditoría nov-2026: Rosaura 6 de 6 en CENTRO, Enrique 3 de 3 en NORTE).
+    const recientes = await prisma.oxfordLead.findMany({
+      where: { zoneKey: zonaKey, assignedAt: { not: null } },
+      select: { advisorAttempts: true, assignedAdvisor: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: ROUND_ROBIN_WINDOW,
     });
-    const countFor = (name) => counts.find((r) => r.assignedAdvisor === name)?._count.assignedAdvisor ?? 0;
-    // El de menos carga; a igualdad gana el primero de la zona (orden estable).
-    return advisors.reduce((mejor, a) => (countFor(a.nombre) < countFor(mejor.nombre) ? a : mejor), advisors[0]);
+    const keys = advisors.map((a) => a.key);
+    const count = Object.fromEntries(keys.map((k) => [k, 0]));
+    const lastAt = Object.fromEntries(keys.map((k) => [k, 0]));
+    for (const l of recientes) {
+      const first = Array.isArray(l.advisorAttempts) ? l.advisorAttempts[0] : null;
+      const key = first?.advisorKey || advisors.find((a) => a.nombre === (first?.advisor || l.assignedAdvisor))?.key;
+      if (!(key in count)) continue;
+      count[key] += 1;
+      lastAt[key] = Math.max(lastAt[key], new Date(first?.assignedAt || l.createdAt).getTime() || 0);
+    }
+    // Menos primeras asignaciones; a igualdad, a quien le tocó hace más tiempo;
+    // si sigue el empate, el orden de la zona (estable).
+    return advisors.reduce((mejor, a) => {
+      if (count[a.key] !== count[mejor.key]) return count[a.key] < count[mejor.key] ? a : mejor;
+      return lastAt[a.key] < lastAt[mejor.key] ? a : mejor;
+    }, advisors[0]);
   } catch (error) {
     logger.error({ err: error, unit: 'oxford_education', zonaKey }, 'Round-robin failed, defaulting to first advisor');
     return advisors[0];
@@ -288,6 +310,9 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
     return handleForeignFallback(lead, conv, contact, reason, log);
   }
 
+  const equipo = zonaAdvisors(zonaKey);
+  const teamMode = String(env.OXED_ADVISOR_DISPATCH_MODE || 'chain').toLowerCase() === 'team' && equipo.length > 1;
+
   // Persistir asignación en el lead. Handoff "TIBIO": NO se marca waiting_human;
   // la conversación sigue ACTIVA y Ori sigue atendiendo dudas generales.
   // feature/ori-advisor-sla: buildAssignmentFields agrega assignedAt/slaDueAt/
@@ -299,22 +324,37 @@ export async function executeHandoffToAdvisor(lead, conv, contact, reason) {
     assignedAdvisor: advisor.nombre,
     zoneKey: zonaKey,
     notes: reason ? `Derivación (${zonaKey}/${advisor.nombre}): ${reason}` : `Derivado a ${advisor.nombre} (${zonaKey})`,
-    ...buildAssignmentFields(lead, advisor),
+    // OXED_ADVISOR_DISPATCH_MODE=team → se avisa a TODO el equipo de la zona a la
+    // vez y lo toma la primera que responda ATIENDO (advisor-commands.js). El
+    // default (chain) avisa a una y reasigna en cadena al vencer el SLA.
+    ...(teamMode ? buildTeamAssignmentFields(lead, equipo) : buildAssignmentFields(lead, advisor)),
   };
+  if (teamMode) leadUpdate.notes += ` [aviso simultáneo al equipo ${zonaKey}: ${equipo.map((a) => a.nombre).join(', ')}]`;
   await oxfordLeadService.updateOxfordLead(lead.id, leadUpdate);
   Object.assign(lead, leadUpdate);
 
   // Mensaje cálido: se le conecta con el asesor, pero Ori sigue disponible.
-  const connect =
-    `¡Perfecto! 😊 Te conecto con ${advisor.nombre}, asesor/a de Oxford Education. ` +
-    `Te escribe en breve por WhatsApp para ver precio y los siguientes pasos.\n\n` +
-    `Mientras tanto, aquí sigo para cualquier otra duda. 🌎`;
+  const connect = teamMode
+    ? `¡Perfecto! 😊 Te conecto con nuestro equipo de asesores de Oxford Education. ` +
+      `Uno de ellos te escribe en breve por WhatsApp para ver precio y los siguientes pasos.\n\n` +
+      `Mientras tanto, aquí sigo para cualquier otra duda. 🌎`
+    : `¡Perfecto! 😊 Te conecto con ${advisor.nombre}, asesor/a de Oxford Education. ` +
+      `Te escribe en breve por WhatsApp para ver precio y los siguientes pasos.\n\n` +
+      `Mientras tanto, aquí sigo para cualquier otra duda. 🌎`;
   await sendTextMessage(contact.phone, connect);
   await messageService.createOutbound(conv.id, connect);
   await store.addMessage(conv.id, 'assistant', connect);
 
-  // La conversación PERMANECE activa (sin waiting_human). Notificar al asesor.
-  await notifyAdvisor(advisor, lead, conv, contact, reason, zonaKey, log);
+  // La conversación PERMANECE activa (sin waiting_human). Notificar al asesor
+  // (o, en modo team, a todo el equipo: cada aviso es independiente y un fallo
+  // en uno no impide los demás — notifyAdvisor nunca lanza).
+  for (const destinatario of teamMode ? equipo : [advisor]) {
+    await notifyAdvisor(
+      destinatario, lead, conv, contact,
+      teamMode ? `${reason || 'Solicita asesor'} · Aviso simultáneo al equipo ${zonaKey}: lo atiende la primera que responda ATIENDO.` : reason,
+      zonaKey, log,
+    );
+  }
 
   log.info({ zonaKey, advisor: advisor.nombre }, 'Oxford warm handoff completed (conversation stays active)');
   return { handedOff: true };
