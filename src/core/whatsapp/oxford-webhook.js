@@ -2,6 +2,7 @@ import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import * as oxfordHandler from '../../units/oxford-education/handler.js';
 import { isOxfordAdvisorPhone, handleOxfordAdvisorCommand } from '../../units/oxford-education/advisor-commands.js';
+import { applyStatusUpdates } from '../../services/advisor-notification.service.js';
 
 /**
  * Oxford Education Webhook Handler
@@ -79,6 +80,10 @@ async function processOxfordChange(value) {
     logger.warn({ phoneNumberId, unit: 'oxford_education' }, 'Oxford webhook received event for a different number, ignoring');
     return;
   }
+
+  // Status de entrega (sent/delivered/read/failed) de las notificaciones a
+  // asesoras. Antes este webhook ni los leía. applyStatusUpdates nunca lanza.
+  await applyStatusUpdates(value.statuses);
 
   for (const message of messages || []) {
     if (message.type && message.from) {

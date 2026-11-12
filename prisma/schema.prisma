@@ -117,6 +117,61 @@ model Message {
   @@map("messages")
 }
 
+// Rastro de cada notificación de lead enviada a una asesora (Ori y Miri) y de su
+// entrega según los webhooks de status de Meta. Ver
+// src/services/advisor-notification.service.js. `leadId` no lleva relación a
+// propósito: apunta a OxfordLead o TravelLead según `unit`, y el rastro debe
+// sobrevivir a un reset de leads.
+model AdvisorNotification {
+  id            String    @id @default(uuid())
+  unit          Unit
+  leadId        String?   @map("lead_id")
+  ticketNumber  Int?      @map("ticket_number")
+  advisorName   String    @map("advisor_name")
+  advisorPhone  String    @map("advisor_phone")
+  kind          String    @default("nuevo_lead")        // nuevo_lead | reasignacion | ya_inscrito
+  via           String                                  // template | text | error (no salió)
+  templateName  String?   @map("template_name")
+  waMessageId   String?   @unique @map("wa_message_id") // wamid que devuelve Meta al aceptar el envío
+  status        String    @default("accepted")          // accepted → sent → delivered → read | failed | send_error
+  errorCode     Int?      @map("error_code")            // p. ej. 131049 (límite de marketing), 131047 (fuera de 24h)
+  errorTitle    String?   @map("error_title")
+  errorDetail   String?   @map("error_detail")
+  sentAt        DateTime? @map("sent_at")
+  deliveredAt   DateTime? @map("delivered_at")
+  readAt        DateTime? @map("read_at")
+  failedAt      DateTime? @map("failed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt      @map("updated_at")
+
+  @@index([unit, leadId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("advisor_notifications")
+}
+
+// Bitácora de mensajes ENTRANTES de las asesoras (ATIENDO/LISTO/PENDIENTES…) y de
+// la respuesta del bot (aceptado/rechazado + motivo). También es la fuente para
+// saber si la ventana de 24h de una asesora está abierta. Ver
+// src/services/advisor-command.service.js.
+model AdvisorCommand {
+  id            String   @id @default(uuid())
+  unit          Unit
+  advisorName   String   @map("advisor_name")
+  advisorPhone  String   @map("advisor_phone")           // normalizado, sin '+'
+  text          String                                    // lo que escribió (recortado)
+  command       String                                    // ATIENDO | LISTO | PENDIENTES | AYUDA | REGRESA | OTRO
+  ticketNumber  Int?     @map("ticket_number")
+  outcome       String                                    // aceptado | rechazado | info | ignorado | error
+  detail        String?                                   // motivo del rechazo / nota
+  waMessageId   String?  @map("wa_message_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([unit, advisorPhone, createdAt])
+  @@index([unit, ticketNumber])
+  @@map("advisor_commands")
+}
+
 // ==========================================
 // TRAVEL: Tablas específicas de Travel (Fase 1)
 // ==========================================

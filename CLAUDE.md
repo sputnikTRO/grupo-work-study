@@ -100,6 +100,15 @@ equipos por el mismo prospecto es peor que no notificar a ninguno.
   el "job diferido" se traduce a polling con `setInterval` (mismo patrón que
   followup.job.js), leyendo `slaDueAt`/`currentAttempt` guardados en el propio
   lead en vez de un payload de cola externa.
+- `sla-hours.js` (feat/ori-sla-horario) — el reloj del SLA solo corre en horario
+  laboral, configurable con `OXED_ADVISOR_SLA_HOURS` (default L–V 9–19, S 9–14,
+  America/Mexico_City; `off` = siempre). Módulo puro: `buildAssignmentFields` le
+  pide el `slaDueAt`. Asignado fuera de horario → vence a la apertura + minutos;
+  si el plazo cruza el cierre, se pausa y el resto corre al abrir. La
+  notificación a la asesora NO se retrasa y `assignedAt` sigue siendo la hora
+  real, así que `responseSeconds` de un lead nocturno incluye la noche. Un
+  horario ilegible usa el default y loguea un warn (nunca desactiva la pausa en
+  silencio). Los mocks de `env.js` sin esa variable dejan el reloj 24/7.
 - `advisor-commands.js` — comandos de asesor por WhatsApp: `PENDIENTES` ·
   `ATIENDO [#]` (feature/ori-advisor-sla, confirma el lead) · `LISTO #` (cierra,
   sin cambios) · `AYUDA`. `REGRESA` es no-op documentado.
@@ -217,6 +226,46 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   harness usa el default de `env.js` o `EVAL_BOT_MODEL`.
 - Teléfonos de escenario: `52` + 10 dígitos. `normalizePhone('521…')` agrega un `1`
   de más (`+5211…`).
+
+## Rastro de notificaciones a asesoras (Ori y Miri)
+
+- `src/services/advisor-notification.service.js` + tabla `advisor_notifications`:
+  cada notificación de lead a una asesora guarda vía (plantilla/texto libre/no
+  salió), plantilla, wamid y el status de entrega que llega por webhook
+  (`sent/delivered/read/failed` + código de error). Lo llaman `advisor-notify.js`
+  (Ori), `sendAdvisorNotification` (Miri) y los dos webhooks.
+- **"Meta aceptó" no es "se entregó"**: la API responde 200 y el rechazo (131049
+  límite de marketing, 131047 fuera de 24h) llega después por status. Un `failed`
+  se loguea a nivel ERROR con "ALERTA: la notificación a la asesora NO se entregó".
+- El servicio **nunca lanza**: si la tabla no existe o la base falla, el handoff y
+  el webhook siguen igual. Los mocks de Prisma de los tests no necesitan el modelo.
+- `scripts/audit-leads.mjs` (solo lectura) cruza leads, handoffs, SLA y este rastro.
+
+## ATIENDO, avisos y reparto de Ori (fix/ori-atiendo-y-avisos)
+
+- **Gana la primera que confirme.** `ATIENDO #` lo puede mandar la asignada actual
+  o cualquiera a la que ya se le avisó de ese lead (`triedAdvisorKeys`), también si
+  el lead quedó en `sin_confirmar`. El update es condicional a `confirmedAt: null`;
+  a quien llega después se le contesta "El lead #N ya lo atiende X". No volver a
+  exigir `assignedAdvisor === asesora`: así se rechazó un ATIENDO real en prod.
+- El intento de quien tenía el lead en espera queda `cedido` ("lo tomó otra
+  asesora"), no `no_confirmo`: no cuenta en "# reasignado por no confirmar".
+- **Bitácora** `advisor_commands` (`services/advisor-command.service.js`): todo
+  mensaje de una asesora, en ambos bots, con el resultado (aceptado/rechazado +
+  motivo). De ahí sale `isAdvisorWindowOpen` (¿escribió en las últimas 24h?).
+- **Avisos informativos = texto libre y solo con ventana abierta** ("también se
+  ofreció a X", "ya lo atiende X"). Nunca una plantilla por eso: sería un mensaje
+  de pago por eslabón. Con la ventana cerrada no se manda nada.
+- El aviso de reasignación lleva la **zona del prospecto** (`lead.zoneKey`), no la
+  del equipo de la asesora de apoyo; si es de otro equipo, el motivo lo aclara.
+- `pickAdvisorRoundRobin` reparte por **primera asignación** (`advisorAttempts[0]`).
+  Contar `assignedAdvisor` no sirve: la cadena lo sobreescribe y siempre ganaba la
+  primera de la lista.
+- `OXED_ADVISOR_DISPATCH_MODE=chain|team` (default `chain`). `team` avisa a todo el
+  equipo de la zona a la vez; pendiente de decisión del cliente. En `team`,
+  `assignedAdvisor` es solo la etiqueta visible hasta que alguien confirma.
+- `message.service.storableContentType`: sticker/video/ubicación/desconocido se
+  guardan como `text`; el enum `ContentType` no los acepta y el turno se caía.
 
 ## Recordatorio de "Menú" (Ori y Miri)
 

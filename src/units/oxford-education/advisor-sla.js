@@ -7,6 +7,8 @@ import * as oxfordLeadService from './lead.service.js';
 import { ADVISORS, ZONAS, ZONA_ORDER } from './advisor-zones.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
+import { slaDueAt } from './sla-hours.js';
+import { isAdvisorWindowOpen } from '../../services/advisor-command.service.js';
 
 /**
  * Oxford Education — SLA de confirmación del asesor (feature/ori-advisor-sla)
@@ -44,6 +46,9 @@ export const ATTEMPT_RESULT = {
   WAITING: 'esperando',
   CONFIRMED: 'confirmo',
   NOT_CONFIRMED: 'no_confirmo',
+  // Estaba esperando y OTRA asesora confirmó primero (ATIENDO tardío o modo team).
+  // No cuenta como "no confirmó": no es una falta de ella.
+  SUPERSEDED: 'cedido',
 };
 
 // ── Builders puros (sin I/O) — testeables sin mocks ─────────────────────────
@@ -96,9 +101,14 @@ export function appendAttempt(attempts, advisor, at) {
  */
 export function buildAssignmentFields(lead, advisor, now = new Date(), attemptsBase = lead.advisorAttempts) {
   const slaMinutes = env.OXED_ADVISOR_SLA_MINUTES;
+  // El reloj solo corre en horario laboral (sla-hours.js): un lead asignado de
+  // noche vence a la apertura + slaMinutes, no a media madrugada. assignedAt NO
+  // se mueve (es la hora real de la asignación y de la notificación).
+  const due = slaDueAt(now, slaMinutes, env.OXED_ADVISOR_SLA_HOURS);
+  if (due.warning) logger.warn({ unit: 'oxford_education', fn: 'advisor-sla.buildAssignmentFields' }, due.warning);
   return {
     assignedAt: now,
-    slaDueAt: new Date(now.getTime() + slaMinutes * 60000),
+    slaDueAt: due.dueAt,
     currentAttempt: (lead.currentAttempt || 0) + 1,
     triedAdvisorKeys: Array.from(new Set([...(lead.triedAdvisorKeys || []), advisor.key])),
     advisorAttempts: appendAttempt(attemptsBase, advisor, now),
@@ -111,6 +121,102 @@ export function buildAssignmentFields(lead, advisor, now = new Date(), attemptsB
  * @param {Date} [now]
  * @returns {Object} { confirmedAt, responseSeconds, status, advisorAttempts }
  */
+/**
+ * Marca como `result` TODOS los intentos que siguen en "esperando" (en modo team
+ * hay varios a la vez; en modo chain es solo el último).
+ */
+export function markWaitingAttempts(attempts, result, at) {
+  return (Array.isArray(attempts) ? attempts : []).map((a) => {
+    if (a.result !== ATTEMPT_RESULT.WAITING) return a;
+    const next = { ...a, result };
+    if (result === ATTEMPT_RESULT.NOT_CONFIRMED || result === ATTEMPT_RESULT.SUPERSEDED) next.expiredAt = at.toISOString();
+    return next;
+  });
+}
+
+/**
+ * ¿Puede esta asesora tomar el lead con ATIENDO? Sí, si es la asignada actual o
+ * si en algún momento se le avisó de él (está en triedAdvisorKeys). Quien nunca
+ * recibió el aviso no puede tomarlo.
+ */
+export function canAdvisorClaim(lead, advisor) {
+  return lead.assignedAdvisor === advisor.nombre || (lead.triedAdvisorKeys || []).includes(advisor.key);
+}
+
+/**
+ * ¿Es un ATIENDO tardío? Sí cuando el aviso de esta asesora ya había vencido (su
+ * intento no está "esperando") o el lead ya estaba en sin_confirmar. En modo team
+ * todas las del equipo están "esperando" a la vez: ninguna es tardía.
+ */
+export function isLateClaim(lead, advisor) {
+  if (lead.status === 'sin_confirmar') return true;
+  const attempts = Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts : [];
+  const mine = [...attempts].reverse().find((a) => a.advisorKey === advisor.key || a.advisor === advisor.nombre);
+  if (!mine) return lead.assignedAdvisor !== advisor.nombre;
+  return mine.result !== ATTEMPT_RESULT.WAITING;
+}
+
+/** Estados desde los que un lead todavía se puede tomar con ATIENDO. */
+export const CLAIMABLE_STATUSES = ['derivado_asesor', 'sin_confirmar'];
+
+/**
+ * Campos para que `advisor` tome el lead con ATIENDO — sea la asignada actual o
+ * una a la que ya se le había reasignado (ATIENDO tardío). Gana la primera que
+ * confirme: el llamador aplica esto con un update condicional `confirmedAt: null`.
+ *
+ * responseSeconds se mide desde que se le avisó A ELLA (su intento), no desde el
+ * intento de la asesora que lo tenía en ese momento.
+ */
+export function buildClaimFields(lead, advisor, now = new Date()) {
+  const attempts = Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts.map((a) => ({ ...a })) : [];
+  let idx = -1;
+  attempts.forEach((a, i) => { if (a.advisorKey === advisor.key || a.advisor === advisor.nombre) idx = i; });
+  if (idx === -1) { // asignada sin rastro (leads previos al SLA)
+    attempts.push({ advisor: advisor.nombre, advisorKey: advisor.key, assignedAt: (lead.assignedAt ? new Date(lead.assignedAt) : now).toISOString(), result: ATTEMPT_RESULT.WAITING });
+    idx = attempts.length - 1;
+  }
+  const mine = attempts[idx];
+  const notifiedAt = mine.assignedAt ? new Date(mine.assignedAt) : (lead.assignedAt ? new Date(lead.assignedAt) : null);
+  const responseSeconds = notifiedAt ? Math.max(0, Math.round((now.getTime() - notifiedAt.getTime()) / 1000)) : null;
+  const late = isLateClaim(lead, advisor);
+
+  const marked = markWaitingAttempts(attempts.map((a, i) => (i === idx ? { ...a, result: '__mine__' } : a)), ATTEMPT_RESULT.SUPERSEDED, now);
+  marked[idx] = { ...mine, result: ATTEMPT_RESULT.CONFIRMED, confirmedAt: now.toISOString(), ...(late ? { late: true } : {}) };
+  delete marked[idx].expiredAt;
+
+  const fields = {
+    assignedAdvisor: advisor.nombre,
+    confirmedAt: now,
+    responseSeconds,
+    status: 'en_atencion',
+    advisorAttempts: marked,
+  };
+  if (late) {
+    const antes = lead.status === 'sin_confirmar' ? 'estaba sin confirmar' : `estaba con ${lead.assignedAdvisor || '—'}`;
+    fields.notes = [lead.notes, `[ATIENDO] ${advisor.nombre} tomó el lead con ATIENDO tardío (${antes})`].filter(Boolean).join('\n');
+  }
+  return fields;
+}
+
+/**
+ * Asignación SIMULTÁNEA a todo un equipo (OXED_ADVISOR_DISPATCH_MODE=team): se
+ * avisa a todas a la vez y gana la primera que responda ATIENDO. `primary` queda
+ * como assignedAdvisor mientras nadie confirma (es solo la etiqueta visible).
+ */
+export function buildTeamAssignmentFields(lead, advisors, now = new Date(), attemptsBase = lead.advisorAttempts) {
+  const due = slaDueAt(now, env.OXED_ADVISOR_SLA_MINUTES, env.OXED_ADVISOR_SLA_HOURS);
+  if (due.warning) logger.warn({ unit: 'oxford_education', fn: 'advisor-sla.buildTeamAssignmentFields' }, due.warning);
+  let attempts = Array.isArray(attemptsBase) ? [...attemptsBase] : [];
+  for (const a of advisors) attempts = appendAttempt(attempts, a, now);
+  return {
+    assignedAt: now,
+    slaDueAt: due.dueAt,
+    currentAttempt: (lead.currentAttempt || 0) + 1,
+    triedAdvisorKeys: Array.from(new Set([...(lead.triedAdvisorKeys || []), ...advisors.map((a) => a.key)])),
+    advisorAttempts: attempts,
+  };
+}
+
 export function buildConfirmationFields(lead, now = new Date()) {
   const responseSeconds = lead.assignedAt
     ? Math.max(0, Math.round((now.getTime() - new Date(lead.assignedAt).getTime()) / 1000))
@@ -164,15 +270,31 @@ function zonaKeyForAdvisor(advisorKey) {
   return null;
 }
 
-/** Aviso breve al asesor anterior — el prospecto NUNCA se entera de esto. */
-async function notifyPreviousAdvisorReassigned(previousAdvisorKey, lead, log) {
+/**
+ * Aviso informativo a la asesora anterior — el prospecto NUNCA se entera.
+ *
+ * Antes decía "ya no requiere tu atención", que era justo lo contrario de lo que
+ * se quiere: ahora cualquiera a la que se le avisó puede tomarlo con ATIENDO.
+ *
+ * Es TEXTO LIBRE a propósito (nunca una plantilla: sería un mensaje de pago por
+ * cada eslabón de la cadena). Como el texto libre solo se entrega dentro de la
+ * ventana de 24h, si la asesora la tiene cerrada NO se manda nada.
+ */
+async function notifyPreviousAdvisorReassigned(previousAdvisorKey, lead, nextAdvisor, log, now = new Date()) {
   const previous = previousAdvisorKey ? ADVISORS[previousAdvisorKey] : null;
   if (!previous) return;
 
   const advisorPhone = normalizePhone(previous.whatsapp).replace('+', '');
   const ticket = lead.ticketNumber || '?';
   try {
-    await sendTextMessage(advisorPhone, `ℹ️ El lead #${ticket} se reasignó a otra asesora — ya no requiere tu atención.`);
+    if (!(await isAdvisorWindowOpen({ unit: 'oxford_education', advisorPhone, now }))) {
+      log.info({ advisor: previous.nombre, ticket }, 'Aviso de reasignación omitido: la asesora tiene cerrada la ventana de 24h');
+      return;
+    }
+    await sendTextMessage(
+      advisorPhone,
+      `ℹ️ El lead #${ticket} también se ofreció a ${nextAdvisor?.nombre || 'otra asesora'}. Si puedes tomarlo, responde *ATIENDO ${ticket}* — lo atiende la primera que confirme.`,
+    );
   } catch (error) {
     log.error({ err: error, advisor: previous.nombre }, 'Error notifying previous Oxford advisor about reassignment');
   }
@@ -203,7 +325,7 @@ export async function reassignOneLead(lead, now, log) {
 
   // ── TERMINAL: ya se intentaron las 8 asesoras ─────────────────────────────
   if (!nextKey) {
-    const terminalAttempts = markLastAttempt(lead.advisorAttempts, ATTEMPT_RESULT.NOT_CONFIRMED, now);
+    const terminalAttempts = markWaitingAttempts(lead.advisorAttempts, ATTEMPT_RESULT.NOT_CONFIRMED, now);
     const applied = await oxfordLeadService.conditionalUpdateOxfordLead(lead.id, guard, {
       status: 'sin_confirmar',
       advisorAttempts: terminalAttempts,
@@ -226,9 +348,16 @@ export async function reassignOneLead(lead, now, log) {
 
   // ── Reasignar a nextKey ────────────────────────────────────────────────────
   const nextAdvisor = ADVISORS[nextKey];
-  const attemptsWithPrevMarked = markLastAttempt(lead.advisorAttempts, ATTEMPT_RESULT.NOT_CONFIRMED, now);
+  const attemptsWithPrevMarked = markWaitingAttempts(lead.advisorAttempts, ATTEMPT_RESULT.NOT_CONFIRMED, now);
   const assignmentFields = buildAssignmentFields(lead, nextAdvisor, now, attemptsWithPrevMarked);
-  const zonaKey = zonaKeyForAdvisor(nextKey) || lead.zoneKey;
+  // La etiqueta "zona" del aviso es la del PROSPECTO (lead.zoneKey), no la del
+  // equipo de la asesora de apoyo: a una asesora de CENTRO le llegaba un lead de
+  // Nuevo Laredo rotulado "zona CENTRO". Si es de otro equipo, se le dice aparte.
+  const advisorZona = zonaKeyForAdvisor(nextKey);
+  const zonaKey = lead.zoneKey || advisorZona;
+  const apoyo = advisorZona && lead.zoneKey && advisorZona !== lead.zoneKey
+    ? ` Lo recibes como apoyo (tu equipo es ${advisorZona}; el prospecto es de zona ${lead.zoneKey}).`
+    : '';
 
   const applied = await oxfordLeadService.conditionalUpdateOxfordLead(lead.id, guard, {
     assignedAdvisor: nextAdvisor.nombre,
@@ -252,11 +381,11 @@ export async function reassignOneLead(lead, now, log) {
     leadForNotify,
     null,
     lead.contact,
-    `Reasignación automática — la asesora anterior no confirmó en ${env.OXED_ADVISOR_SLA_MINUTES} min`,
+    `Reasignación automática — la asesora anterior no confirmó en ${env.OXED_ADVISOR_SLA_MINUTES} min.${apoyo}`,
     zonaKey,
     log,
   );
-  await notifyPreviousAdvisorReassigned(previousAdvisorKey, lead, log);
+  await notifyPreviousAdvisorReassigned(previousAdvisorKey, lead, nextAdvisor, log, now);
 
   log.info(
     { leadId: lead.id, ticket: lead.ticketNumber, from: lead.assignedAdvisor, to: nextAdvisor.nombre, attempt: assignmentFields.currentAttempt },
