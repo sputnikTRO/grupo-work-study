@@ -540,6 +540,9 @@ async function crossCheckSheets(a, ori, miri) {
     const s = String(v || '').trim();
     const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2}))?/);
     if (m) return new Date(`${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}T${(m[4] || '12').padStart(2, '0')}:${m[5] || '00'}:00${TZ_OFFSET}`);
+    // Formato nuevo de las hojas (fix/sheets-sync): "AAAA-MM-DD HH:mm" en hora de CDMX.
+    const cdmx = s.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/);
+    if (cdmx) return new Date(`${cdmx[1]}T${cdmx[2]}:00${TZ_OFFSET}`);
     const d = new Date(s); return Number.isNaN(d.getTime()) ? null : d;
   };
   const out = [];

@@ -295,6 +295,28 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
 - `message.service.storableContentType`: sticker/video/ubicación/desconocido se
   guardan como `text`; el enum `ContentType` no los acepta y el turno se caía.
 
+## Hojas del equipo: Leads, Leads Oxford, Tiempos asesores (fix/sheets-sync)
+
+- **El equipo las usa a diario: no mover ni renombrar columnas.** Lo nuevo va AL
+  FINAL. Si hay que reordenar, se pregunta antes. Cambios documentados para el
+  cliente en `docs/CAMBIOS_SHEET_2026-11.md`.
+- **Fechas en hora de CDMX**, `AAAA-MM-DD HH:mm`, con `core/sheets/format.js`
+  (`cdmxCell` para escrituras USER_ENTERED — el apóstrofo evita que Sheets las
+  convierta a su formato regional). Nada de `toISOString()` en una hoja.
+  `scripts/fix-sheet-dates-cdmx.mjs` convierte las filas viejas (dry-run por
+  default, respaldo, `--restore`).
+- **"Leads Oxford" se sincroniza en cada evento**, no solo en el camino LLM: turno
+  del menú determinístico, reasignación del SLA, ATIENDO y LISTO
+  (`syncOxfordLeadById`). Un evento sin conversación conserva el resumen (K).
+- Columnas S–V: asesora original, asesora actual, estado del ticket en palabras,
+  actualizado. La M ("Asesor asignado") se conserva y equivale a la actual; tras
+  una cadena agotada es la ÚLTIMA avisada, por eso el estado dice "SIN CONFIRMAR".
+- **"Tiempos asesores"** se escribe en cada reasignación (estado "Esperando
+  confirmación de X"), su clave es el **Lead ID** (columna K; los tickets se
+  reinician con un reset) y registra los ATIENDO rechazados (columna L).
+- **Miri**: "Asesor Asignado" sale de `lead.assignedAdvisor`; "Interés" es
+  `displayInterest` = máximo entre el puntaje del camino LLM y un piso por etapa.
+
 ## Recordatorio de "Menú" (Ori y Miri)
 
 - Todo lo que se le envía al prospecto en un turno pasa por el guardia de
