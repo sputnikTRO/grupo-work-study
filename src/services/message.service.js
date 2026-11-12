@@ -55,7 +55,19 @@ export async function create(data) {
  * @param {string} mediaUrl - Media URL (optional)
  * @returns {Promise<Object>} Created message
  */
+// Valores del enum ContentType de Prisma. WhatsApp manda más tipos (sticker,
+// video, location, contacts, button, reaction, unknown…): guardarlos tal cual
+// hacía fallar el INSERT y el turno entero se caía sin responderle al prospecto
+// (auditoría nov-2026). El texto ya trae la marca ("[Sticker]", "[Tipo de
+// mensaje no soportado: …]"), así que se guardan como 'text'.
+const STORABLE_CONTENT_TYPES = new Set(['text', 'image', 'document', 'audio', 'template', 'interactive']);
+
+export function storableContentType(contentType) {
+  return STORABLE_CONTENT_TYPES.has(contentType) ? contentType : 'text';
+}
+
 export async function createInbound(conversationId, content, contentType = 'text', waMessageId = null, mediaUrl = null) {
+  contentType = storableContentType(contentType);
   return await create({
     conversationId,
     direction: 'inbound',

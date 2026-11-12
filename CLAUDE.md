@@ -241,6 +241,32 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   el webhook siguen igual. Los mocks de Prisma de los tests no necesitan el modelo.
 - `scripts/audit-leads.mjs` (solo lectura) cruza leads, handoffs, SLA y este rastro.
 
+## ATIENDO, avisos y reparto de Ori (fix/ori-atiendo-y-avisos)
+
+- **Gana la primera que confirme.** `ATIENDO #` lo puede mandar la asignada actual
+  o cualquiera a la que ya se le avisó de ese lead (`triedAdvisorKeys`), también si
+  el lead quedó en `sin_confirmar`. El update es condicional a `confirmedAt: null`;
+  a quien llega después se le contesta "El lead #N ya lo atiende X". No volver a
+  exigir `assignedAdvisor === asesora`: así se rechazó un ATIENDO real en prod.
+- El intento de quien tenía el lead en espera queda `cedido` ("lo tomó otra
+  asesora"), no `no_confirmo`: no cuenta en "# reasignado por no confirmar".
+- **Bitácora** `advisor_commands` (`services/advisor-command.service.js`): todo
+  mensaje de una asesora, en ambos bots, con el resultado (aceptado/rechazado +
+  motivo). De ahí sale `isAdvisorWindowOpen` (¿escribió en las últimas 24h?).
+- **Avisos informativos = texto libre y solo con ventana abierta** ("también se
+  ofreció a X", "ya lo atiende X"). Nunca una plantilla por eso: sería un mensaje
+  de pago por eslabón. Con la ventana cerrada no se manda nada.
+- El aviso de reasignación lleva la **zona del prospecto** (`lead.zoneKey`), no la
+  del equipo de la asesora de apoyo; si es de otro equipo, el motivo lo aclara.
+- `pickAdvisorRoundRobin` reparte por **primera asignación** (`advisorAttempts[0]`).
+  Contar `assignedAdvisor` no sirve: la cadena lo sobreescribe y siempre ganaba la
+  primera de la lista.
+- `OXED_ADVISOR_DISPATCH_MODE=chain|team` (default `chain`). `team` avisa a todo el
+  equipo de la zona a la vez; pendiente de decisión del cliente. En `team`,
+  `assignedAdvisor` es solo la etiqueta visible hasta que alguien confirma.
+- `message.service.storableContentType`: sticker/video/ubicación/desconocido se
+  guardan como `text`; el enum `ContentType` no los acepta y el turno se caía.
+
 ## Recordatorio de "Menú" (Ori y Miri)
 
 - Todo lo que se le envía al prospecto en un turno pasa por el guardia de
