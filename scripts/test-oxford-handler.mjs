@@ -78,7 +78,7 @@ mock.module('../src/units/oxford-education/actions.js', {
   },
 });
 mock.module('../src/units/oxford-education/sheets-sync.js', {
-  namedExports: { syncOxfordLeadToSheet: async () => {}, deriveTemperature: () => 'warm' },
+  namedExports: { syncOxfordLeadToSheet: async () => {}, syncOxfordLeadById: async () => {}, deriveTemperature: () => 'warm' },
 });
 // feature/ori-flow-redesign: handler.js ahora también importa flow-engine.js →
 // flow-content.js → core/sheets/cache.js (Redis real). Sin este stub, este test

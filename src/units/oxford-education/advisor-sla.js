@@ -8,6 +8,7 @@ import { ADVISORS, ZONAS, ZONA_ORDER } from './advisor-zones.js';
 import { notifyAdvisor } from './advisor-notify.js';
 import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
 import { slaDueAt } from './sla-hours.js';
+import { syncOxfordLeadById } from './sheets-sync.js';
 import { isAdvisorWindowOpen } from '../../services/advisor-command.service.js';
 
 /**
@@ -340,6 +341,7 @@ export async function reassignOneLead(lead, now, log) {
       // guard condicional de arriba ya asegura que solo entra aquí si el update
       // realmente aplicó). Best-effort — nunca lanza.
       await recordAdvisorSlaOutcome({ ...lead, status: 'sin_confirmar', advisorAttempts: terminalAttempts }, lead.contact);
+      await syncOxfordLeadById(lead.id); // "Leads Oxford" refleja que nadie confirmó
     } else {
       log.info({ leadId: lead.id, attempt: expectedAttempt }, 'Job de SLA obsoleto (confirmado/reasignado en paralelo) — sin acción');
     }
@@ -386,6 +388,11 @@ export async function reassignOneLead(lead, now, log) {
     log,
   );
   await notifyPreviousAdvisorReassigned(previousAdvisorKey, lead, nextAdvisor, log, now);
+
+  // Las hojas siguen la cadena en vivo (antes solo se escribían al confirmar o al
+  // agotar a las 8): "Leads Oxford" y "Tiempos asesores" muestran con quién está.
+  await syncOxfordLeadById(lead.id);
+  await recordAdvisorSlaOutcome({ ...leadForNotify, status: 'derivado_asesor', reassignCount: (lead.reassignCount || 0) + 1 }, lead.contact);
 
   log.info(
     { leadId: lead.id, ticket: lead.ticketNumber, from: lead.assignedAdvisor, to: nextAdvisor.nombre, attempt: assignmentFields.currentAttempt },

@@ -150,7 +150,7 @@ mock.module('../src/units/oxford-education/knowledge.js', {
   namedExports: { buildOxfordKnowledge: async () => null, buildFlowKnowledge: async () => null },
 });
 mock.module('../src/units/oxford-education/sheets-sync.js', {
-  namedExports: { syncOxfordLeadToSheet: async () => {}, deriveTemperature: () => 'warm' },
+  namedExports: { syncOxfordLeadToSheet: async () => {}, syncOxfordLeadById: async () => {}, deriveTemperature: () => 'warm' },
 });
 mock.module('../src/units/oxford-education/office-hours.js', {
   namedExports: {
