@@ -1,6 +1,7 @@
 import { appendRow, updateRow, findRowByColumn } from './client.js';
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
+import { cdmxCell } from './format.js';
 
 /**
  * Google Sheets Leads Sync
@@ -42,20 +43,49 @@ const COLUMNS = {
  * @param {Object} conversation - Conversation data from database
  * @returns {Array} Row data in correct column order
  */
-function formatLeadRow(lead, contact, conversation) {
+const DERIVED_STATUSES = ['derivado_asesor', 'atendido_asesor', 'cerrado_por_asesor', 'en_proceso_pago', 'inscrito'];
+
+/**
+ * Interés (1–10) que se muestra en la hoja.
+ *
+ * El puntaje de scoring.js solo se calcula en el camino LLM; desde que Miri tiene
+ * menú determinístico casi ningún turno pasa por ahí y la columna se quedaba en
+ * 0 para todos. Aquí se toma el MAYOR entre ese puntaje y un piso según hasta
+ * dónde llegó el prospecto, que sí se conoce en ambos caminos:
+ *   8 = se derivó a asesora · 6 = pidió precio o recibió material ·
+ *   5 = eligió programa · 3 = dejó sus datos · 1 = solo escribió.
+ *
+ * @param {Object} lead - TravelLead
+ * @param {Object} conversation - Conversation
+ * @returns {number}
+ */
+export function displayInterest(lead, conversation) {
+  const node = String(conversation?.flowNode || '');
+  let floor = 1;
+  if (lead?.parentName || lead?.travelerName || lead?.schoolCode) floor = 3;
+  if (lead?.programInterest || /^(cat_|e4l_|wb_|rs_)/.test(node)) floor = 5;
+  if (/precio/.test(node) || (lead?.materialsSent || []).length > 0) floor = 6;
+  if (DERIVED_STATUSES.includes(lead?.status)) floor = 8;
+  const score = Number(conversation?.interestScore) || 0;
+  return Math.min(10, Math.max(score, floor));
+}
+
+export function formatLeadRow(lead, contact, conversation) {
   return [
     lead.id?.toString() || '',                                      // ID
-    lead.createdAt?.toISOString() || new Date().toISOString(),     // Fecha
+    cdmxCell(lead.createdAt || new Date()),                          // Fecha (hora CDMX)
     lead.parentName || contact.name || 'Sin nombre',               // Nombre Padre
     lead.travelerName || 'Sin capturar',                           // Nombre Viajero
     lead.travelerAge?.toString() || '',                            // Edad
     lead.schoolCode || 'Sin asignar',                              // Colegio
     contact.phone,                                                  // WhatsApp
-    conversation.interestScore?.toString() || '1',                 // Interés
+    String(displayInterest(lead, conversation)),                   // Interés (1–10)
     lead.status || 'activo',                                       // Estado
     (lead.materialsSent || []).join(', '),                         // Materiales Enviados
-    conversation.assignedAgent || conversation.assignedAdvisor || '', // Asesor Asignado
-    lead.updatedAt?.toISOString() || new Date().toISOString(),     // Última Actualización
+    // El lead es la fuente de verdad: en el turno del handoff la conversación en
+    // memoria todavía no trae a la asesora y la celda quedaba vacía.
+    lead.assignedAdvisor || conversation.assignedAgent || conversation.assignedAdvisor || '', // Asesor Asignado
+    cdmxCell(lead.updatedAt || new Date()),                          // Última Actualización (hora CDMX)
     'WhatsApp',                                                     // Canal
     formatNotes(lead, conversation),                               // Notas
   ];
