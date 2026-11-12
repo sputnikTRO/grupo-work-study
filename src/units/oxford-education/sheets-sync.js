@@ -119,7 +119,7 @@ export function deriveTemperature(lead, handoffOccurred = false) {
  */
 function formatAttemptsChain(attempts) {
   if (!Array.isArray(attempts) || attempts.length === 0) return '';
-  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó' };
+  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó', cedido: 'lo tomó otra asesora' };
   return attempts
     .map((a) => `${a.advisor}${a.result ? ` (${RESULT_LABELS[a.result] || a.result})` : ''}`)
     .join(' → ');
