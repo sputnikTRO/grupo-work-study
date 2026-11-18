@@ -917,4 +917,61 @@ assert.ok(/NO la improvises/.test(promptSrc), 'marcada como no improvisable');
 assert.ok(/Nunca inventes plazos más cortos/.test(promptSrc), 'con los plazos cortos prohibidos');
 ok('el prompt de travel fija el plazo de contacto (48 horas hábiles), igual que Ori');
 
+// ============================================================================
+console.log('\n== fix/miri-derivacion: programa dicho en una frase y precio con colegio no registrado ==');
+// Auditoría nov-2026: "Es Winter Break" → Miri contestó "escribe Menú".
+reset();
+DB_LEAD.schoolCode = 'The Hills';
+DB_CONV.flowNode = 'menu_principal';
+await handleMessage(msg('Es Winter Break'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'cat_wb', '"Es Winter Break" elige la opción Winter Break');
+ok('menú: el programa nombrado dentro de una frase se acepta');
+
+reset();
+DB_LEAD.schoolCode = 'The Hills';
+DB_CONV.flowNode = 'menu_principal';
+CHAT_REPLY = 'RESPUESTA-DEL-LLM';
+await handleMessage(msg('¡Hola! Quiero conocer más sobre English 4 Life – Winter Break y vivir esta experiencia'), 'pnid');
+assert.strictEqual(DB_CONV.flowNode, 'menu_principal', 'el mensaje del sitio nombra dos programas: no elige ninguno');
+ok('menú: un mensaje que nombra DOS programas sigue siendo ambiguo');
+
+// Auditoría nov-2026: colegio "otro" escribió "Costo total" a medianoche, el LLM
+// le preguntó si quería asesora y nunca se derivó.
+reset();
+DB_LEAD.schoolCode = 'otro';
+DB_CONV.flowNode = 'util_menu';
+CHAT_REPLY = 'RESPUESTA-DEL-LLM';
+await handleMessage(msg('Costo total'), 'pnid');
+assert.ok(allText().includes('Te conecto con Camila Serafín'), '"otro" + precio → handoff a familias');
+assert.ok(!allText().includes('RESPUESTA-DEL-LLM'), 'no pasa por el LLM');
+assert.ok(!/\$\d/.test(allText()), 'no da ningún monto');
+assert.strictEqual(DB_LEAD.status, 'derivado_asesor');
+assert.strictEqual(DB_CONV.flowNode, 'llm_freeform');
+ok('precio con colegio "otro" → deriva a la asesora de familias en ese turno, sin montos');
+
+reset();
+DB_LEAD.schoolCode = 'Colegio Que No Existe En La Hoja';
+DB_CONV.flowNode = 'llm_freeform';
+await handleMessage(msg('¿cuánto cuesta?'), 'pnid');
+assert.ok(allText().includes('Te conecto con'), 'colegio no registrado (aunque tenga nombre) + precio → deriva');
+assert.strictEqual(DB_LEAD.status, 'derivado_asesor');
+ok('precio con un colegio que no está en la hoja de precios → también deriva');
+
+reset();
+DB_LEAD.schoolCode = 'The Hills';
+DB_CONV.flowNode = 'llm_freeform';
+CHAT_REPLY = 'RESPUESTA-DEL-LLM';
+await handleMessage(msg('¿cuánto cuesta?'), 'pnid');
+assert.ok(!allText().includes('Te conecto con'), 'colegio registrado: no se deriva por preguntar precio');
+assert.notStrictEqual(DB_LEAD.status, 'derivado_asesor');
+ok('precio con colegio REGISTRADO → no se intercepta (Miri cotiza como siempre)');
+
+reset();
+DB_LEAD.schoolCode = null;
+DB_CONV.flowNode = 'solicitud_colegio';
+EXTRACT_RESULT = { school_code: 'otro' };
+await handleMessage(msg('precios'), 'pnid');
+assert.ok(!allText().includes('Te conecto con'), 'mientras se capturan datos no se intercepta');
+ok('precio durante la captura de datos → no se intercepta (no se pierde el colegio)');
+
 console.log(`\n✅ ${pass} escenarios en verde\n`);
