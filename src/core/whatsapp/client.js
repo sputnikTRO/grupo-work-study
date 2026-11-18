@@ -238,6 +238,19 @@ async function sendMessage(payload, phoneNumberId) {
       messageId: response.data.messages?.[0]?.id,
     }, 'WhatsApp message sent');
 
+    // Diagnóstico de entrega (nov-2026): plantillas a nivel info con "to", wamid y
+    // el wa_id que resolvió Meta. Solo logging.
+    if (payload.type === 'template') {
+      logger.info({
+        unit: 'travel',
+        to: payload.to,
+        template: payload.template?.name,
+        messageId: response.data.messages?.[0]?.id,
+        messageStatus: response.data.messages?.[0]?.message_status,
+        contacts: response.data.contacts,
+      }, 'Travel template accepted by Meta');
+    }
+
     return response.data;
   } catch (error) {
     logger.error({

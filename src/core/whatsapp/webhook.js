@@ -105,6 +105,23 @@ async function processMessageChange(value) {
     }
   }
 
+  // Diagnóstico de entrega (nov-2026): cada status de Meta completo, con errors[]
+  // (antes logger.debug, que en prod no sale). Así se encontró el 131042 de Oxford.
+  for (const st of value.statuses || []) {
+    logger.info({
+      unit: 'travel',
+      statusWebhook: true,
+      phoneNumberId,
+      id: st.id,
+      recipient_id: st.recipient_id,
+      status: st.status,
+      timestamp: st.timestamp,
+      conversation: st.conversation,
+      pricing: st.pricing,
+      errors: st.errors,
+    }, st.status === 'failed' ? 'Travel message status FAILED' : 'Travel message status');
+  }
+
   // Status de entrega (sent/delivered/read/failed). Solo se guardan los de las
   // notificaciones a asesoras (los demás wamid no tienen fila y se ignoran).
   // applyStatusUpdates nunca lanza.

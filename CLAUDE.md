@@ -237,6 +237,21 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   el webhook siguen igual. Los mocks de Prisma de los tests no necesitan el modelo.
 - `scripts/audit-leads.mjs` (solo lectura) cruza leads, handoffs, SLA y este rastro.
 
+## Diagnóstico de entrega: "aceptado" no es "entregado"
+
+- 18-nov-2026: la causa real de que ningún aviso a asesoras de Ori llegara fue
+  **131042 "Business eligibility payment issue"**: la WABA de Oxford no tenía
+  método de pago. Meta acepta la plantilla (200 + wamid) y luego la marca
+  `failed` por webhook. Los mensajes a prospectos (SERVICE, gratis) sí llegaban,
+  y `health_status` de la API decía AVAILABLE: ninguna de las dos cosas descarta
+  un problema de pago.
+- Los dos webhooks registran cada status a nivel info con `errors[]`
+  ("Oxford/Travel message status FAILED"), y cada plantilla aceptada con su
+  "to", wamid y wa_id. Ante "no le llegó", buscar primero esas líneas.
+- Prueba de control: mandar la plantilla por el mismo código (`notifyAdvisor` /
+  `sendAdvisorNotification`) a un número del equipo con datos "PRUEBA" y leer
+  el status.
+
 ## Plantillas de aviso a asesoras: SIEMPRE UTILITY
 
 - Desde el 5-oct-2026 Meta aceptaba (HTTP 200) los avisos de Ori a las asesoras y
