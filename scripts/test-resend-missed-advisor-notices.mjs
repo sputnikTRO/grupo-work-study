@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert';
 
-const { planResend, planResendTravel, parseArgs } = await import('./resend-missed-advisor-notices.mjs');
+const { planResend, planResendTravel, parseArgs, RESEND_REASON, RESEND_REASON_TRAVEL } = await import('./resend-missed-advisor-notices.mjs');
 const { advisorByName } = await import('../src/units/travel/advisors.js');
 const { ADVISORS } = await import('../src/units/oxford-education/advisor-zones.js');
 
@@ -83,6 +83,11 @@ const ok = (n) => { console.log(`  ✓ ${n}`); pass++; };
   assert.ok(!(19 in m), 'los ya atendidos ni se consideran por default');
   ok('Miri: derivados sin LISTO → su asesora asignada; se saltan entregados, sin asesora y de prueba');
 }
+
+assert.match(RESEND_REASON, /ATIENDO/);
+assert.ok(!/ATIENDO/.test(RESEND_REASON_TRAVEL), 'Miri no tiene ATIENDO: su texto no debe pedirlo');
+assert.match(RESEND_REASON_TRAVEL, /LISTO/);
+ok('El motivo de Miri pide LISTO, no ATIENDO (Miri no tiene ATIENDO)');
 
 assert.deepStrictEqual(writes, [], 'el plan nunca escribe en los leads');
 ok('El plan no modifica ningún lead');

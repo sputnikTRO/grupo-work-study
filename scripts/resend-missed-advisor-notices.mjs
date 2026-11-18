@@ -50,7 +50,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const TZ_OFFSET = '-06:00';
-const RESEND_REASON = 'REENVÍO: este aviso no se te entregó en su momento por una falla de WhatsApp. El prospecto sigue sin atender. Responde ATIENDO para tomarlo.';
+// Ori tiene ATIENDO; Miri no (solo LISTO), así que cada una lleva su instrucción.
+export const RESEND_REASON = 'REENVÍO: este aviso no se te entregó en su momento por una falla de WhatsApp. El prospecto sigue sin atender. Responde ATIENDO para tomarlo.';
+export const RESEND_REASON_TRAVEL = 'REENVÍO: este aviso no se te entregó en su momento por una falla de WhatsApp. El prospecto sigue sin atender; escríbele hoy y responde LISTO cuando lo atiendas.';
 const PAUSE_MS = 1500;
 const TEST_PHONES = ['5535305000']; // últimos 10 dígitos de los números de prueba del equipo
 const isTestLead = (lead) => (lead.tags || []).includes('prueba') || TEST_PHONES.some((t) => String(lead.contact?.phone || '').replace(/\D/g, '').endsWith(t));
@@ -192,7 +194,7 @@ async function main() {
     for (const s of miri.send) {
       const conv = await prisma.conversation.findFirst({ where: { contactId: s.lead.contactId, unit: 'travel' }, orderBy: { lastMessageAt: 'desc' } });
       await sendAdvisorNotification(
-        s.advisor, s.lead, conv || { interestScore: 0 }, s.lead.contact.phone, RESEND_REASON,
+        s.advisor, s.lead, conv || { interestScore: 0 }, s.lead.contact.phone, RESEND_REASON_TRAVEL,
         env.WA_PHONE_NUMBER_ID_TRAVEL, logger.child({ resend: true, ticket: s.ticket, unit: 'travel' }), resolveTrack(s.lead), undefined,
       );
       await report('travel', s);
