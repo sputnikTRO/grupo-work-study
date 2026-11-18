@@ -139,6 +139,10 @@ Sembrado por `scripts/seed-ori-flow.js` (ver sección siguiente). Nodos especial
   MISMO mapeo que usa `[CAPTURAR_DATO]`, así llega igual a `advisor-zones.js`.
 - Nodos hoja de producto (`n_*_*`, terminan en "¿hablar con un asesor?") — CTA sí/no
   clasificado de forma determinista (regex conservador); ambiguo → respaldo LLM.
+- `matchMenuChoice` (core/flow/text.js, compartido con Miri) acepta también una
+  opción NOMBRADA dentro de una frase ("Es Winter Break"): núcleo de la etiqueta
+  (antes del paréntesis/guion), 6+ caracteres, una sola opción. Si la frase nombra
+  dos ("English 4 Life – Winter Break") sigue siendo ambigua.
 - `"Menú"` (insensible a mayúsculas/acentos) — override global a `menu_principal`
   desde cualquier nodo, incluido modo libre.
 
@@ -331,6 +335,13 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   principal (`showMainMenu`) en vez de mandarla otra vez.
 
 ## Precios en Miri
+
+- **Precio + colegio no registrado = handoff inmediato** (fix/miri-derivacion):
+  si el prospecto pregunta precio ("costo total", "¿cuánto cuesta?") y su colegio
+  es "otro", no hay, o no está en la hoja de precios, `flow-engine.js` deriva a la
+  asesora de familias en ese turno, sin pasar por el LLM. No se intercepta
+  mientras se capturan datos (`filtro_previo`, `solicitud_datos`,
+  `solicitud_colegio`) ni en la rama ya_inscrito.
 
 - Miri solo cotiza a colegios REGISTRADOS; "otro" o sin colegio siempre deriva,
   incluido el vuelo. **Una regla del prompt no basta si el dato está en el

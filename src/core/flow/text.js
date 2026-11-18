@@ -178,5 +178,33 @@ export function matchMenuChoice(userText, node) {
   });
   if (hits.length === 1) return hits[0];
 
+  // 3) El usuario NOMBRÓ la opción dentro de una frase: "Es Winter Break",
+  //    "quiero english 4 life". Se compara el NÚCLEO de la etiqueta (lo que va
+  //    antes de un paréntesis o un guion: "winter break" de "Winter Break
+  //    (Windsor, Inglaterra)") en palabras completas dentro del mensaje. Solo
+  //    núcleos de 6+ caracteres —"sí" o "no" nunca entran por aquí— y solo si
+  //    nombra UNA opción: el mensaje del sitio "English 4 Life – Winter Break"
+  //    nombra dos y sigue siendo ambiguo (null). Caso real: un prospecto
+  //    escribió "Es Winter Break" y Miri le contestó "escribe Menú".
+  if (hits.length === 0) {
+    const named = valid.filter((k) => {
+      const core = String(rawLabels(node.texto)[k] || '').split(/\s+[(–—-]|\(/)[0];
+      const c = normalizeOption(core);
+      if (!c || c.length < 6) return false;
+      return new RegExp(`(^|\\s)${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(n);
+    });
+    if (named.length === 1) return named[0];
+  }
+
   return null;
+}
+
+/** Etiquetas del menú SIN normalizar (para poder cortar en el paréntesis o guion). */
+function rawLabels(texto) {
+  const out = {};
+  for (const line of String(texto ?? '').split('\n')) {
+    const m = line.match(/^\s*(\d{1,2})\s*[.\-)]*\s*(.+?)\s*$/);
+    if (m) out[m[1]] = m[2];
+  }
+  return out;
 }

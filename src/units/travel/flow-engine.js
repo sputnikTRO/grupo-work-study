@@ -52,6 +52,21 @@ import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from '../../core/flow/office
 // re-disparar bienvenida en cada mensaje una vez recorrido el flujo.
 export const FREEFORM = 'llm_freeform';
 
+// Nodos donde el flujo todavía está CAPTURANDO datos: ahí una pregunta de precio
+// no se intercepta, para no perder el nombre/colegio (el flujo los pide y luego
+// el gate de precio decide).
+const PRICE_INTERCEPT_SKIP = new Set(['filtro_previo', 'solicitud_datos', 'solicitud_colegio']);
+
+/**
+ * ¿El mensaje pregunta el precio? "Costo total", "¿cuánto cuesta?", "precios",
+ * "qué inversión es". Sobre texto normalizado (sin acentos), así que no hay \b
+ * después de vocal acentuada (ver CLAUDE.md).
+ */
+export function isPriceQuestion(text) {
+  const n = normalize(text);
+  return /(^|[^a-z])(precio|precios|costo|costos|cuanto (cuesta|cuestan|sale|es|vale|seria)|inversion|cotiza|cotizacion|colegiatura)([^a-z]|$)/.test(n);
+}
+
 // Nodo virtual: no vive en el Sheet, lo maneja el código. Se usa cuando hay que
 // preguntar el destino antes de mandar la presentación de English 4 Life.
 const ASK_DESTINATION = 'e4l_material_destino';
@@ -150,6 +165,18 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
 
   const currentFlowNode = conv.flowNode || null;
   const menuKeyword = isMenuKeyword(text);
+
+  // Precio + colegio NO registrado ("otro", sin colegio, o uno que no está en la
+  // hoja de precios) → se deriva a la asesora de familias en ese mismo turno.
+  // Antes el LLM le preguntaba "¿te conecto con una asesora?" y, si el
+  // prospecto no contestaba (era medianoche), se quedaba sin derivar (auditoría
+  // nov-2026: 3 de 6 leads que dieron datos sin handoff eran "otro").
+  if (!menuKeyword && currentFlowNode && !PRICE_INTERCEPT_SKIP.has(currentFlowNode)
+      && !isEnrollmentNode(currentFlowNode) && isPriceQuestion(text)
+      && ctx.lead.status !== 'derivado_asesor' && !(await findSchoolPrices(ctx.lead.schoolCode, priceHints(ctx.lead)))) {
+    await conversation.addMessage(conv.id, 'user', text);
+    return await runHandoff('handoff_familia', ctx, 'Pidió precio — colegio no registrado ("otro" o sin colegio): cotiza la asesora');
+  }
 
   // Modo libre (el flujo ya concluyó) y no piden el menú → LLM normal, sin nudge.
   if (currentFlowNode === FREEFORM && !menuKeyword) {

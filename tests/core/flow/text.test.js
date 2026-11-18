@@ -10,6 +10,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import { matchMenuChoice as pick } from '../../../src/core/flow/text.js';
 import { classifyCta } from '../../../src/core/flow/text.js';
 
 describe('classifyCta — una pregunta nunca es un sí ni un no', () => {
@@ -79,4 +80,25 @@ describe('classifyCta — el comportamiento de siempre no cambia', () => {
     assert.strictEqual(classifyCta(null), 'ambiguous');
     assert.strictEqual(classifyCta('mmm'), 'ambiguous');
   });
+});
+
+describe('matchMenuChoice — opción nombrada en una frase (fix/miri-derivacion)', () => {
+// fix/miri-derivacion — opción nombrada dentro de una frase.
+const MENU_MIRI = { texto: 'Tenemos tres programas\n1.- English 4 Life (Londres o Dublín, mayo)\n2.- Winter Break (Windsor, Inglaterra)\n3.- Rising Stars (programa con beca)\n4.- Prefiero hablar con una asesora', opciones: { 1: 'a', 2: 'b', 3: 'c', 4: 'd' } };
+const CTA_SI_NO = { texto: '¿Te conecto?\n1.- Sí, por favor\n2.- Todavía no, gracias', opciones: { 1: 'x', 2: 'y' } };
+
+it('una opción nombrada dentro de una frase se acepta', () => {
+  assert.equal(pick('Es Winter Break', MENU_MIRI), '2');
+  assert.equal(pick('quiero english 4 life', MENU_MIRI), '1');
+  assert.equal(pick('me interesa rising stars', MENU_MIRI), '3');
+});
+
+it('si la frase nombra DOS opciones sigue siendo ambigua', () => {
+  assert.equal(pick('¡Hola! Quiero conocer más sobre English 4 Life – Winter Break', MENU_MIRI), null);
+});
+
+it('palabras cortas ("sí", "no") no entran por la regla de frase', () => {
+  assert.equal(pick('si claro', CTA_SI_NO), null);
+  assert.equal(pick('José tiene 14 años', MENU_MIRI), null);
+});
 });
