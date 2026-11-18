@@ -28,7 +28,8 @@ mock.module('../src/services/lead.service.js', { namedExports: { updateTravelLea
 mock.module('../src/services/contact.service.js', { namedExports: {} });
 mock.module('../src/utils/phone.js', { namedExports: { normalizePhone: (p) => (String(p).startsWith('+') ? p : `+521${p}`) } });
 mock.module('../src/services/conversation.service.js', { namedExports: { update: async (_id, data) => { CONV.push(data); return {}; } } });
-mock.module('../src/services/message.service.js', { namedExports: {} });
+const OUTBOUND = [];
+mock.module('../src/services/message.service.js', { namedExports: { createOutbound: async (convId, text) => { OUTBOUND.push({ convId, text }); return {}; } } });
 mock.module('../src/core/whatsapp/client.js', {
   namedExports: {
     sendTextMessage: async (_to, text) => { SENT.push(text); },
@@ -44,7 +45,7 @@ const { executeActions } = await import('../src/units/travel/actions.js');
 
 let pass = 0;
 const ok = (n) => { console.log('  ✓ ' + n); pass++; };
-const reset = () => { SENT.length = 0; TPL.length = 0; CONV.length = 0; };
+const reset = () => { SENT.length = 0; TPL.length = 0; CONV.length = 0; OUTBOUND.length = 0; };
 
 // ── (1) Handoff fresco: no silencia, notifica, marca derivado ─────────────────
 reset();
@@ -59,6 +60,13 @@ assert.strictEqual(TPL.length, 1, 'se notifica al asesor (1 plantilla)');
 assert.ok(SENT.some((t) => t.includes('aquí sigo para cualquier otra duda')), 'la despedida dice que Miri sigue disponible');
 ok('(1) Handoff tibio: NO waiting_human, notifica al asesor, Miri sigue disponible');
 
+// Regresión (auditoría nov-2026): la despedida se enviaba pero no se guardaba,
+// así que en la base la conversación terminaba sin respuesta de Miri.
+assert.strictEqual(OUTBOUND.length, 1, 'la despedida del handoff debe guardarse como mensaje saliente');
+assert.strictEqual(OUTBOUND[0].convId, 'C1');
+assert.ok(SENT.includes(OUTBOUND[0].text) && OUTBOUND[0].text.includes('Te conecto con'), 'se guarda exactamente el texto enviado');
+ok('(1b) La despedida del handoff queda guardada en la conversación');
+
 // ── (2) Guard anti-redisparo: lead ya derivado → no re-notifica, no silencia ──
 reset();
 const lead2 = { id: 'L2', status: 'derivado_asesor', assignedAdvisor: 'Camila Serafín', leadType: 'familia', parentName: 'Ana', ticketNumber: 51 };
@@ -68,6 +76,7 @@ const r2 = await executeActions([{ type: 'DERIVAR_ASESOR', reason: 'vuelve a pre
 assert.strictEqual(r2.handoffOccurred, false, 'lead ya derivado → handoffOccurred=false (Miri responde su texto)');
 assert.strictEqual(TPL.length, 0, 'NO re-notifica al asesor');
 assert.strictEqual(SENT.length, 0, 'NO reenvía despedida');
+assert.strictEqual(OUTBOUND.length, 0, 'ni guarda una despedida que no envió');
 assert.ok(!CONV.some((d) => d.status === 'waiting_human'), 'no toca la conversación');
 ok('(2) Re-derivación: guard → sin re-notificar/duplicar, handoffOccurred=false');
 

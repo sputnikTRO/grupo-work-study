@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import { isAdvisorPhone, handleAdvisorCommand } from '../../units/travel/advisor-commands.js';
+import { applyStatusUpdates } from '../../services/advisor-notification.service.js';
 
 /**
  * WhatsApp Webhook Handler
@@ -104,12 +105,27 @@ async function processMessageChange(value) {
     }
   }
 
-  // Process status updates (message delivery, read receipts, etc.)
-  const statuses = value.statuses || [];
-  for (const status of statuses) {
-    logger.debug({ status }, 'Message status update');
-    // TODO: Update message status in database if needed
+  // Diagnóstico de entrega (nov-2026): cada status de Meta completo, con errors[]
+  // (antes logger.debug, que en prod no sale). Así se encontró el 131042 de Oxford.
+  for (const st of value.statuses || []) {
+    logger.info({
+      unit: 'travel',
+      statusWebhook: true,
+      phoneNumberId,
+      id: st.id,
+      recipient_id: st.recipient_id,
+      status: st.status,
+      timestamp: st.timestamp,
+      conversation: st.conversation,
+      pricing: st.pricing,
+      errors: st.errors,
+    }, st.status === 'failed' ? 'Travel message status FAILED' : 'Travel message status');
   }
+
+  // Status de entrega (sent/delivered/read/failed). Solo se guardan los de las
+  // notificaciones a asesoras (los demás wamid no tienen fila y se ignoran).
+  // applyStatusUpdates nunca lanza.
+  await applyStatusUpdates(value.statuses);
 }
 
 /**

@@ -84,7 +84,7 @@ function colLetter(index) {
 /** Cadena de intentos legible, ej. "Enrique Ruiz (no confirmó) → Oriana Pullas (confirmó)". */
 function formatAttemptsChain(attempts) {
   if (!Array.isArray(attempts) || attempts.length === 0) return '';
-  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó' };
+  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó', cedido: 'lo tomó otra asesora' };
   return attempts
     .map((a) => `${a.advisor}${a.result ? ` (${RESULT_LABELS[a.result] || a.result})` : ''}`)
     .join(' → ');

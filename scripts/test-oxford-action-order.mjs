@@ -45,7 +45,7 @@ mock.module('../src/units/oxford-education/prompts.js', {
   namedExports: { HANDOFF_MEETING_URL: 'https://meetings.hubspot.com/camila-serafin-jimenez/' },
 });
 
-const { parseActions, executeActions } = await import('../src/units/oxford-education/actions.js');
+const { parseActions, executeActions, buildLeadUpdate } = await import('../src/units/oxford-education/actions.js');
 
 let pass = 0;
 const ok = (n) => { console.log('  ✓ ' + n); pass++; };
@@ -75,6 +75,16 @@ assert.strictEqual(handoffOccurred, true, 'debió ocurrir handoff tibio real');
 assert.ok(SENT.some((t) => t.includes('Te conecto con')), 'debió enviar el mensaje TIBIO de conexión');
 assert.ok(!SENT.some((t) => t.includes('Agenda aquí') && t.includes('hubspot')), `NO debió enviar el fallback pasivo con link. Enviados: ${JSON.stringify(SENT)}`);
 ok('Envía handoff tibio ("Te conecto con …"), NO el fallback con link de HubSpot');
+
+// Regresión (auditoría nov-2026): al mover notifyAdvisor a advisor-notify.js,
+// PRODUCT_LABELS dejó de existir en actions.js y esta llamada tronaba con
+// ReferenceError → el producto no se guardaba y el ticket decía "no capturado".
+const prod = buildLeadUpdate('primary_product', 'oxford_tcc');
+assert.deepStrictEqual(prod, { primaryProduct: 'oxford_tcc', productsInterest: ['oxford_tcc'], primaryProductLabel: 'Oxford TCC' });
+const leadP = { id: 'L2', tags: [] };
+await executeActions(parseActions('[CAPTURAR_DATO:primary_product:alphable]'), leadP, conv, contact);
+assert.strictEqual(leadP.primaryProductLabel, 'Alphable', 'CAPTURAR_DATO de producto debe dejar la etiqueta en el lead');
+ok('CAPTURAR_DATO:primary_product guarda producto + etiqueta (antes: ReferenceError)');
 
 console.log(`\nTODAS las verificaciones pasaron ✅  (${pass})`);
 process.exit(0);

@@ -127,9 +127,14 @@ function resetDB() {
 function matchesWhere(row, where = {}) {
   return Object.entries(where).every(([key, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
-      if ('lte' in cond) return row[key] != null && new Date(row[key]).getTime() <= new Date(cond.lte).getTime();
-      if ('in' in cond) return cond.in.includes(row[key]);
-      return false;
+      if (Array.isArray(cond)) return JSON.stringify(row[key]) === JSON.stringify(cond);
+      let okCond = true; let known = false;
+      if ('lte' in cond) { known = true; okCond = okCond && row[key] != null && new Date(row[key]).getTime() <= new Date(cond.lte).getTime(); }
+      if ('gte' in cond) { known = true; okCond = okCond && row[key] != null && new Date(row[key]).getTime() >= new Date(cond.gte).getTime(); }
+      if ('in' in cond) { known = true; okCond = okCond && cond.in.includes(row[key]); }
+      if ('has' in cond) { known = true; okCond = okCond && Array.isArray(row[key]) && row[key].includes(cond.has); }
+      if ('endsWith' in cond) { known = true; okCond = okCond && String(row[key] || '').endsWith(cond.endsWith); }
+      return known && okCond;
     }
     return row[key] === cond;
   });
@@ -167,7 +172,19 @@ const fakePrisma = {
     },
     async groupBy() { return []; },
   },
+  // Bitácora de comandos de asesoras (services/advisor-command.service.js REAL).
+  advisorCommand: {
+    async create({ data }) { const row = { id: `c${COMMANDS.length + 1}`, createdAt: new Date(), ...data }; COMMANDS.push(row); return row; },
+    async findFirst({ where = {} } = {}) {
+      return COMMANDS.filter((r) => matchesWhere(r, where)).sort((a, b) => b.createdAt - a.createdAt)[0] || null;
+    },
+  },
 };
+const COMMANDS = [];
+/** Simula que la asesora le escribió al bot hace `minutesAgo` (abre su ventana de 24h). */
+function openWindow(advisorKey, minutesAgo = 5) {
+  COMMANDS.push({ id: `c${COMMANDS.length + 1}`, unit: 'oxford_education', advisorName: ADVISORS[advisorKey].nombre, advisorPhone: `521${ADVISORS[advisorKey].whatsapp}`.replace(/\D/g, ''), text: 'HOLA', command: 'AYUDA', outcome: 'info', createdAt: new Date(Date.now() - minutesAgo * 60000) });
+}
 
 // ── Mocks de infraestructura ─────────────────────────────────────────────────
 const noop = () => {};
@@ -324,6 +341,7 @@ let chainLead; // se reutiliza en los escenarios 4/5/6 (cadena completa)
 
   SENT.length = 0;
   TEMPLATES_SENT.length = 0;
+  COMMANDS.length = 0; // nadie le ha escrito al bot en 24h → ventanas cerradas
   await processExpiredAssignments(new Date());
 
   // NORTE tiene 4 (Enrique → Mayra → Silvana → Oriana): la cadena ya no salta
@@ -333,8 +351,11 @@ let chainLead; // se reutiliza en los escenarios 4/5/6 (cadena completa)
   assert.deepStrictEqual(chainLead.triedAdvisorKeys, ['enrique', 'mayra']);
   assert.strictEqual(chainLead.advisorAttempts[0].result, 'no_confirmo', 'intento de Enrique marcado no_confirmo');
   assert.strictEqual(chainLead.advisorAttempts[1].result, 'esperando', 'nuevo intento de Mayra en esperando');
-  assert.ok(SENT.some((m) => m.text.includes('ya no requiere tu atención')), 'aviso breve al asesor anterior (Enrique)');
-  ok('Sin confirmación → reasigna dentro del equipo (Enrique → Mayra)');
+  // fix/ori-atiendo-y-avisos: el aviso a la anterior es texto libre y SOLO sale si
+  // ella tiene la ventana de 24h abierta. Enrique no le ha escrito al bot → nada.
+  assert.ok(!SENT.some((m) => m.to.endsWith(ADVISORS.enrique.whatsapp)), 'ventana cerrada → NO se le manda nada a Enrique');
+  assert.strictEqual(TEMPLATES_SENT.length, 1, 'una sola plantilla por eslabón (la de Mayra)');
+  ok('Sin confirmación → reasigna dentro del equipo (Enrique → Mayra), sin aviso a ventana cerrada');
 }
 
 // ============================================================================
@@ -556,6 +577,256 @@ resetSheets();
   assert.strictEqual(enriqueRow[1], '2', 'a Enrique le sigue contando 2 leads ATENDIDOS (el 3º no lo confirmó él)');
   assert.strictEqual(enriqueRow[5], '1', '# Reasignado por no confirmar = 1 para Enrique');
   ok('Resumen distingue "leads atendidos" de "# reasignado por no confirmar" por asesora');
+}
+
+// ── Horario laboral del SLA (feat/ori-sla-horario) ──────────────────────────
+// Con OXED_ADVISOR_SLA_HOURS, buildAssignmentFields REAL pausa el reloj de noche
+// y la reasignación del poller hereda la pausa (usa la misma función).
+{
+  envMock.OXED_ADVISOR_SLA_HOURS = '1-5 09:00-19:00; 6 09:00-14:00';
+  const noche = new Date('2026-11-09T21:46:00-06:00'); // lunes 21:46 CDMX
+  const f = buildAssignmentFields({ currentAttempt: 0, triedAdvisorKeys: [], advisorAttempts: [] }, ADVISORS.rosaura, noche);
+  assert.strictEqual(f.assignedAt.toISOString(), noche.toISOString(), 'assignedAt sigue siendo la hora real');
+  assert.strictEqual(f.slaDueAt.toISOString(), new Date(`2026-11-10T09:${String(SLA_MINUTES).padStart(2, '0')}:00-06:00`).toISOString(), 'vence a la apertura + SLA');
+  ok('Lead asignado de noche: slaDueAt = apertura del día siguiente + SLA (assignedAt intacto)');
+
+  const dia = new Date('2026-11-09T10:00:00-06:00');
+  const g = buildAssignmentFields({ currentAttempt: 0, triedAdvisorKeys: [], advisorAttempts: [] }, ADVISORS.rosaura, dia);
+  assert.strictEqual(g.slaDueAt.getTime(), dia.getTime() + SLA_MINUTES * 60000);
+  ok('Lead asignado en horario: slaDueAt = ahora + SLA, sin cambios');
+
+  delete envMock.OXED_ADVISOR_SLA_HOURS;
+  const h = buildAssignmentFields({ currentAttempt: 0, triedAdvisorKeys: [], advisorAttempts: [] }, ADVISORS.rosaura, noche);
+  assert.strictEqual(h.slaDueAt.getTime(), noche.getTime() + SLA_MINUTES * 60000);
+  ok('Sin OXED_ADVISOR_SLA_HOURS el reloj corre 24/7 (comportamiento anterior)');
+}
+
+// ============================================================================
+// fix/ori-atiendo-y-avisos — ATIENDO tardío, avisos, modo team y caso Rosaura
+// ============================================================================
+const { buildTeamAssignmentFields } = await import('../src/units/oxford-education/advisor-sla.js');
+const sentTo = (key) => SENT.filter((m) => m.to.endsWith(ADVISORS[key].whatsapp)).map((m) => m.text);
+const lastCommand = () => COMMANDS[COMMANDS.length - 1];
+const clean = () => { SENT.length = 0; TEMPLATES_SENT.length = 0; };
+
+console.log('\n== A. Aviso a la asesora anterior: texto libre y solo con ventana abierta ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  openWindow('rosaura'); // Rosaura le escribió al bot hace 5 min
+  const lead = makeLead({ zoneKey: 'CENTRO', state: 'Puebla' });
+  assignAdvisor(lead, 'rosaura', overdueAssignAt());
+  clean();
+  await processExpiredAssignments(new Date());
+
+  assert.strictEqual(lead.assignedAdvisor, 'Danna Paola');
+  const avisos = sentTo('rosaura');
+  assert.strictEqual(avisos.length, 1, 'ventana abierta → un aviso de texto a la anterior');
+  assert.match(avisos[0], /también se ofreció a Danna Paola/);
+  assert.match(avisos[0], new RegExp(`ATIENDO ${lead.ticketNumber}`));
+  assert.ok(!/ya no requiere tu atención/.test(avisos[0]), 'ya no se le dice que no requiere su atención');
+  assert.strictEqual(TEMPLATES_SENT.length, 1, 'sigue siendo UNA plantilla por eslabón (la de Danna): el aviso no genera otra');
+  ok('Ventana abierta → "también se ofreció a X, responde ATIENDO #" por texto, sin plantilla extra');
+}
+
+console.log('\n== B. Etiqueta de zona = la del PROSPECTO, no la del equipo de la asesora ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  // Caso #6 de la auditoría: prospecto de NORTE que llega a Rosaura (CENTRO) como quinta de la cadena.
+  const lead = makeLead({ zoneKey: 'NORTE', state: 'Tamaulipas', municipality: 'Nuevo Laredo' });
+  assignAdvisor(lead, 'oriana', overdueAssignAt());
+  lead.triedAdvisorKeys = ['enrique', 'mayra', 'silvana', 'oriana'];
+  clean();
+  await processExpiredAssignments(new Date());
+
+  assert.strictEqual(lead.assignedAdvisor, 'Rosaura Pinto');
+  const params = TEMPLATES_SENT[0].params;
+  assert.match(String(params[5]), /zona NORTE/, `el aviso debe decir zona NORTE (dijo: ${params[5]})`);
+  assert.ok(!/zona CENTRO\)/.test(String(params[5])), 'no rotula el lead con la zona de Rosaura');
+  assert.match(String(params[7]), /apoyo.*CENTRO.*zona NORTE/, 'el motivo aclara que lo recibe como apoyo');
+  assert.strictEqual(lead.zoneKey, 'NORTE', 'la zona guardada del lead no cambia');
+  ok('Reasignación a otro equipo: el aviso dice la zona real (NORTE) y aclara que es apoyo');
+}
+
+console.log('\n== C. ATIENDO tardío: lo toma quien ya había recibido el aviso ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  openWindow('danna');
+  const lead = makeLead({ zoneKey: 'CENTRO', state: 'Puebla' });
+  assignAdvisor(lead, 'rosaura', overdueAssignAt());
+  await processExpiredAssignments(new Date()); // Rosaura no confirmó → ahora está con Danna, en espera
+  assert.strictEqual(lead.assignedAdvisor, 'Danna Paola');
+  clean();
+
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+
+  assert.strictEqual(lead.assignedAdvisor, 'Rosaura Pinto', 'el lead pasa a Rosaura');
+  assert.strictEqual(lead.status, 'en_atencion');
+  assert.ok(lead.confirmedAt instanceof Date);
+  assert.ok(sentTo('rosaura').some((t) => /Confirmado, el lead #\d+ es tuyo/.test(t)), 'a Rosaura se le confirma');
+  assert.ok(!sentTo('rosaura').some((t) => /no está asignado a ti/.test(t)), 'ya NO se rechaza');
+  const [aRos, aDan] = lead.advisorAttempts;
+  assert.deepStrictEqual([aRos.result, aRos.late, aDan.result], ['confirmo', true, 'cedido'], 'Rosaura confirmó (tardío); Danna queda "cedido", no "no confirmó"');
+  assert.match(lead.notes, /ATIENDO tardío/);
+  assert.ok(sentTo('danna').some((t) => t.includes(`El lead #${lead.ticketNumber} ya lo atiende Rosaura Pinto`)), 'a Danna (ventana abierta) se le avisa');
+  assert.deepStrictEqual([lastCommand().command, lastCommand().outcome, lastCommand().ticketNumber], ['ATIENDO', 'aceptado', lead.ticketNumber]);
+  assert.match(lastCommand().detail, /tardío/);
+  ok('ATIENDO de la asesora anterior se ACEPTA; la actual queda "cedido" y recibe aviso');
+
+  // El job de SLA ya no toca el lead.
+  lead.slaDueAt = new Date(Date.now() - 60000);
+  await processExpiredAssignments(new Date());
+  assert.strictEqual(lead.assignedAdvisor, 'Rosaura Pinto');
+  ok('Tras el ATIENDO tardío el job de SLA no reasigna');
+
+  // Quien responde después: se le dice quién lo atiende.
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.danna.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.ok(sentTo('danna').some((t) => t.includes(`El lead #${lead.ticketNumber} ya lo atiende Rosaura Pinto`)));
+  assert.strictEqual(lead.assignedAdvisor, 'Rosaura Pinto', 'no se lo quita');
+  assert.deepStrictEqual([lastCommand().outcome, lastCommand().advisorName], ['rechazado', 'Danna Paola']);
+  assert.match(lastCommand().detail, /ya lo atiende Rosaura Pinto/);
+  ok('La segunda en responder recibe "El lead #N ya lo atiende X" y queda en bitácora como rechazado');
+
+  // Quien nunca recibió el aviso no puede tomarlo.
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.balam.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.ok(sentTo('balam').some((t) => /no está asignado a ti/.test(t)));
+  ok('Una asesora a la que nunca se le avisó sigue sin poder tomarlo');
+}
+
+console.log('\n== D. Lead en sin_confirmar: todavía se puede tomar ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  const lead = makeLead({ zoneKey: 'CENTRO', state: 'Puebla', status: 'sin_confirmar' });
+  assignAdvisor(lead, 'rosaura', overdueAssignAt());
+  Object.assign(lead, {
+    status: 'sin_confirmar', assignedAdvisor: 'Paola Torres',
+    triedAdvisorKeys: ['rosaura', 'danna', 'enrique', 'mayra', 'silvana', 'oriana', 'balam', 'paola'],
+    advisorAttempts: ['rosaura', 'danna', 'enrique', 'mayra', 'silvana', 'oriana', 'balam', 'paola'].map((k) => ({ advisor: ADVISORS[k].nombre, advisorKey: k, assignedAt: new Date(Date.now() - 3600000).toISOString(), result: 'no_confirmo' })),
+  });
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.deepStrictEqual([lead.status, lead.assignedAdvisor], ['en_atencion', 'Rosaura Pinto']);
+  assert.strictEqual(lead.advisorAttempts[0].result, 'confirmo');
+  assert.strictEqual(lead.advisorAttempts[7].result, 'no_confirmo', 'los intentos ya vencidos conservan su resultado');
+  ok('El caso real de Rosaura ("ATIENDO 5" con el lead ya agotado) ahora se acepta');
+}
+
+console.log('\n== E. Concurrencia: dos ATIENDO casi simultáneos → gana uno solo ==');
+for (let ronda = 0; ronda < 5; ronda++) {
+  resetDB();
+  COMMANDS.length = 0;
+  const lead = makeLead({ zoneKey: 'CENTRO', state: 'Puebla' });
+  assignAdvisor(lead, 'rosaura', overdueAssignAt());
+  await processExpiredAssignments(new Date()); // ahora con Danna; Rosaura también puede tomarlo
+  clean();
+  const orden = ronda % 2 === 0 ? ['rosaura', 'danna'] : ['danna', 'rosaura'];
+  await Promise.all(orden.map((k) => handleOxfordAdvisorCommand(msgFrom(ADVISORS[k].whatsapp, `ATIENDO ${lead.ticketNumber}`))));
+
+  const confirmadas = ['rosaura', 'danna'].filter((k) => sentTo(k).some((t) => /Confirmado, el lead/.test(t)));
+  const rechazadas = ['rosaura', 'danna'].filter((k) => sentTo(k).some((t) => /ya lo atiende/.test(t)));
+  assert.strictEqual(confirmadas.length, 1, `exactamente una confirmación (hubo: ${confirmadas})`);
+  assert.strictEqual(rechazadas.length, 1, 'a la otra se le dice quién lo atiende');
+  const ganadora = ADVISORS[confirmadas[0]].nombre;
+  assert.strictEqual(lead.assignedAdvisor, ganadora, 'el lead queda con la que recibió la confirmación');
+  assert.ok(sentTo(rechazadas[0]).some((t) => t.includes(`ya lo atiende ${ganadora}`)), 'el rechazo nombra a la ganadora');
+  assert.strictEqual(lead.advisorAttempts.filter((a) => a.result === 'confirmo').length, 1, 'un solo intento confirmado');
+  assert.deepStrictEqual(COMMANDS.filter((c) => c.command === 'ATIENDO').map((c) => c.outcome).sort(), ['aceptado', 'rechazado']);
+}
+ok('Dos ATIENDO a la vez (5 rondas, ambos órdenes): una confirma, a la otra "ya lo atiende X"');
+
+console.log('\n== F. Modo team: aviso simultáneo, gana la primera ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  const lead = makeLead({ zoneKey: 'NORTE', state: 'Sonora' });
+  const equipo = ['enrique', 'mayra', 'silvana', 'oriana'].map((k) => ADVISORS[k]);
+  Object.assign(lead, { assignedAdvisor: 'Enrique Ruiz', ...buildTeamAssignmentFields(lead, equipo, new Date()) });
+  assert.deepStrictEqual(lead.triedAdvisorKeys, ['enrique', 'mayra', 'silvana', 'oriana']);
+  assert.ok(lead.advisorAttempts.every((a) => a.result === 'esperando') && lead.advisorAttempts.length === 4);
+  assert.strictEqual(lead.currentAttempt, 1, 'el aviso al equipo es UN intento');
+
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.silvana.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.deepStrictEqual([lead.assignedAdvisor, lead.status], ['Silvana Meza', 'en_atencion']);
+  assert.deepStrictEqual(lead.advisorAttempts.map((a) => a.result), ['cedido', 'cedido', 'confirmo', 'cedido']);
+  assert.ok(!lead.advisorAttempts[2].late, 'en modo team ninguna es "tardía": todas estaban esperando a la vez');
+  assert.ok(!/tardío/.test(lead.notes || ''));
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.enrique.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.ok(sentTo('enrique').some((t) => t.includes('ya lo atiende Silvana Meza')));
+  ok('Team: se avisa a las 4, Silvana confirma primero, las demás quedan "cedido"');
+
+  // Si nadie del equipo confirma, la cadena sigue con la siguiente zona.
+  const lead2 = makeLead({ zoneKey: 'NORTE', state: 'Sonora' });
+  Object.assign(lead2, { assignedAdvisor: 'Enrique Ruiz', ...buildTeamAssignmentFields(lead2, equipo, overdueAssignAt()) });
+  lead2.slaDueAt = new Date(Date.now() - 60000);
+  clean();
+  await processExpiredAssignments(new Date());
+  assert.strictEqual(lead2.assignedAdvisor, 'Rosaura Pinto', 'tras agotar al equipo pasa a CENTRO');
+  assert.deepStrictEqual(lead2.advisorAttempts.slice(0, 4).map((a) => a.result), ['no_confirmo', 'no_confirmo', 'no_confirmo', 'no_confirmo']);
+  ok('Team sin respuesta: los 4 quedan "no confirmó" y sigue la siguiente zona');
+}
+
+console.log('\n== G. Punta a punta: caso Rosaura (lead nocturno + ATIENDO a la mañana siguiente) ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  // (No se limpia SHEETS: advisor-sla-sheet.js recuerda que ya creó las pestañas.)
+  envMock.OXED_ADVISOR_SLA_HOURS = '1-5 09:00-19:00; 6 09:00-14:00';
+  const noche = new Date('2026-11-09T21:46:00-06:00'); // lunes 21:46 CDMX
+  const lead = makeLead({ zoneKey: 'CENTRO', state: 'Guanajuato', fullName: 'Prospecto Nocturno', primaryProductLabel: 'Oxford TCC' });
+  assignAdvisor(lead, 'rosaura', noche);
+  Object.assign(lead, { status: 'derivado_asesor' });
+  clean();
+  await notifyAdvisor(ADVISORS.rosaura, lead, null, lead.contact, 'Flujo Ori — aceptó hablar con asesor', 'CENTRO', logger);
+
+  // AVISO: sale en el momento, por plantilla, con la zona real y el producto.
+  assert.strictEqual(TEMPLATES_SENT.length, 1);
+  assert.ok(TEMPLATES_SENT[0].to.endsWith(ADVISORS.rosaura.whatsapp), 'el aviso va a Rosaura');
+  assert.match(String(TEMPLATES_SENT[0].params[5]), /Guanajuato \(zona CENTRO\)/);
+  assert.strictEqual(TEMPLATES_SENT[0].params[4], 'Oxford TCC');
+
+  // DB: el plazo vence el martes a las 9:00 + SLA, no en la madrugada.
+  assert.strictEqual(lead.slaDueAt.toISOString(), new Date(`2026-11-10T09:${String(SLA_MINUTES).padStart(2, '0')}:00-06:00`).toISOString());
+  await processExpiredAssignments(new Date('2026-11-10T02:00:00-06:00'));
+  await processExpiredAssignments(new Date('2026-11-10T08:57:00-06:00'));
+  assert.deepStrictEqual([lead.assignedAdvisor, lead.reassignCount, lead.status], ['Rosaura Pinto', 0, 'derivado_asesor'], 'de noche NO se reasigna');
+  assert.strictEqual(TEMPLATES_SENT.length, 1, 'ninguna otra asesora recibió el lead durante la noche');
+
+  // 8:57 del martes: Rosaura responde.
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.ok(sentTo('rosaura').some((t) => /Confirmado, el lead/.test(t)), 'ATIENDO aceptado');
+  assert.deepStrictEqual([lead.status, lead.assignedAdvisor, lead.reassignCount], ['en_atencion', 'Rosaura Pinto', 0]);
+  assert.ok(lead.confirmedAt instanceof Date && Number.isInteger(lead.responseSeconds));
+  assert.deepStrictEqual(lead.advisorAttempts.map((a) => [a.advisor, a.result]), [['Rosaura Pinto', 'confirmo']]);
+  assert.deepStrictEqual([lastCommand().command, lastCommand().outcome, lastCommand().detail], ['ATIENDO', 'aceptado', null], 'en bitácora como aceptado, no tardío');
+
+  // SHEET: "Tiempos asesores" lo registra como atendido por Rosaura, sin reasignaciones.
+  const fila = (SHEETS.get('Tiempos asesores') || []).find((r) => String(r[0]) === String(lead.ticketNumber));
+  assert.ok(fila, 'el ticket quedó en "Tiempos asesores"');
+  assert.strictEqual(fila[5], 'Rosaura Pinto', 'Asesora que atendió');
+  assert.strictEqual(String(fila[7]), '0', '# Reasignaciones');
+  assert.match(String(fila[8]), /Rosaura Pinto \(confirmó\)/);
+  assert.strictEqual(fila[9], 'Atendido');
+  const resumen = (SHEETS.get('Resumen asesoras') || []).find((r) => r[0] === 'Rosaura Pinto');
+  assert.ok(resumen && Number(resumen[1]) >= 1, `Resumen: Rosaura con al menos 1 lead atendido (fue: ${resumen?.[1]})`);
+  ok('Lead nocturno → aviso inmediato, sin reasignar de noche, ATIENDO 8:57 aceptado; DB, bitácora y Sheet coinciden');
+
+  // Contraste: con el reloj 24/7 (como estaba en prod) el mismo lead se le quita en la madrugada.
+  delete envMock.OXED_ADVISOR_SLA_HOURS;
+  const lead2 = makeLead({ zoneKey: 'CENTRO', state: 'Guanajuato' });
+  assignAdvisor(lead2, 'rosaura', noche);
+  await processExpiredAssignments(new Date('2026-11-10T02:00:00-06:00'));
+  assert.strictEqual(lead2.assignedAdvisor, 'Danna Paola', 'sin horario, a las 2:00 ya se reasignó');
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead2.ticketNumber}`));
+  assert.strictEqual(lead2.assignedAdvisor, 'Rosaura Pinto', 'y aun así su ATIENDO de la mañana ya no se rechaza');
+  ok('Contraste 24/7: aunque se haya reasignado de noche, el ATIENDO de Rosaura se acepta');
 }
 
 console.log(`\nTODAS las verificaciones pasaron ✅  (${pass})`);

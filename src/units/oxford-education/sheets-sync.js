@@ -62,6 +62,31 @@ const LEAD_TYPE_LABELS = {
   b2c_individual: 'Individual (B2C)',
 };
 
+// Estados en los que el lead YA fue derivado a una asesora (handoff tibio).
+const HANDED_OFF_STATUSES = ['derivado_asesor', 'en_atencion', 'atendido_asesor', 'sin_confirmar'];
+
+/**
+ * ¿Este lead fue derivado alguna vez? (columna J "Derivación").
+ *
+ * Antes la columna usaba solo `handoffOccurred`, que es "hubo handoff EN ESTE
+ * TURNO". Como el handoff es tibio (Ori sigue atendiendo), el siguiente mensaje
+ * del prospecto reescribía la fila con "No" — y un lead que terminó en
+ * `sin_confirmar` (se agotaron las asesoras) también quedaba como "No". En la
+ * auditoría de nov-2026 las 10 derivaciones del periodo aparecían como "No".
+ *
+ * @param {Object} lead - OxfordLead
+ * @param {boolean} handoffOccurred - handoff en este turno
+ * @returns {boolean}
+ */
+export function wasHandedOff(lead, handoffOccurred = false) {
+  return Boolean(
+    handoffOccurred
+    || lead?.assignedAdvisor
+    || HANDED_OFF_STATUSES.includes(lead?.status)
+    || (lead?.tags || []).includes('derivado_travel'),
+  );
+}
+
 /**
  * Derives a hot/warm/cold temperature from the lead state.
  *
@@ -94,7 +119,7 @@ export function deriveTemperature(lead, handoffOccurred = false) {
  */
 function formatAttemptsChain(attempts) {
   if (!Array.isArray(attempts) || attempts.length === 0) return '';
-  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó' };
+  const RESULT_LABELS = { esperando: 'esperando', confirmo: 'confirmó', no_confirmo: 'no confirmó', cedido: 'lo tomó otra asesora' };
   return attempts
     .map((a) => `${a.advisor}${a.result ? ` (${RESULT_LABELS[a.result] || a.result})` : ''}`)
     .join(' → ');
@@ -124,7 +149,7 @@ function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }
     lead.primaryProductLabel || (lead.primaryProduct ? (PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct) : ''), // G Producto
     lead.estimatedStudents?.toString() || '',                            // H No. alumnos
     deriveTemperature(lead, handoffOccurred),                             // I Temperatura
-    handoffOccurred ? 'Sí' : 'No',                                        // J Derivación
+    wasHandedOff(lead, handoffOccurred) ? 'Sí' : 'No',                    // J Derivación (histórica, no solo este turno)
     (summary || '').slice(0, 480),                                        // K Resumen (histórica)
     [lead.municipality, lead.state].filter(Boolean).join(', '),          // L Zona (Estado/Municipio)
     lead.assignedAdvisor || '',                                           // M Asesor asignado (= final/actual)

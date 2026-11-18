@@ -4,8 +4,9 @@ import { env } from '../../config/env.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { sendTextMessage } from './whatsapp.js';
 import * as oxfordLeadService from './lead.service.js';
-import { advisorByPhone } from './advisor-zones.js';
-import { buildConfirmationFields } from './advisor-sla.js';
+import { advisorByPhone, ADVISORS } from './advisor-zones.js';
+import { buildClaimFields, canAdvisorClaim, isLateClaim, CLAIMABLE_STATUSES } from './advisor-sla.js';
+import { recordAdvisorCommand, isAdvisorWindowOpen } from '../../services/advisor-command.service.js';
 import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
 
 /**
@@ -57,35 +58,61 @@ export async function handleOxfordAdvisorCommand(message) {
   const cmdLog = logger.child({ unit: 'oxford_education', advisor: advisor.nombre, command: text });
   cmdLog.info('Received Oxford advisor command');
 
+  // Bitácora: todo mensaje de una asesora queda guardado con lo que se le
+  // contestó (services/advisor-command.service.js). También es lo que permite
+  // saber si su ventana de 24h está abierta.
+  const entry = { command: 'OTRO', ticketNumber: null, outcome: 'ignorado', detail: null };
+
   try {
     if (text === 'PENDIENTES' || text === 'PENDIENTE') {
+      entry.command = 'PENDIENTES';
       await handlePendientes(advisor, message.from, cmdLog);
+      entry.outcome = 'info';
     } else if (text.startsWith('ATIENDO ') || text === 'ATIENDO') {
+      entry.command = 'ATIENDO';
       const ticketNumber = text === 'ATIENDO' ? null : parseTicket(text, 'ATIENDO');
-      await handleAtiendo(ticketNumber, advisor, message.from, cmdLog);
+      entry.ticketNumber = ticketNumber;
+      const result = await handleAtiendo(ticketNumber, advisor, message.from, cmdLog);
+      entry.ticketNumber = result.ticketNumber;
+      entry.outcome = result.outcome;
+      entry.detail = result.detail;
     } else if (text.startsWith('LISTO ') || text === 'LISTO') {
-      await handleListo(parseTicket(text, 'LISTO'), advisor, message.from, cmdLog);
+      entry.command = 'LISTO';
+      entry.ticketNumber = parseTicket(text, 'LISTO');
+      await handleListo(entry.ticketNumber, advisor, message.from, cmdLog);
+      entry.outcome = 'aceptado';
     } else if (text.startsWith('REGRESA ') || text === 'REGRESA') {
-      // No-op documentado: Ori ya NO se silencia al derivar (handoff tibio), así
-      // que no hay nada que "regresar". Se conserva el comando para no confundir a
-      // asesores acostumbrados a Travel.
+      entry.command = 'REGRESA';
+      entry.outcome = 'info';
+      // No-op: con el handoff tibio Ori nunca se silencia, no hay nada que "regresar".
       await sendTextMessage(
         message.from,
         'ℹ️ Ya no hace falta REGRESA: Ori nunca deja de atender al prospecto tras derivar. ' +
           'Usa *LISTO #* cuando cierres el lead.',
       );
     } else if (text === 'AYUDA' || text === 'HELP' || text === 'HOLA') {
+      entry.command = 'AYUDA';
+      entry.outcome = 'info';
       await sendTextMessage(message.from, getHelpMessage(advisor));
     } else {
       cmdLog.debug('Unknown Oxford advisor command, ignoring');
     }
   } catch (err) {
     if (err instanceof UserError) {
+      entry.outcome = 'rechazado';
+      entry.detail = err.message;
       await sendTextMessage(message.from, `❌ ${err.message}`);
     } else {
+      entry.outcome = 'error';
+      entry.detail = err?.message || String(err);
       cmdLog.error({ err }, 'Unexpected error in Oxford advisor command');
       await sendTextMessage(message.from, '❌ Error interno. Intenta de nuevo.');
     }
+  } finally {
+    await recordAdvisorCommand({
+      unit: 'oxford_education', advisor, advisorPhone: advisor.phone, text: raw,
+      ...entry, waMessageId: message.id || null,
+    });
   }
 }
 
@@ -130,52 +157,106 @@ async function handlePendientes(advisor, replyTo, cmdLog) {
 
 async function handleAtiendo(ticketNumber, advisor, replyTo, cmdLog) {
   const lead = ticketNumber
-    ? await findLeadByTicket(ticketNumber, advisor) // reusa el mismo guard/mensaje que LISTO
+    ? await findClaimableLeadByTicket(ticketNumber, advisor)
     : await findPendingConfirmationLeadForAdvisor(advisor);
+  const ticket = lead.ticketNumber;
 
-  if (lead.confirmedAt) {
-    await sendTextMessage(replyTo, `ℹ️ El lead #${lead.ticketNumber} ya estaba confirmado.`);
-    return;
+  if (lead.confirmedAt || !CLAIMABLE_STATUSES.includes(lead.status)) {
+    if (lead.assignedAdvisor === advisor.nombre) {
+      await sendTextMessage(replyTo, `ℹ️ El lead #${ticket} ya estaba confirmado.`);
+      return { ticketNumber: ticket, outcome: 'info', detail: 'ya estaba confirmado por ella' };
+    }
+    throw new UserError(`El lead #${ticket} ya lo atiende ${lead.assignedAdvisor || 'otra asesora'}.`);
   }
 
   const now = new Date();
-  const fields = buildConfirmationFields(lead, now);
+  const fields = buildClaimFields(lead, advisor, now);
+  const late = isLateClaim(lead, advisor);
 
-  // Update CONDICIONAL: si el lead se reasignó a otro asesor justo entre que se
-  // leyó arriba y este punto (carrera con el job de SLA), `applied` da false y
-  // NO se confirma — el asesor ya no es el actual, se le avisa sin romper nada.
+  // GANA LA PRIMERA QUE CONFIRME. El update es condicional a que nadie haya
+  // confirmado todavía; si dos ATIENDO llegan casi a la vez, solo uno aplica
+  // (count=1) y a la otra se le dice quién lo tomó. El mismo guard cubre la
+  // carrera contra el job de SLA (que también exige confirmedAt: null).
   const applied = await oxfordLeadService.conditionalUpdateOxfordLead(
     lead.id,
-    { assignedAdvisor: advisor.nombre, confirmedAt: null },
+    { confirmedAt: null, status: { in: CLAIMABLE_STATUSES } },
     fields,
   );
 
   if (!applied) {
-    throw new UserError(`El lead #${lead.ticketNumber} ya no está asignado a ti.`);
+    const fresh = await oxfordLeadService.getOxfordLeadById(lead.id).catch(() => null);
+    throw new UserError(`El lead #${ticket} ya lo atiende ${fresh?.assignedAdvisor || 'otra asesora'}.`);
   }
 
   const mins = Math.floor(fields.responseSeconds / 60);
   const secs = fields.responseSeconds % 60;
-  const tiempo = fields.responseSeconds != null ? ` (en ${mins}m ${secs}s)` : '';
+  const tiempo = fields.responseSeconds != null && !late ? ` (en ${mins}m ${secs}s)` : '';
   await sendTextMessage(
     replyTo,
-    `✅ Confirmado, el lead #${lead.ticketNumber} es tuyo${tiempo}. Ori sigue disponible para el prospecto mientras tú tomas precio y cierre.`,
+    `✅ Confirmado, el lead #${ticket} es tuyo${tiempo}. Ori sigue disponible para el prospecto mientras tú tomas precio y cierre.`,
   );
-  cmdLog.info({ ticketNumber: lead.ticketNumber, responseSeconds: fields.responseSeconds }, 'Oxford advisor confirmed lead (ATIENDO)');
+  cmdLog.info({ ticketNumber: ticket, responseSeconds: fields.responseSeconds, late }, 'Oxford advisor confirmed lead (ATIENDO)');
 
-  // Visibilidad en Sheet (feature/ori-advisor-sla): fila de detalle + resumen
-  // por asesora. Best-effort — recordAdvisorSlaOutcome nunca lanza, así que un
-  // fallo de Sheets no afecta el ack que ya se mandó arriba.
+  // Si lo tenía otra asesora en espera, se le avisa que ya lo tomaron — solo con
+  // su ventana de 24h abierta (texto libre; nunca una plantilla por esto).
+  // (En modo team son todas las del equipo que seguían esperando.)
+  const enEspera = (Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts : [])
+    .filter((a) => a.result === 'esperando' && a.advisor !== advisor.nombre)
+    .map((a) => a.advisor);
+  if (enEspera.length === 0 && lead.status === 'derivado_asesor' && lead.assignedAdvisor && lead.assignedAdvisor !== advisor.nombre) {
+    enEspera.push(lead.assignedAdvisor);
+  }
+  for (const nombre of new Set(enEspera)) {
+    await notifyTakenByOther(nombre, ticket, advisor, cmdLog, now);
+  }
+
+  // Visibilidad en Sheets ("Tiempos asesores" + "Resumen asesoras"). Best-effort.
   await recordAdvisorSlaOutcome({ ...lead, ...fields, assignedAdvisor: advisor.nombre }, lead.contact);
+
+  return { ticketNumber: ticket, outcome: 'aceptado', detail: late ? 'ATIENDO tardío (el lead ya se había reasignado o estaba sin confirmar)' : null };
 }
 
-/** ATIENDO sin ticket: busca el único lead asignado sin confirmar. Ambiguo → pide especificar. */
+/** Aviso a la asesora que tenía el lead en espera cuando otra lo tomó. Nunca lanza. */
+async function notifyTakenByOther(previousName, ticket, claimer, cmdLog, now) {
+  try {
+    const previous = Object.values(ADVISORS).find((a) => a.nombre === previousName);
+    if (!previous) return;
+    const phone = normalizePhone(previous.whatsapp).replace('+', '');
+    if (!(await isAdvisorWindowOpen({ unit: 'oxford_education', advisorPhone: phone, now }))) return;
+    await sendTextMessage(phone, `ℹ️ El lead #${ticket} ya lo atiende ${claimer.nombre}.`);
+  } catch (error) {
+    cmdLog.error({ err: error, advisor: previousName }, 'Error avisando a la asesora anterior que el lead ya se tomó');
+  }
+}
+
+// ATIENDO sin número solo mira avisos recientes: evita que un "ATIENDO" suelto
+// tome por accidente un lead de hace semanas.
+const CLAIM_LOOKBACK_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * ATIENDO sin ticket. Primero el lead que tiene asignado sin confirmar (el caso de
+ * siempre). Si no tiene ninguno, los que se le avisaron en las últimas 72h y nadie
+ * ha confirmado (ATIENDO tardío). Ambiguo → pide el número.
+ */
 async function findPendingConfirmationLeadForAdvisor(advisor) {
-  const leads = await prisma.oxfordLead.findMany({
+  let leads = await prisma.oxfordLead.findMany({
     where: { assignedAdvisor: advisor.nombre, status: 'derivado_asesor', confirmedAt: null },
     orderBy: { assignedAt: 'asc' },
     include: { contact: true },
   });
+
+  if (leads.length === 0) {
+    leads = await prisma.oxfordLead.findMany({
+      where: {
+        triedAdvisorKeys: { has: advisor.key },
+        status: { in: CLAIMABLE_STATUSES },
+        confirmedAt: null,
+        assignedAt: { gte: new Date(Date.now() - CLAIM_LOOKBACK_MS) },
+      },
+      orderBy: { assignedAt: 'asc' },
+      include: { contact: true },
+    });
+  }
 
   if (leads.length === 0) {
     throw new UserError('No tienes ningún lead pendiente de confirmar en este momento. Escribe PENDIENTES para ver tus leads.');
@@ -185,6 +266,17 @@ async function findPendingConfirmationLeadForAdvisor(advisor) {
     throw new UserError(`Tienes varios leads pendientes de confirmar (${tickets}). Especifica el número: ATIENDO <ticket>.`);
   }
   return leads[0];
+}
+
+/**
+ * ATIENDO con ticket: lo puede tomar la asignada actual o cualquiera a la que ya
+ * se le había avisado de ese lead. Quien nunca recibió el aviso, no.
+ */
+async function findClaimableLeadByTicket(ticketNumber, advisor) {
+  const lead = await prisma.oxfordLead.findUnique({ where: { ticketNumber }, include: { contact: true } });
+  if (!lead) throw new UserError(`No encontré el lead #${ticketNumber}. Escribe PENDIENTES para ver tus leads.`);
+  if (!canAdvisorClaim(lead, advisor)) throw new UserError(`El lead #${ticketNumber} no está asignado a ti.`);
+  return lead;
 }
 
 // ── LISTO # ───────────────────────────────────────────────────────────────────

@@ -79,15 +79,11 @@ equipos por el mismo prospecto es peor que no notificar a ninguno.
   actions.js, mismo comportamiento) para romper un ciclo de imports con
   `advisor-sla.js`. Notifica al asesor por plantilla aprobada de Meta, con
   fallback a texto libre — el texto libre incluye la instrucción ATIENDO.
-  Plantillas de Oxford en la WABA (`OXED_WABA_ID`): `nuevo_lead_oxford`
-  (MARKETING, es_MX, APPROVED, 8 variables — la de siempre, **no se edita**:
-  cambiarla la re-manda a revisión y tumba las notificaciones mientras tanto) y
-  `nuevo_lead_oxford_sla` (misma categoría/idioma/8 variables + instrucción
-  ATIENDO en el copy, creada vía Graph API, **PENDING** de revisión de Meta).
-  Cuál se usa es configurable vía `OXED_ADVISOR_SLA_TEMPLATE` (vacía por
-  default → usa la de siempre; una vez aprobada, setear
-  `OXED_ADVISOR_SLA_TEMPLATE=nuevo_lead_oxford_sla`). El fallback a texto libre
-  se conserva sin cambios en ambos casos.
+  Plantillas de Oxford en la WABA (`OXED_WABA_ID`): `nuevo_lead_oxford_util`
+  (**UTILITY**, la que se usa), y `nuevo_lead_oxford` / `nuevo_lead_oxford_sla`
+  (MARKETING: Meta no las entrega, **no usarlas**). Ver "Plantillas de aviso a
+  asesoras: SIEMPRE UTILITY". Las tres tienen las mismas 8 variables. El
+  fallback a texto libre solo entrega dentro de la ventana de 24h.
 - `advisor-sla.js` (feature/ori-advisor-sla) — SLA de confirmación de asesor: el
   asesor asignado tiene `OXED_ADVISOR_SLA_MINUTES` (default 10) para responder
   `ATIENDO`; si no, se reasigna automáticamente (recorre el equipo completo y
@@ -100,6 +96,15 @@ equipos por el mismo prospecto es peor que no notificar a ninguno.
   el "job diferido" se traduce a polling con `setInterval` (mismo patrón que
   followup.job.js), leyendo `slaDueAt`/`currentAttempt` guardados en el propio
   lead en vez de un payload de cola externa.
+- `sla-hours.js` (feat/ori-sla-horario) — el reloj del SLA solo corre en horario
+  laboral, configurable con `OXED_ADVISOR_SLA_HOURS` (default L–V 9–19, S 9–14,
+  America/Mexico_City; `off` = siempre). Módulo puro: `buildAssignmentFields` le
+  pide el `slaDueAt`. Asignado fuera de horario → vence a la apertura + minutos;
+  si el plazo cruza el cierre, se pausa y el resto corre al abrir. La
+  notificación a la asesora NO se retrasa y `assignedAt` sigue siendo la hora
+  real, así que `responseSeconds` de un lead nocturno incluye la noche. Un
+  horario ilegible usa el default y loguea un warn (nunca desactiva la pausa en
+  silencio). Los mocks de `env.js` sin esa variable dejan el reloj 24/7.
 - `advisor-commands.js` — comandos de asesor por WhatsApp: `PENDIENTES` ·
   `ATIENDO [#]` (feature/ori-advisor-sla, confirma el lead) · `LISTO #` (cierra,
   sin cambios) · `AYUDA`. `REGRESA` es no-op documentado.
@@ -217,6 +222,78 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   harness usa el default de `env.js` o `EVAL_BOT_MODEL`.
 - Teléfonos de escenario: `52` + 10 dígitos. `normalizePhone('521…')` agrega un `1`
   de más (`+5211…`).
+
+## Rastro de notificaciones a asesoras (Ori y Miri)
+
+- `src/services/advisor-notification.service.js` + tabla `advisor_notifications`:
+  cada notificación de lead a una asesora guarda vía (plantilla/texto libre/no
+  salió), plantilla, wamid y el status de entrega que llega por webhook
+  (`sent/delivered/read/failed` + código de error). Lo llaman `advisor-notify.js`
+  (Ori), `sendAdvisorNotification` (Miri) y los dos webhooks.
+- **"Meta aceptó" no es "se entregó"**: la API responde 200 y el rechazo (131049
+  límite de marketing, 131047 fuera de 24h) llega después por status. Un `failed`
+  se loguea a nivel ERROR con "ALERTA: la notificación a la asesora NO se entregó".
+- El servicio **nunca lanza**: si la tabla no existe o la base falla, el handoff y
+  el webhook siguen igual. Los mocks de Prisma de los tests no necesitan el modelo.
+- `scripts/audit-leads.mjs` (solo lectura) cruza leads, handoffs, SLA y este rastro.
+
+## Diagnóstico de entrega: "aceptado" no es "entregado"
+
+- 18-nov-2026: la causa real de que ningún aviso a asesoras de Ori llegara fue
+  **131042 "Business eligibility payment issue"**: la WABA de Oxford no tenía
+  método de pago. Meta acepta la plantilla (200 + wamid) y luego la marca
+  `failed` por webhook. Los mensajes a prospectos (SERVICE, gratis) sí llegaban,
+  y `health_status` de la API decía AVAILABLE: ninguna de las dos cosas descarta
+  un problema de pago.
+- Los dos webhooks registran cada status a nivel info con `errors[]`
+  ("Oxford/Travel message status FAILED"), y cada plantilla aceptada con su
+  "to", wamid y wa_id. Ante "no le llegó", buscar primero esas líneas.
+- Prueba de control: mandar la plantilla por el mismo código (`notifyAdvisor` /
+  `sendAdvisorNotification`) a un número del equipo con datos "PRUEBA" y leer
+  el status.
+
+## Plantillas de aviso a asesoras: SIEMPRE UTILITY
+
+- Desde el 5-oct-2026 Meta aceptaba (HTTP 200) los avisos de Ori a las asesoras y
+  **no los entregaba**: `nuevo_lead_oxford` fue recategorizada de UTILITY a
+  MARKETING y `_sla` nació MARKETING. 0 de ~64 avisos entregados en 5 semanas, sin
+  un solo error en logs. Se descubrió con `pricing_analytics` de la WABA (Meta
+  solo cobra MARKETING entregado). Prod usa `nuevo_lead_oxford_util` (UTILITY)
+  vía `OXED_ADVISOR_SLA_TEMPLATE`; el default de `OXED_ADVISOR_TEMPLATE_NAME`
+  también es la `_util`.
+- `services/template-health.service.js` + `jobs/template-health.job.js`: al
+  arrancar y cada 6 h revisa en Meta que la plantilla que la app usa HOY siga
+  UTILITY + APPROVED; si no, log ERROR "ALERTA PLANTILLA". Manual:
+  `node scripts/check-advisor-templates.mjs` (exit 1 si hay alerta).
+- Nunca editar una plantilla aprobada (vuelve a revisión). Plantilla nueva →
+  someter como UTILITY con `allow_category_change: false` (borrador en
+  `docs/oxford/plantilla-nuevo-lead-oxford-utility.json`).
+
+## ATIENDO, avisos y reparto de Ori (fix/ori-atiendo-y-avisos)
+
+- **Gana la primera que confirme.** `ATIENDO #` lo puede mandar la asignada actual
+  o cualquiera a la que ya se le avisó de ese lead (`triedAdvisorKeys`), también si
+  el lead quedó en `sin_confirmar`. El update es condicional a `confirmedAt: null`;
+  a quien llega después se le contesta "El lead #N ya lo atiende X". No volver a
+  exigir `assignedAdvisor === asesora`: así se rechazó un ATIENDO real en prod.
+- El intento de quien tenía el lead en espera queda `cedido` ("lo tomó otra
+  asesora"), no `no_confirmo`: no cuenta en "# reasignado por no confirmar".
+- **Bitácora** `advisor_commands` (`services/advisor-command.service.js`): todo
+  mensaje de una asesora, en ambos bots, con el resultado (aceptado/rechazado +
+  motivo). De ahí sale `isAdvisorWindowOpen` (¿escribió en las últimas 24h?).
+- **Avisos informativos = texto libre y solo con ventana abierta** ("también se
+  ofreció a X", "ya lo atiende X"). Nunca una plantilla por eso: sería un mensaje
+  de pago por eslabón. Con la ventana cerrada no se manda nada.
+- El aviso de reasignación lleva la **zona del prospecto** (`lead.zoneKey`), no la
+  del equipo de la asesora de apoyo; si es de otro equipo, el motivo lo aclara.
+- `pickAdvisorRoundRobin` reparte por **primera asignación** (`advisorAttempts[0]`).
+  Contar `assignedAdvisor` no sirve: la cadena lo sobreescribe y siempre ganaba la
+  primera de la lista.
+- `OXED_ADVISOR_DISPATCH_MODE=chain|team` (default `chain`). `team` avisa a todo el
+  equipo de la zona a la vez; pendiente de decisión del cliente. En `team`,
+  `assignedAdvisor` es solo la etiqueta visible hasta que alguien confirma.
+- `message.service.storableContentType`: sticker/video/ubicación/desconocido se
+  guardan como `text`; el enum `ContentType` no los acepta y el turno se caía.
 
 ## Recordatorio de "Menú" (Ori y Miri)
 

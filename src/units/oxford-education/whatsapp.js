@@ -92,6 +92,20 @@ async function sendMessage(payload) {
       messageId: response.data.messages?.[0]?.id,
     }, 'Oxford WhatsApp message sent');
 
+    // Diagnóstico de entrega a asesoras (nov-2026): las plantillas se registran a
+    // nivel info con el "to" literal, el wamid y el wa_id que resolvió Meta, para
+    // cruzarlos con el webhook de status. Solo logging; no cambia el envío.
+    if (payload.type === 'template') {
+      logger.info({
+        unit: 'oxford_education',
+        to: payload.to,
+        template: payload.template?.name,
+        messageId: response.data.messages?.[0]?.id,
+        messageStatus: response.data.messages?.[0]?.message_status,
+        contacts: response.data.contacts,
+      }, 'Oxford template accepted by Meta');
+    }
+
     return response.data;
   } catch (error) {
     logger.error({

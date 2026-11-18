@@ -4,6 +4,7 @@ import { sendTextMessage } from '../../core/whatsapp/client.js';
 import * as leadService from '../../services/lead.service.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { advisorByPhone } from './advisors.js';
+import { recordAdvisorCommand } from '../../services/advisor-command.service.js';
 
 /**
  * Los asesores autorizados viven en ./advisors.js (fuente única, igual que
@@ -33,15 +34,26 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
   const cmdLogger = logger.child({ advisor: advisor.nombre, command: text });
   cmdLogger.info('Received advisor command');
 
+  // Bitácora: todo mensaje de una asesora queda guardado con lo que se le
+  // contestó (services/advisor-command.service.js).
+  const entry = { command: 'OTRO', ticketNumber: null, outcome: 'ignorado', detail: null };
+
   try {
     if (text === 'PENDIENTES' || text === 'PENDIENTE') {
+      entry.command = 'PENDIENTES';
+      entry.outcome = 'info';
       await handlePendientes(advisor, message.from, phoneNumberId, cmdLogger);
 
     } else if (text.startsWith('LISTO ') || text === 'LISTO') {
+      entry.command = 'LISTO';
       const ticketNumber = parseTicket(text, 'LISTO');
+      entry.ticketNumber = ticketNumber;
       await handleListo(ticketNumber, advisor, message.from, phoneNumberId, cmdLogger);
+      entry.outcome = 'aceptado';
 
     } else if (text.startsWith('REGRESA ') || text === 'REGRESA') {
+      entry.command = 'REGRESA';
+      entry.outcome = 'info';
       // No-op: con el handoff tibio Miri nunca se silencia, no hay nada que "regresar".
       await sendTextMessage(
         message.from,
@@ -50,6 +62,8 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
       );
 
     } else if (text === 'AYUDA' || text === 'HELP' || text === 'HOLA') {
+      entry.command = 'AYUDA';
+      entry.outcome = 'info';
       await sendTextMessage(message.from, getHelpMessage(advisor), phoneNumberId);
 
     } else {
@@ -58,11 +72,20 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
 
   } catch (err) {
     if (err instanceof UserError) {
+      entry.outcome = 'rechazado';
+      entry.detail = err.message;
       await sendTextMessage(message.from, `❌ ${err.message}`, phoneNumberId);
     } else {
+      entry.outcome = 'error';
+      entry.detail = err?.message || String(err);
       cmdLogger.error({ err }, 'Unexpected error in advisor command');
       await sendTextMessage(message.from, '❌ Error interno. Intenta de nuevo.', phoneNumberId);
     }
+  } finally {
+    await recordAdvisorCommand({
+      unit: 'travel', advisor, advisorPhone: advisor.phone, text: raw,
+      ...entry, waMessageId: message.id || null,
+    });
   }
 }
 

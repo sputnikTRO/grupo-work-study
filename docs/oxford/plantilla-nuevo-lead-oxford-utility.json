@@ -1,0 +1,29 @@
+{
+  "_nota": "BORRADOR — NO SOMETIDO. Versión UTILITY de nuevo_lead_oxford_sla (mismo cuerpo, mismas 8 variables). Para someterla: quitar las claves que empiezan con '_' y hacer POST a https://graph.facebook.com/<WA_API_VERSION>/<OXED_WABA_ID>/message_templates con OXED_ACCESS_TOKEN. Cuando Meta la apruebe, basta con setear OXED_ADVISOR_SLA_TEMPLATE=nuevo_lead_oxford_util en Railway (sin cambios de código).",
+  "_por_que": "nuevo_lead_oxford y nuevo_lead_oxford_sla están como MARKETING. Meta limita cuántas plantillas de marketing recibe cada usuario y, cuando aplica el límite, ACEPTA el envío (HTTP 200) y lo descarta después con el error 131049 por webhook de status. Las de Travel (nuevo_lead_travel, nuevo_lead_travel_v2) tienen la misma forma y están aprobadas como UTILITY.",
+  "_allow_category_change": "false a propósito: si Meta considera que el contenido es marketing, la RECHAZA en vez de recategorizarla en silencio a MARKETING (que es justo lo que se quiere evitar).",
+  "name": "nuevo_lead_oxford_util",
+  "language": "es_MX",
+  "category": "UTILITY",
+  "allow_category_change": false,
+  "components": [
+    {
+      "type": "BODY",
+      "text": "🔔 Nuevo lead Oxford #{{1}}\n\n👤 {{2}} ({{3}})\n🏫 {{4}}\n📚 Producto: {{5}}\n📍 Zona: {{6}}\n📱 {{7}}\n\n📌 {{8}}\n\nEl prospecto sigue con Ori para dudas generales; tú tomas precio y cierre. Responde ATIENDO {{1}} para confirmar que ya lo estás atendiendo — si no confirmas pronto, se reasignará a otra asesora. Responde LISTO {{1}} cuando lo atiendas.",
+      "example": {
+        "body_text": [
+          [
+            "47",
+            "María López",
+            "institución",
+            "Colegio Ejemplo",
+            "Oxford TCC",
+            "Guadalajara, Jalisco (zona CENTRO)",
+            "33 1234 5678",
+            "Solicita cotización para 120 alumnos"
+          ]
+        ]
+      }
+    }
+  ]
+}
