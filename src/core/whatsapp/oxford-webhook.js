@@ -81,6 +81,23 @@ async function processOxfordChange(value) {
     return;
   }
 
+  // Diagnóstico de entrega (nov-2026): cada status que manda Meta (sent /
+  // delivered / read / failed) se registra completo, con errors[]. Solo logging;
+  // antes este webhook ni leía value.statuses.
+  for (const st of value.statuses || []) {
+    logger.info({
+      unit: 'oxford_education',
+      statusWebhook: true,
+      id: st.id,
+      recipient_id: st.recipient_id,
+      status: st.status,
+      timestamp: st.timestamp,
+      conversation: st.conversation,
+      pricing: st.pricing,
+      errors: st.errors,
+    }, st.status === 'failed' ? 'Oxford message status FAILED' : 'Oxford message status');
+  }
+
   // Status de entrega (sent/delivered/read/failed) de las notificaciones a
   // asesoras. Antes este webhook ni los leía. applyStatusUpdates nunca lanza.
   await applyStatusUpdates(value.statuses);
