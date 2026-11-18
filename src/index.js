@@ -10,6 +10,7 @@ import { registerAdminRoutes } from './api/admin.routes.js';
 import * as sheetsSyncJob from './jobs/sheets-sync.job.js';
 import * as followUpJob from './jobs/followup.job.js';
 import * as advisorSlaJob from './jobs/advisor-sla.job.js';
+import * as templateHealthJob from './jobs/template-health.job.js';
 
 /**
  * Main application entry point
@@ -72,6 +73,7 @@ fastify.get('/health', async (request, reply) => {
     const syncJobStatus = sheetsSyncJob.getSyncJobStatus();
     const followUpJobStatus = followUpJob.getFollowUpJobStatus();
     const advisorSlaJobStatus = advisorSlaJob.getAdvisorSlaJobStatus();
+    const templateHealthJobStatus = templateHealthJob.getTemplateHealthJobStatus();
 
     return {
       status: 'ok',
@@ -83,6 +85,7 @@ fastify.get('/health', async (request, reply) => {
         sheetsSync: syncJobStatus,
         followUp: followUpJobStatus,
         oxfordAdvisorSla: advisorSlaJobStatus,
+        advisorTemplateHealth: templateHealthJobStatus,
       },
     };
   } catch (error) {
@@ -137,6 +140,8 @@ const shutdown = async (signal) => {
 
     advisorSlaJob.stopAdvisorSlaJob();
     logger.info('Oxford advisor SLA job stopped');
+
+    templateHealthJob.stopTemplateHealthJob();
 
     // Stop accepting new requests
     await fastify.close();
@@ -200,6 +205,9 @@ const start = async () => {
     // confirmación de asesor tras OXED_ADVISOR_SLA_MINUTES)
     advisorSlaJob.startAdvisorSlaJob();
     logger.info('Oxford advisor SLA job started');
+
+    // Chequeo de plantillas de aviso a asesoras (UTILITY + APPROVED en Meta), cada 6 h.
+    templateHealthJob.startTemplateHealthJob();
 
     logger.info('All background jobs started successfully');
 
