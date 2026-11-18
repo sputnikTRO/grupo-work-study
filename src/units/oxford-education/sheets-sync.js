@@ -1,6 +1,8 @@
 import { appendRow, updateRow, findRowByColumn, sheetExists, createSheet, updateRange, readRange } from '../../core/sheets/client.js';
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
+import prisma from '../../core/database/client.js';
+import { cdmxCell } from '../../core/sheets/format.js';
 
 /**
  * Oxford Education — Google Sheets lead logging
@@ -44,6 +46,11 @@ const HEADERS = [
   'Minutos de respuesta',     // P - NUEVA: responseSeconds del intento que confirmó, en minutos
   '# Reasignaciones',         // Q - NUEVA: reassignCount
   'Asesoras intentadas',      // R - NUEVA: cadena completa del rastro (advisorAttempts)
+  // ── fix/sheets-sync — agregadas AL FINAL para no mover nada de lo que el equipo ya usa ──
+  'Asesora original',         // S - a quién se le asignó primero (advisorAttempts[0])
+  'Asesora actual',           // T - quién lo tiene hoy (= M, que se conserva por compatibilidad)
+  'Estado del ticket',        // U - en palabras: esperando / en atención / atendido / sin confirmar
+  'Actualizado (CDMX)',       // V - cuándo se escribió esta fila por última vez
 ];
 
 // Map enum-ish product codes to human labels for the sheet.
@@ -85,6 +92,32 @@ export function wasHandedOff(lead, handoffOccurred = false) {
     || HANDED_OFF_STATUSES.includes(lead?.status)
     || (lead?.tags || []).includes('derivado_travel'),
   );
+}
+
+/**
+ * Estado del ticket en palabras, para la columna U. La columna M ("Asesor
+ * asignado") muestra a quien tiene el lead HOY — tras una cadena de SLA agotada
+ * es la última a la que se le avisó, lo que hacía parecer que ella lo atendía.
+ * Esta columna dice explícitamente qué pasó.
+ *
+ * @param {Object} lead - OxfordLead
+ * @returns {string}
+ */
+export function ticketStatusLabel(lead) {
+  const asesora = lead?.assignedAdvisor;
+  if ((lead?.tags || []).includes('derivado_travel')) return 'Derivado al equipo de viajes';
+  switch (lead?.status) {
+    case 'derivado_asesor':
+      return asesora ? `Esperando confirmación de ${asesora}` : 'Esperando confirmación';
+    case 'en_atencion':
+      return asesora ? `En atención — ${asesora} confirmó` : 'En atención';
+    case 'atendido_asesor':
+      return asesora ? `Atendido — ${asesora} lo cerró` : 'Atendido';
+    case 'sin_confirmar':
+      return `SIN CONFIRMAR — nadie respondió${asesora ? ` (última avisada: ${asesora})` : ''}`;
+    default:
+      return asesora ? `Asignado a ${asesora}` : 'Sin derivar';
+  }
 }
 
 /**
@@ -135,12 +168,12 @@ function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }
   // del rastro (assignedAt se sobreescribe en cada reasignación; advisorAttempts[0]
   // no se toca nunca), a diferencia de "Asesor asignado" (M) que sí es el actual/final.
   const attempts = Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts : [];
-  const firstAssignedAt = attempts[0]?.assignedAt || '';
+  const firstAssignedAt = cdmxCell(attempts[0]?.assignedAt);
   const responseMinutes = lead.responseSeconds != null ? (lead.responseSeconds / 60).toFixed(1) : '';
 
   return [
     lead.id?.toString() || '',                                            // A ID
-    (lead.updatedAt ? new Date(lead.updatedAt) : new Date()).toISOString(), // B Timestamp
+    cdmxCell(lead.updatedAt || new Date()),                               // B Timestamp (hora CDMX)
     // Leading apostrophe forces Sheets to keep the phone as text (preserves "+").
     contact.phone ? `'${contact.phone}` : '',                             // C Teléfono
     lead.fullName || contact.name || '',                                  // D Nombre
@@ -154,10 +187,14 @@ function formatLeadRow(lead, contact, conversation, { handoffOccurred, summary }
     [lead.municipality, lead.state].filter(Boolean).join(', '),          // L Zona (Estado/Municipio)
     lead.assignedAdvisor || '',                                           // M Asesor asignado (= final/actual)
     firstAssignedAt,                                                      // N Hora asignación inicial
-    lead.confirmedAt ? new Date(lead.confirmedAt).toISOString() : '',    // O Hora confirmación
+    cdmxCell(lead.confirmedAt),                                           // O Hora confirmación (hora CDMX)
     responseMinutes,                                                      // P Minutos de respuesta
     (lead.reassignCount ?? 0).toString(),                                 // Q # Reasignaciones
     formatAttemptsChain(attempts),                                        // R Asesoras intentadas
+    attempts[0]?.advisor || lead.assignedAdvisor || '',                   // S Asesora original
+    lead.assignedAdvisor || '',                                           // T Asesora actual
+    ticketStatusLabel(lead),                                              // U Estado del ticket
+    cdmxCell(new Date()),                                                 // V Actualizado (hora CDMX)
   ];
 }
 
@@ -227,8 +264,17 @@ export async function syncOxfordLeadToSheet(lead, contact, conversation, opts = 
   try {
     await ensureSheet();
 
-    const rowData = formatLeadRow(lead, contact, conversation, opts);
     const existingRow = await findRowByColumn(SPREADSHEET_ID, SHEET_NAME, COLUMNS.ID, lead.id?.toString());
+
+    // Los eventos sin conversación (menú determinístico, reasignación, ATIENDO,
+    // LISTO) no traen resumen: se conserva el que ya está en la fila en vez de
+    // borrarlo.
+    let options = opts;
+    if (existingRow && opts.summary == null) {
+      const previa = await readRange(SPREADSHEET_ID, `'${SHEET_NAME}'!K${existingRow}:K${existingRow}`).catch(() => []);
+      options = { ...opts, summary: previa?.[0]?.[0] || '' };
+    }
+    const rowData = formatLeadRow(lead, contact, conversation, options);
 
     if (existingRow) {
       await updateRow(SPREADSHEET_ID, SHEET_NAME, existingRow, rowData);
@@ -240,5 +286,25 @@ export async function syncOxfordLeadToSheet(lead, contact, conversation, opts = 
   } catch (error) {
     // Never break the conversation flow on a logging failure.
     log.error({ err: error }, 'Error syncing Oxford lead to Google Sheets - continuing anyway');
+  }
+}
+
+/**
+ * Sincroniza la fila de un lead leyendo su estado ACTUAL de la base. Para los
+ * eventos que no pasan por el camino LLM y antes no actualizaban la hoja: el
+ * handoff por menú determinístico, cada reasignación del SLA, ATIENDO y LISTO.
+ *
+ * Best-effort como todo lo de Sheets: nunca lanza.
+ *
+ * @param {string} leadId
+ * @param {{handoffOccurred?: boolean}} [opts]
+ */
+export async function syncOxfordLeadById(leadId, opts = {}) {
+  try {
+    const lead = await prisma.oxfordLead.findUnique({ where: { id: leadId }, include: { contact: true } });
+    if (!lead || !lead.contact) return;
+    await syncOxfordLeadToSheet(lead, lead.contact, null, opts);
+  } catch (error) {
+    logger.error({ err: error, unit: 'oxford_education', leadId }, 'Error loading Oxford lead for Sheets sync - continuing anyway');
   }
 }

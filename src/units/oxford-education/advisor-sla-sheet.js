@@ -2,6 +2,8 @@ import { readSheet, appendRow, updateRow, findRowByColumn, sheetExists, createSh
 import { env } from '../../config/env.js';
 import logger from '../../utils/logger.js';
 import { ADVISORS } from './advisor-zones.js';
+import prisma from '../../core/database/client.js';
+import { cdmxCell, formatCdmx } from '../../core/sheets/format.js';
 
 /**
  * Oxford Education — Visibilidad de tiempos de asesora (feature/ori-advisor-sla)
@@ -34,7 +36,7 @@ const DETAIL_SHEET_NAME = 'Tiempos asesores';
 const SUMMARY_SHEET_NAME = 'Resumen asesoras';
 
 // ── "Tiempos asesores" (detalle, upsert por Ticket) ─────────────────────────
-const DETAIL_COLUMNS = { TICKET: 0 };
+const DETAIL_COLUMNS = { TICKET: 0, LEAD_ID: 10 };
 const DETAIL_HEADERS = [
   'Ticket',                       // A - upsert key
   'Fecha/hora del lead',          // B - lead.createdAt
@@ -45,7 +47,11 @@ const DETAIL_HEADERS = [
   'Minutos hasta confirmar',      // G - desde SU asignación, no desde el inicio de la cadena
   '# Reasignaciones',             // H
   'Asesoras intentadas',          // I - cadena completa con resultado
-  'Estado final',                 // J - Atendido | Sin confirmar
+  'Estado final',                 // J - Atendido | Sin confirmar | Esperando confirmación
+  // ── fix/sheets-sync — agregadas AL FINAL (no se mueve ninguna columna existente) ──
+  'Lead ID',                      // K - clave real del upsert: los tickets se reinician con un reset, el ID no
+  'ATIENDO rechazados',           // L - quién respondió ATIENDO y se le rechazó, con hora y motivo
+  'Actualizado (CDMX)',           // M - última escritura de la fila
 ];
 
 // ── "Resumen asesoras" (recalculado desde el detalle, upsert por Asesora) ───
@@ -134,14 +140,19 @@ async function ensureSummarySheet() {
  * campos del evento (confirmación o terminal) — ver los dos call sites en
  * advisor-commands.js (ATIENDO) y advisor-sla.js (terminal sin_confirmar).
  */
-function formatDetailRow(lead, contact) {
+function formatDetailRow(lead, contact, rechazados = '') {
   const attempts = Array.isArray(lead.advisorAttempts) ? lead.advisorAttempts : [];
   const zona = [lead.municipality, lead.state].filter(Boolean).join(', ');
   const zonaDupla = zona ? (lead.zoneKey ? `${zona} (zona ${lead.zoneKey})` : zona) : (lead.zoneKey ? `(zona ${lead.zoneKey})` : '');
   const producto = lead.primaryProductLabel || (lead.primaryProduct ? (PRODUCT_LABELS[lead.primaryProduct] || lead.primaryProduct) : '');
   const esSinConfirmar = lead.status === 'sin_confirmar';
-  const asesoraQueAtendio = esSinConfirmar ? '—' : (lead.assignedAdvisor || '—');
-  const minutos = !esSinConfirmar && lead.responseSeconds != null ? (lead.responseSeconds / 60).toFixed(1) : '';
+  // Esperando = derivado y nadie ha confirmado todavía (la fila ahora se escribe
+  // también en cada reasignación, no solo al final).
+  const esperando = lead.status === 'derivado_asesor' && !lead.confirmedAt;
+  const atendido = !esSinConfirmar && !esperando;
+  const asesoraQueAtendio = atendido ? (lead.assignedAdvisor || '—') : '—';
+  const minutos = atendido && lead.responseSeconds != null ? (lead.responseSeconds / 60).toFixed(1) : '';
+  const estado = esSinConfirmar ? 'Sin confirmar' : esperando ? `Esperando confirmación de ${lead.assignedAdvisor || '—'}` : 'Atendido';
 
   return [
     // Prefijo con apóstrofo (mismo truco que el teléfono en sheets-sync.js) para
@@ -149,7 +160,7 @@ function formatDetailRow(lead, contact) {
     // consistentemente contra el mismo tipo en cada corrida (evita que un
     // ticket numérico se lea de vuelta como number y rompa el match del upsert).
     `'${lead.ticketNumber}`,
-    lead.createdAt ? new Date(lead.createdAt).toISOString() : '',
+    cdmxCell(lead.createdAt),                 // hora CDMX
     lead.fullName || contact?.name || contact?.phone || '',
     producto,
     zonaDupla,
@@ -157,14 +168,56 @@ function formatDetailRow(lead, contact) {
     minutos,
     (lead.reassignCount ?? 0).toString(),
     formatAttemptsChain(attempts),
-    esSinConfirmar ? 'Sin confirmar' : 'Atendido',
+    estado,
+    lead.id || '',
+    rechazados,
+    cdmxCell(new Date()),
   ];
+}
+
+/**
+ * ATIENDO que el bot rechazó para este ticket (bitácora advisor_commands), como
+ * texto: "Danna Paola 11-12 08:57 (El lead #5 ya lo atiende Rosaura Pinto.)".
+ * Solo cuenta los posteriores a la creación del lead: los tickets se reinician
+ * con un reset y un número viejo no debe mezclarse. Nunca lanza.
+ */
+async function rejectedAtiendoText(lead) {
+  try {
+    if (!Number.isInteger(lead.ticketNumber)) return '';
+    const rows = await prisma.advisorCommand.findMany({
+      where: {
+        unit: 'oxford_education', command: 'ATIENDO', outcome: 'rechazado', ticketNumber: lead.ticketNumber,
+        ...(lead.createdAt ? { createdAt: { gte: new Date(lead.createdAt) } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((r) => `${r.advisorName} ${formatCdmx(r.createdAt).slice(5)}${r.detail ? ` (${r.detail})` : ''}`).join(' · ');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Busca la fila del lead: primero por Lead ID (columna K). Las filas anteriores a
+ * fix/sheets-sync no lo tienen: se cae al ticket, pero solo si esa fila no
+ * pertenece ya a OTRO lead (ticket reutilizado tras un reset).
+ */
+async function findDetailRow(lead) {
+  if (lead.id) {
+    const byId = await findRowByColumn(SPREADSHEET_ID, DETAIL_SHEET_NAME, DETAIL_COLUMNS.LEAD_ID, String(lead.id));
+    if (byId) return byId;
+  }
+  const byTicket = await findRowByColumn(SPREADSHEET_ID, DETAIL_SHEET_NAME, DETAIL_COLUMNS.TICKET, String(lead.ticketNumber));
+  if (!byTicket) return null;
+  const owner = await readRange(SPREADSHEET_ID, `'${DETAIL_SHEET_NAME}'!K${byTicket}:K${byTicket}`).catch(() => []);
+  const ownerId = owner?.[0]?.[0];
+  return !ownerId || ownerId === String(lead.id) ? byTicket : null;
 }
 
 async function upsertDetailRow(lead, contact) {
   await ensureDetailSheet();
-  const rowData = formatDetailRow(lead, contact);
-  const existingRow = await findRowByColumn(SPREADSHEET_ID, DETAIL_SHEET_NAME, DETAIL_COLUMNS.TICKET, String(lead.ticketNumber));
+  const rowData = formatDetailRow(lead, contact, await rejectedAtiendoText(lead));
+  const existingRow = await findDetailRow(lead);
   if (existingRow) {
     await updateRow(SPREADSHEET_ID, DETAIL_SHEET_NAME, existingRow, rowData);
   } else {

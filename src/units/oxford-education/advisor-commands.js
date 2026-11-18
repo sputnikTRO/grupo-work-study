@@ -8,6 +8,7 @@ import { advisorByPhone, ADVISORS } from './advisor-zones.js';
 import { buildClaimFields, canAdvisorClaim, isLateClaim, CLAIMABLE_STATUSES } from './advisor-sla.js';
 import { recordAdvisorCommand, isAdvisorWindowOpen } from '../../services/advisor-command.service.js';
 import { recordAdvisorSlaOutcome } from './advisor-sla-sheet.js';
+import { syncOxfordLeadById } from './sheets-sync.js';
 
 /**
  * Oxford Education — comandos de asesor por WhatsApp
@@ -113,6 +114,17 @@ export async function handleOxfordAdvisorCommand(message) {
       unit: 'oxford_education', advisor, advisorPhone: advisor.phone, text: raw,
       ...entry, waMessageId: message.id || null,
     });
+ 
+    // Un ATIENDO rechazado también debe verse en "Tiempos asesores" (columna
+    // "ATIENDO rechazados"): antes ese intento no aparecía en ningún lado.
+    if (entry.command === 'ATIENDO' && entry.outcome === 'rechazado' && Number.isInteger(entry.ticketNumber)) {
+      try {
+        const lead = await prisma.oxfordLead.findUnique({ where: { ticketNumber: entry.ticketNumber }, include: { contact: true } });
+        if (lead && lead.assignedAdvisor) await recordAdvisorSlaOutcome(lead, lead.contact);
+      } catch (sheetErr) {
+        cmdLog.error({ err: sheetErr }, 'No se pudo reflejar el ATIENDO rechazado en Sheets');
+      }
+    }
   }
 }
 
@@ -212,6 +224,7 @@ async function handleAtiendo(ticketNumber, advisor, replyTo, cmdLog) {
 
   // Visibilidad en Sheets ("Tiempos asesores" + "Resumen asesoras"). Best-effort.
   await recordAdvisorSlaOutcome({ ...lead, ...fields, assignedAdvisor: advisor.nombre }, lead.contact);
+  await syncOxfordLeadById(lead.id); // "Leads Oxford": asesora actual + estado
 
   return { ticketNumber: ticket, outcome: 'aceptado', detail: late ? 'ATIENDO tardío (el lead ya se había reasignado o estaba sin confirmar)' : null };
 }
@@ -287,6 +300,7 @@ async function handleListo(ticketNumber, advisor, replyTo, cmdLog) {
   const lead = await findLeadByTicket(ticketNumber, advisor);
 
   await oxfordLeadService.updateOxfordLead(lead.id, { status: 'atendido_asesor' });
+  await syncOxfordLeadById(lead.id); // "Leads Oxford": estado "Atendido"
 
   const name = lead.fullName || lead.contact.name || lead.contact.phone;
   await sendTextMessage(

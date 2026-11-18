@@ -11,7 +11,7 @@ import { sendTextMessage, markMessageAsRead } from './whatsapp.js';
 import { buildFullPrompt } from './prompts.js';
 import { buildOxfordKnowledge, buildFlowKnowledge } from './knowledge.js';
 import { parseActions, cleanResponse, executeActions } from './actions.js';
-import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
+import { syncOxfordLeadToSheet, syncOxfordLeadById, deriveTemperature } from './sheets-sync.js';
 import { tryDeterministicFlow, showMainMenu, FREEFORM } from './flow-engine.js';
 import { createNudgeGuard } from '../../core/flow/nudge.js';
 
@@ -119,6 +119,13 @@ export async function handleMessage(message, phoneNumberId) {
         await messageService.createOutbound(conv.id, reminder);
         await store.addMessage(conv.id, 'assistant', reminder);
       }
+    }
+
+    // Los turnos que resolvió el menú determinístico no pasan por processWithAI
+    // (que es quien sincronizaba la hoja): un handoff aceptado desde el menú
+    // dejaba la fila sin asesora ni derivación hasta el siguiente mensaje.
+    if (flowResult.handled) {
+      await syncOxfordLeadById(lead.id, { handoffOccurred: Boolean(flowResult.handoffOccurred) });
     }
 
     // Si en este turno salió un recordatorio (de donde sea), queda registrado

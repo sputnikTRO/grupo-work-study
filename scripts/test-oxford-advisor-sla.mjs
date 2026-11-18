@@ -94,6 +94,13 @@ const fakeSheetsClient = {
     return {};
   },
   async readRange(_id, range) {
+    // Celda suelta, p.ej. 'Leads Oxford'!K5:K5 (fix/sheets-sync la usa para conservar el resumen).
+    const cell = range.match(/^'([^']+)'!([A-Z]+)(\d+):[A-Z]+\d+$/);
+    if (cell) {
+      const row = (SHEETS.get(cell[1]) || [])[parseInt(cell[3], 10) - 1];
+      const v = row ? row[colLetterToIndex(cell[2])] : undefined;
+      return v === undefined || v === '' ? [] : [[v]];
+    }
     const m = range.match(/^'([^']+)'!(\d+):(\d+)$/);
     if (!m) return [];
     const [, name, r1] = m;
@@ -178,6 +185,9 @@ const fakePrisma = {
     async findFirst({ where = {} } = {}) {
       return COMMANDS.filter((r) => matchesWhere(r, where)).sort((a, b) => b.createdAt - a.createdAt)[0] || null;
     },
+    async findMany({ where = {} } = {}) {
+      return COMMANDS.filter((r) => matchesWhere(r, where)).sort((a, b) => a.createdAt - b.createdAt);
+    },
   },
 };
 const COMMANDS = [];
@@ -201,6 +211,7 @@ const envMock = {
   OXED_ADVISOR_SLA_MINUTES: SLA_MINUTES,
   OXED_ADVISOR_TEMPLATE_NAME: 'nuevo_lead_oxford',
   OXED_ADVISOR_TEMPLATE_LANG: 'es_MX',
+  OXED_LEADS_SHEET_NAME: 'Leads Oxford', // fix/sheets-sync: sheets-sync.js REAL escribe aquí
   OXED_ADVISOR_SLA_TEMPLATE: '', // vacía por default — igual que en prod hasta que Meta apruebe
 };
 mock.module('../src/config/env.js', { namedExports: { env: envMock } });
@@ -817,6 +828,28 @@ resetDB();
   assert.ok(resumen && Number(resumen[1]) >= 1, `Resumen: Rosaura con al menos 1 lead atendido (fue: ${resumen?.[1]})`);
   ok('Lead nocturno → aviso inmediato, sin reasignar de noche, ATIENDO 8:57 aceptado; DB, bitácora y Sheet coinciden');
 
+  // fix/sheets-sync — "Leads Oxford" se actualiza con el ATIENDO (antes solo al
+  // siguiente mensaje del prospecto) y dice quién es la original, la actual y el estado.
+  const H = SHEETS.get('Leads Oxford')[0];
+  const col = (name) => H.indexOf(name);
+  const filaLead = SHEETS.get('Leads Oxford').find((r) => r[0] === lead.id);
+  assert.ok(filaLead, 'el lead quedó en "Leads Oxford" sin que el prospecto volviera a escribir');
+  assert.deepStrictEqual(H.slice(0, 18), ['ID', 'Timestamp', 'Teléfono', 'Nombre', 'Colegio/Organización', 'Rol/Tipo de contacto', 'Producto de interés', 'No. de alumnos', 'Temperatura', 'Derivación', 'Resumen conversación', 'Zona (Estado/Municipio)', 'Asesor asignado', 'Hora asignación inicial', 'Hora confirmación', 'Minutos de respuesta', '# Reasignaciones', 'Asesoras intentadas'], 'las 18 columnas que el equipo ya usa NO se mueven');
+  assert.deepStrictEqual(H.slice(18), ['Asesora original', 'Asesora actual', 'Estado del ticket', 'Actualizado (CDMX)'], 'las nuevas van al final');
+  assert.strictEqual(filaLead[col('Derivación')], 'Sí');
+  assert.strictEqual(filaLead[col('Asesora original')], 'Rosaura Pinto');
+  assert.strictEqual(filaLead[col('Asesora actual')], 'Rosaura Pinto');
+  assert.strictEqual(filaLead[col('Estado del ticket')], 'En atención — Rosaura Pinto confirmó');
+  assert.strictEqual(filaLead[col('Hora asignación inicial')], '2026-11-09 21:46', 'hora de CDMX, no UTC');
+  assert.match(filaLead[col('Hora confirmación')], /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  assert.ok(![filaLead[col('Timestamp')], filaLead[col('Hora asignación inicial')], filaLead[col('Hora confirmación')]].some((v) => /T.*Z$/.test(v)), 'ninguna fecha en UTC');
+  // "Tiempos asesores": columnas nuevas al final, fecha en CDMX y clave por Lead ID.
+  const TH = SHEETS.get('Tiempos asesores')[0];
+  assert.deepStrictEqual(TH.slice(10), ['Lead ID', 'ATIENDO rechazados', 'Actualizado (CDMX)']);
+  assert.strictEqual(fila[10], lead.id);
+  assert.ok(!/T.*Z$/.test(fila[1]), '"Fecha/hora del lead" en hora CDMX');
+  ok('Sheet: original/actual/estado al final, fechas en hora CDMX, Lead ID como clave');
+
   // Contraste: con el reloj 24/7 (como estaba en prod) el mismo lead se le quita en la madrugada.
   delete envMock.OXED_ADVISOR_SLA_HOURS;
   const lead2 = makeLead({ zoneKey: 'CENTRO', state: 'Guanajuato' });
@@ -827,6 +860,74 @@ resetDB();
   await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead2.ticketNumber}`));
   assert.strictEqual(lead2.assignedAdvisor, 'Rosaura Pinto', 'y aun así su ATIENDO de la mañana ya no se rechaza');
   ok('Contraste 24/7: aunque se haya reasignado de noche, el ATIENDO de Rosaura se acepta');
+}
+
+console.log('\n== H. fix/sheets-sync: las hojas siguen la cadena en vivo ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  nextId = 1000; // IDs propios: resetDB() los reinicia y las hojas simuladas conservan filas de escenarios previos
+  const lead = makeLead({ zoneKey: 'CENTRO', state: 'Puebla', fullName: 'Prospecto En Cadena' });
+  assignAdvisor(lead, 'rosaura', overdueAssignAt());
+  Object.assign(lead, { status: 'derivado_asesor' });
+  const LO = () => SHEETS.get('Leads Oxford');
+  const c = (name) => LO()[0].indexOf(name);
+  const filaLO = () => LO().find((r) => r[0] === lead.id);
+  const filaT = () => SHEETS.get('Tiempos asesores').find((r) => r[10] === lead.id);
+
+  // Reasignación: antes ninguna hoja se enteraba hasta el final de la cadena.
+  await processExpiredAssignments(new Date());
+  assert.strictEqual(lead.assignedAdvisor, 'Danna Paola');
+  assert.strictEqual(filaLO()[c('Asesora original')], 'Rosaura Pinto');
+  assert.strictEqual(filaLO()[c('Asesora actual')], 'Danna Paola');
+  assert.strictEqual(filaLO()[c('Asesor asignado')], 'Danna Paola', 'la columna M de siempre se conserva (= actual)');
+  assert.strictEqual(filaLO()[c('Estado del ticket')], 'Esperando confirmación de Danna Paola');
+  assert.strictEqual(String(filaLO()[c('# Reasignaciones')]), '1');
+  assert.strictEqual(filaT()[9], 'Esperando confirmación de Danna Paola');
+  assert.strictEqual(filaT()[5], '—', 'nadie ha atendido todavía');
+  ok('Reasignación → "Leads Oxford" y "Tiempos asesores" muestran original, actual y "esperando"');
+
+  // Un resumen que ya estaba en la fila no se borra con los eventos sin conversación.
+  filaLO()[c('Resumen conversación')] = 'Pidió precio de Oxford TCC para 120 alumnos';
+  // ATIENDO rechazado (Balam nunca recibió el aviso) → queda en la hoja.
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.balam.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.match(filaT()[11], /Balam Hernández .*no está asignado a ti/, '"ATIENDO rechazados" registra quién y por qué');
+  ok('ATIENDO rechazado → aparece en "Tiempos asesores" (columna ATIENDO rechazados)');
+
+  // ATIENDO tardío de Rosaura → hojas al día.
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead.ticketNumber}`));
+  assert.strictEqual(filaLO()[c('Asesora actual')], 'Rosaura Pinto');
+  assert.strictEqual(filaLO()[c('Estado del ticket')], 'En atención — Rosaura Pinto confirmó');
+  assert.match(filaLO()[c('Asesoras intentadas')], /Rosaura Pinto \(confirmó\) → Danna Paola \(lo tomó otra asesora\)/);
+  assert.strictEqual(filaLO()[c('Resumen conversación')], 'Pidió precio de Oxford TCC para 120 alumnos', 'el resumen previo se conserva');
+  assert.deepStrictEqual([filaT()[5], filaT()[9]], ['Rosaura Pinto', 'Atendido']);
+  ok('ATIENDO → hojas al día y el resumen de la conversación se conserva');
+
+  // LISTO → estado "Atendido".
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `LISTO ${lead.ticketNumber}`));
+  assert.strictEqual(filaLO()[c('Estado del ticket')], 'Atendido — Rosaura Pinto lo cerró');
+  ok('LISTO → "Estado del ticket" pasa a Atendido');
+
+  // Cadena agotada → SIN CONFIRMAR explícito, no el nombre de la última como si lo atendiera.
+  const lead2 = makeLead({ zoneKey: 'CENTRO', state: 'Puebla' });
+  assignAdvisor(lead2, 'paola', overdueAssignAt());
+  Object.assign(lead2, { status: 'derivado_asesor', triedAdvisorKeys: Object.keys(ADVISORS) });
+  await processExpiredAssignments(new Date());
+  const f2 = LO().find((r) => r[0] === lead2.id);
+  assert.strictEqual(lead2.status, 'sin_confirmar');
+  assert.strictEqual(f2[c('Estado del ticket')], 'SIN CONFIRMAR — nadie respondió (última avisada: Paola Torres)');
+  assert.strictEqual(f2[c('Derivación')], 'Sí');
+  ok('Cadena agotada → "SIN CONFIRMAR — nadie respondió (última avisada: X)" y Derivación "Sí"');
+
+  // Ticket reutilizado tras un reset: no pisa la fila del lead anterior.
+  const filasAntes = SHEETS.get('Tiempos asesores').length;
+  const lead3 = makeLead({ zoneKey: 'SUR', state: 'Oaxaca', ticketNumber: lead.ticketNumber });
+  assignAdvisor(lead3, 'balam', new Date());
+  Object.assign(lead3, { status: 'derivado_asesor' });
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.balam.whatsapp, 'ATIENDO'));
+  assert.strictEqual(SHEETS.get('Tiempos asesores').length, filasAntes + 1, 'fila nueva, no sobrescribe la del otro lead');
+  assert.strictEqual(filaT()[5], 'Rosaura Pinto', 'la fila del lead original queda intacta');
+  ok('Ticket repetido tras un reset → fila propia (clave por Lead ID)');
 }
 
 console.log(`\nTODAS las verificaciones pasaron ✅  (${pass})`);

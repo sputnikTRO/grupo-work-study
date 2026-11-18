@@ -111,7 +111,7 @@ mock.module('../src/units/oxford-education/whatsapp.js', {
   },
 });
 mock.module('../src/units/oxford-education/sheets-sync.js', {
-  namedExports: { syncOxfordLeadToSheet: async () => {}, deriveTemperature: () => 'warm' },
+  namedExports: { syncOxfordLeadToSheet: async () => {}, syncOxfordLeadById: async () => {}, deriveTemperature: () => 'warm' },
 });
 mock.module('../src/units/oxford-education/office-hours.js', {
   namedExports: { isWithinOfficeHours: () => true, OUT_OF_HOURS_NOTICE: '' },
