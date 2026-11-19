@@ -54,8 +54,37 @@ const TZ_OFFSET = '-06:00';
 export const RESEND_REASON = 'REENVÍO: este aviso no se te entregó en su momento por una falla de WhatsApp. El prospecto sigue sin atender. Responde ATIENDO para tomarlo.';
 export const RESEND_REASON_TRAVEL = 'REENVÍO: este aviso no se te entregó en su momento por una falla de WhatsApp. El prospecto sigue sin atender; escríbele hoy y responde LISTO cuando lo atiendas.';
 const PAUSE_MS = 1500;
-const TEST_PHONES = ['5535305000']; // últimos 10 dígitos de los números de prueba del equipo
-const isTestLead = (lead) => (lead.tags || []).includes('prueba') || TEST_PHONES.some((t) => String(lead.contact?.phone || '').replace(/\D/g, '').endsWith(t));
+// Últimos 10 dígitos de los números de prueba del equipo. Se compara por los
+// últimos 10 para cubrir todas sus formas: 5535305000, 5215535305000,
+// 52115535305000 (la forma vieja con el "1" de más), +52 55 3530 5000.
+export const TEST_PHONES = ['5535305000'];
+const last10 = (phone) => String(phone || '').replace(/\D/g, '').slice(-10);
+const isTestLead = (lead) => (lead.tags || []).includes('prueba') || TEST_PHONES.includes(last10(lead.contact?.phone));
+
+/**
+ * GUARDA DURA: el filtro de arriba ya debió sacar los leads de prueba; si aun así
+ * queda en la lista un número de prueba, el de una asesora (no es un prospecto),
+ * un lead sin teléfono o con la etiqueta 'prueba', algo está mal y se ABORTA todo
+ * el reenvío — nunca se omite en silencio. Corre también en dry-run.
+ *
+ * @param {Array<{ticket, lead}>} items - lo que se va a enviar (Ori y Miri)
+ * @param {Array<string>} advisorPhones - teléfonos de TODAS las asesoras
+ * @throws {Error} con la lista de problemas
+ */
+export function assertOnlyRealProspects(items, advisorPhones) {
+  const advisors = new Set(advisorPhones.map(last10));
+  const problems = [];
+  for (const { bot, ticket, lead } of items) {
+    const tail = last10(lead?.contact?.phone);
+    if (!tail || tail.length < 10) problems.push(`${bot} #${ticket}: el lead no tiene teléfono de prospecto`);
+    else if (TEST_PHONES.includes(tail)) problems.push(`${bot} #${ticket}: es el NÚMERO DE PRUEBA del equipo (****${tail.slice(-4)})`);
+    else if (advisors.has(tail)) problems.push(`${bot} #${ticket}: el prospecto tiene el número de una asesora (****${tail.slice(-4)})`);
+    if ((lead?.tags || []).includes('prueba')) problems.push(`${bot} #${ticket}: tiene la etiqueta 'prueba'`);
+  }
+  if (problems.length) {
+    throw new Error(`ABORTADO — la lista incluye leads que no son de prospectos reales; no se envió nada:\n  ${problems.join('\n  ')}`);
+  }
+}
 
 export function parseArgs(argv) {
   const a = { confirm: false, unit: 'all', tickets: null, travelTickets: null, from: '2026-10-01', to: new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Mexico_City' }).format(new Date()) };
@@ -159,12 +188,19 @@ async function main() {
     const ori = args.unit === 'travel' ? { send: [], skip: [] } : await planResend({ prisma, ADVISORS, args });
     const miri = args.unit === 'oxford' ? { send: [], skip: [] } : await planResendTravel({ prisma, advisorByName, args });
 
+    // Guarda dura (también en dry-run): aborta si queda algún número que no sea de prospecto.
+    const { ADVISORS: TRAVEL_ADVISORS } = await import('../src/units/travel/advisors.js');
+    assertOnlyRealProspects(
+      [...ori.send.map((s) => ({ bot: 'Ori', ...s })), ...miri.send.map((s) => ({ bot: 'Miri', ...s }))],
+      [...Object.values(ADVISORS), ...Object.values(TRAVEL_ADVISORS)].map((a) => a.whatsapp),
+    );
+
     console.log(`\nOri — se reenviaría a ${ori.send.length} ticket(s):`);
-    for (const s of ori.send) console.log(`  #${s.ticket} · ${s.status} · zona ${s.zona} → ${s.advisor.nombre} (****${s.advisor.whatsapp.slice(-4)})`);
+    for (const s of ori.send) console.log(`  #${s.ticket} · prospecto ****${last10(s.lead.contact?.phone).slice(-4)} · ${s.status} · zona ${s.zona} → ${s.advisor.nombre} (****${s.advisor.whatsapp.slice(-4)})`);
     if (ori.skip.length) console.log(`  Se omiten ${ori.skip.length}:`);
     for (const s of ori.skip) console.log(`    #${s.ticket} · ${s.status} · original ${s.original} — ${s.motivo}`);
     console.log(`\nMiri — se reenviaría a ${miri.send.length} lead(s):`);
-    for (const s of miri.send) console.log(`  #${s.ticket} · ${s.status} → ${s.advisor.nombre} (****${s.advisor.whatsapp.slice(-4)})`);
+    for (const s of miri.send) console.log(`  #${s.ticket} · prospecto ****${last10(s.lead.contact?.phone).slice(-4)} · ${s.status} → ${s.advisor.nombre} (****${s.advisor.whatsapp.slice(-4)})`);
     if (miri.skip.length) console.log(`  Se omiten ${miri.skip.length}:`);
     for (const s of miri.skip) console.log(`    #${s.ticket} · ${s.status} · asesora ${s.original} — ${s.motivo}`);
     console.log('\nNo se modifica ningún lead (status, asesora, slaDueAt, cadena).');

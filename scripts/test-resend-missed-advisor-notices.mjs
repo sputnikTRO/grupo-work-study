@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert';
 
-const { planResend, planResendTravel, parseArgs, RESEND_REASON, RESEND_REASON_TRAVEL } = await import('./resend-missed-advisor-notices.mjs');
+const { planResend, planResendTravel, parseArgs, RESEND_REASON, RESEND_REASON_TRAVEL, assertOnlyRealProspects } = await import('./resend-missed-advisor-notices.mjs');
 const { advisorByName } = await import('../src/units/travel/advisors.js');
 const { ADVISORS } = await import('../src/units/oxford-education/advisor-zones.js');
 
@@ -88,6 +88,20 @@ assert.match(RESEND_REASON, /ATIENDO/);
 assert.ok(!/ATIENDO/.test(RESEND_REASON_TRAVEL), 'Miri no tiene ATIENDO: su texto no debe pedirlo');
 assert.match(RESEND_REASON_TRAVEL, /LISTO/);
 ok('El motivo de Miri pide LISTO, no ATIENDO (Miri no tiene ATIENDO)');
+
+{
+  const adv = ['5532676181', '+51988847322'];
+  const real = { bot: 'Ori', ticket: 5, lead: { contact: { phone: '+52112228018017' }, tags: [] } };
+  assert.doesNotThrow(() => assertOnlyRealProspects([real], adv));
+  for (const phone of ['5535305000', '5215535305000', '52115535305000', '+52115535305000', '+52 55 3530 5000', '+5215535305000']) {
+    assert.throws(() => assertOnlyRealProspects([real, { bot: 'Miri', ticket: 9, lead: { contact: { phone }, tags: [] } }], adv), /NÚMERO DE PRUEBA/, phone);
+  }
+  ok('Guarda dura: el número de prueba en CUALQUIER formato aborta todo el reenvío');
+  assert.throws(() => assertOnlyRealProspects([{ bot: 'Ori', ticket: 7, lead: { contact: { phone: '+5215532676181' } } }], adv), /número de una asesora/);
+  assert.throws(() => assertOnlyRealProspects([{ bot: 'Ori', ticket: 8, lead: { contact: {} } }], adv), /no tiene teléfono/);
+  assert.throws(() => assertOnlyRealProspects([{ bot: 'Ori', ticket: 9, lead: { contact: { phone: '+5215511112222' }, tags: ['prueba'] } }], adv), /etiqueta 'prueba'/);
+  ok('Guarda dura: número de asesora, sin teléfono o etiqueta prueba también abortan');
+}
 
 assert.deepStrictEqual(writes, [], 'el plan nunca escribe en los leads');
 ok('El plan no modifica ningún lead');
