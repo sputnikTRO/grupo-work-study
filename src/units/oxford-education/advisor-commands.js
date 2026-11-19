@@ -275,8 +275,26 @@ async function findPendingConfirmationLeadForAdvisor(advisor) {
 async function findClaimableLeadByTicket(ticketNumber, advisor) {
   const lead = await prisma.oxfordLead.findUnique({ where: { ticketNumber }, include: { contact: true } });
   if (!lead) throw new UserError(`No encontré el lead #${ticketNumber}. Escribe PENDIENTES para ver tus leads.`);
-  if (!canAdvisorClaim(lead, advisor)) throw new UserError(`El lead #${ticketNumber} no está asignado a ti.`);
+  if (!(await wasNotifiedOf(lead, advisor))) throw new UserError(`El lead #${ticketNumber} no está asignado a ti.`);
   return lead;
+}
+
+/**
+ * ¿A esta asesora se le avisó de este lead? Sí si es la asignada, si está en su
+ * cadena (triedAdvisorKeys) o si le llegó un aviso registrado en
+ * advisor_notifications (p. ej. un reenvío manual). Nunca lanza.
+ */
+async function wasNotifiedOf(lead, advisor) {
+  if (canAdvisorClaim(lead, advisor)) return true;
+  try {
+    const n = await prisma.advisorNotification.findFirst({
+      where: { unit: 'oxford_education', leadId: lead.id, advisorName: advisor.nombre, status: { notIn: ['send_error', 'failed'] } },
+      select: { id: true },
+    });
+    return Boolean(n);
+  } catch {
+    return false;
+  }
 }
 
 // ── LISTO # ───────────────────────────────────────────────────────────────────
@@ -284,9 +302,35 @@ async function findClaimableLeadByTicket(ticketNumber, advisor) {
 // conversación — Ori nunca se silencia, así que no hay mute que revertir.
 
 async function handleListo(ticketNumber, advisor, replyTo, cmdLog) {
-  const lead = await findLeadByTicket(ticketNumber, advisor);
+  const lead = await prisma.oxfordLead.findUnique({ where: { ticketNumber }, include: { contact: true } });
+  if (!lead) throw new UserError(`No encontré el lead #${ticketNumber}. Escribe PENDIENTES para ver tus leads.`);
 
-  await oxfordLeadService.updateOxfordLead(lead.id, { status: 'atendido_asesor' });
+  if (lead.assignedAdvisor === advisor.nombre) {
+    await oxfordLeadService.updateOxfordLead(lead.id, { status: 'atendido_asesor' });
+  } else {
+    // LISTO de una asesora que NO es la asignada (caso real 19-nov: Enrique mandó
+    // "Listo 6" a un lead que la cadena había dejado en sin_confirmar con Paola).
+    // Si a ella se le avisó del lead y nadie lo ha confirmado, LISTO cuenta como
+    // tomarlo y cerrarlo: ATIENDO + LISTO en un paso, con el mismo guard
+    // condicional (gana la primera). Si ya lo confirmó otra, se le dice quién.
+    if (lead.confirmedAt) throw new UserError(`El lead #${ticketNumber} ya lo atiende ${lead.assignedAdvisor || 'otra asesora'}.`);
+    if (!CLAIMABLE_STATUSES.includes(lead.status) || !(await wasNotifiedOf(lead, advisor))) {
+      throw new UserError(`El lead #${ticketNumber} no está asignado a ti.`);
+    }
+    const now = new Date();
+    const fields = { ...buildClaimFields(lead, advisor, now), status: 'atendido_asesor' };
+    const applied = await oxfordLeadService.conditionalUpdateOxfordLead(
+      lead.id,
+      { confirmedAt: null, status: { in: CLAIMABLE_STATUSES } },
+      fields,
+    );
+    if (!applied) {
+      const fresh = await oxfordLeadService.getOxfordLeadById(lead.id).catch(() => null);
+      throw new UserError(`El lead #${ticketNumber} ya lo atiende ${fresh?.assignedAdvisor || 'otra asesora'}.`);
+    }
+    cmdLog.info({ ticketNumber, late: true }, 'Oxford lead tomado y cerrado con LISTO por asesora avisada');
+    await recordAdvisorSlaOutcome({ ...lead, ...fields, assignedAdvisor: advisor.nombre }, lead.contact);
+  }
 
   const name = lead.fullName || lead.contact.name || lead.contact.phone;
   await sendTextMessage(

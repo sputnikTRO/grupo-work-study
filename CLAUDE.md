@@ -276,6 +276,12 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   el lead quedó en `sin_confirmar`. El update es condicional a `confirmedAt: null`;
   a quien llega después se le contesta "El lead #N ya lo atiende X". No volver a
   exigir `assignedAdvisor === asesora`: así se rechazó un ATIENDO real en prod.
+- **LISTO de una asesora avisada también vale** (fix/listo-tardio, caso real 19-nov:
+  Enrique mandó "Listo 6" a un lead en `sin_confirmar` asignado a Paola y se le
+  rechazó). Si no es la asignada pero se le avisó y nadie ha confirmado, LISTO toma
+  y cierra el lead en un paso, con el mismo guard condicional. "Se le avisó" =
+  asignada, en `triedAdvisorKeys`, o con un aviso registrado en
+  `advisor_notifications` (p. ej. un reenvío manual).
 - El intento de quien tenía el lead en espera queda `cedido` ("lo tomó otra
   asesora"), no `no_confirmo`: no cuenta en "# reasignado por no confirmar".
 - **Bitácora** `advisor_commands` (`services/advisor-command.service.js`): todo
