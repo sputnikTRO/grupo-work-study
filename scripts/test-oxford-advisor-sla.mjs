@@ -17,6 +17,7 @@ import assert from 'node:assert';
 import { mock } from 'node:test';
 
 const SENT = [];           // { to, text }
+const NOTIFS = [];         // advisor_notifications (fix/listo-tardio: caso de reenvío)
 const TEMPLATES_SENT = []; // { to, name, params }
 const SLA_MINUTES = 10;
 
@@ -119,6 +120,7 @@ let nextTicket = 1;
 let nextId = 1;
 
 function resetDB() {
+  NOTIFS.length = 0; // los ids de lead se reutilizan entre escenarios
   DB = new Map();
   nextTicket = 1;
   nextId = 1;
@@ -171,6 +173,13 @@ const fakePrisma = {
       return { count: rows.length };
     },
     async groupBy() { return []; },
+  },
+  advisorNotification: {
+    async create({ data }) { const row = { id: `n${NOTIFS.length + 1}`, createdAt: new Date(), ...data }; NOTIFS.push(row); return row; },
+    async findFirst({ where = {} } = {}) {
+      return NOTIFS.find((r) => r.leadId === where.leadId && r.advisorName === where.advisorName && (!where.status?.notIn || !where.status.notIn.includes(r.status))) || null;
+    },
+    async findUnique() { return null; },
   },
   // Bitácora de comandos de asesoras (services/advisor-command.service.js REAL).
   advisorCommand: {
@@ -827,6 +836,70 @@ resetDB();
   await handleOxfordAdvisorCommand(msgFrom(ADVISORS.rosaura.whatsapp, `ATIENDO ${lead2.ticketNumber}`));
   assert.strictEqual(lead2.assignedAdvisor, 'Rosaura Pinto', 'y aun así su ATIENDO de la mañana ya no se rechaza');
   ok('Contraste 24/7: aunque se haya reasignado de noche, el ATIENDO de Rosaura se acepta');
+}
+
+console.log('\n== I. fix/listo-tardio: LISTO de la asesora avisada y reenvío (caso real 19-nov) ==');
+resetDB();
+{
+  COMMANDS.length = 0;
+  nextId = 2000;
+  const ORDEN = ['enrique', 'mayra', 'silvana', 'oriana', 'rosaura', 'danna', 'balam', 'paola'];
+  const agotado = (extra = {}) => {
+    const lead = makeLead({ zoneKey: 'NORTE', state: 'Tamaulipas', municipality: 'Nuevo Laredo', ...extra });
+    Object.assign(lead, {
+      status: 'sin_confirmar', assignedAdvisor: 'Paola Torres', confirmedAt: null,
+      triedAdvisorKeys: [...ORDEN], currentAttempt: 8, reassignCount: 7,
+      advisorAttempts: ORDEN.map((k) => ({ advisor: ADVISORS[k].nombre, advisorKey: k, assignedAt: new Date(Date.now() - 86400000).toISOString(), result: 'no_confirmo' })),
+    });
+    return lead;
+  };
+
+  // Exactamente lo que mandó Enrique: "Listo 6" (minúsculas), al #6 en sin_confirmar con Paola.
+  const l6 = agotado();
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.enrique.whatsapp, `Listo ${l6.ticketNumber}`));
+  assert.ok(!sentTo('enrique').some((t) => /no está asignado a ti/.test(t)), 'ya no se rechaza');
+  assert.ok(sentTo('enrique').some((t) => /marcado como atendido/.test(t)), 'se le confirma');
+  assert.deepStrictEqual([l6.status, l6.assignedAdvisor], ['atendido_asesor', 'Enrique Ruiz']);
+  assert.ok(l6.confirmedAt instanceof Date, 'queda confirmado (cuenta como ATIENDO)');
+  assert.strictEqual(l6.advisorAttempts[0].result, 'confirmo');
+  assert.deepStrictEqual([lastCommand().command, lastCommand().outcome], ['LISTO', 'aceptado']);
+  ok('"Listo 6" de la primera asesora a un lead sin_confirmar → lo toma y lo cierra');
+
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.paola.whatsapp, `LISTO ${l6.ticketNumber}`));
+  assert.ok(sentTo('paola').some((t) => t.includes(`ya lo atiende Enrique Ruiz`)), 'la asignada anterior no lo pisa');
+  assert.strictEqual(l6.assignedAdvisor, 'Enrique Ruiz');
+  ok('Después, LISTO de otra asesora → "ya lo atiende Enrique Ruiz"');
+
+  // ATIENDO tras un REENVÍO, aunque la asesora no esté en la cadena (solo en advisor_notifications).
+  const l7 = agotado({ zoneKey: 'SUR', state: 'Oaxaca' });
+  l7.triedAdvisorKeys = ORDEN.filter((k) => k !== 'enrique');
+  l7.advisorAttempts = l7.advisorAttempts.filter((a) => a.advisorKey !== 'enrique');
+  NOTIFS.push({ unit: 'oxford_education', leadId: l7.id, advisorName: 'Enrique Ruiz', status: 'read' });
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.enrique.whatsapp, `ATIENDO ${l7.ticketNumber}`));
+  assert.deepStrictEqual([l7.status, l7.assignedAdvisor], ['en_atencion', 'Enrique Ruiz']);
+  ok('ATIENDO de quien recibió el REENVÍO (registrado en advisor_notifications) → aceptado');
+
+  // Sin cadena ni aviso: sigue rechazado.
+  const l8 = agotado();
+  l8.triedAdvisorKeys = ['rosaura'];
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.mayra.whatsapp, `LISTO ${l8.ticketNumber}`));
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.mayra.whatsapp, `ATIENDO ${l8.ticketNumber}`));
+  assert.ok(sentTo('mayra').filter((t) => /no está asignado a ti/.test(t)).length === 2);
+  assert.strictEqual(l8.assignedAdvisor, 'Paola Torres');
+  ok('Una asesora a la que nunca se le avisó sigue sin poder tomarlo (LISTO ni ATIENDO)');
+
+  // La asignada de siempre: LISTO igual que antes.
+  const l9 = makeLead({ zoneKey: 'NORTE', state: 'Sonora' });
+  assignAdvisor(l9, 'enrique', new Date());
+  Object.assign(l9, { status: 'en_atencion', confirmedAt: new Date() });
+  clean();
+  await handleOxfordAdvisorCommand(msgFrom(ADVISORS.enrique.whatsapp, `LISTO ${l9.ticketNumber}`));
+  assert.strictEqual(l9.status, 'atendido_asesor');
+  ok('LISTO de la asesora asignada: sin cambios');
 }
 
 console.log(`\nTODAS las verificaciones pasaron ✅  (${pass})`);
