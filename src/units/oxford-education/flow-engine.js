@@ -10,6 +10,7 @@ import { handoffToTravel, isTravelProduct } from './travel-handoff.js';
 import { isMenuKeyword, classifyCta, matchMenuChoice, standaloneNumber } from '../../core/flow/text.js';
 import { extractStructuredFields } from '../../core/flow/extract.js';
 import { isWithinOfficeHours, OUT_OF_HOURS_NOTICE } from './office-hours.js';
+import { handleWsTurn, interceptMenuChoice } from './ws/flow.js';
 
 /**
  * Oxford Education — Motor determinístico del "Flujo Ori"
@@ -80,15 +81,27 @@ const YA_INSCRITO_FIELDS = [
  * @param {Object} [params.nudge] - Guardia de recordatorios de "Menú" del turno (core/flow/nudge.js)
  * @returns {Promise<{handled: boolean, midFlowFallback?: boolean, handoffOccurred?: boolean}>}
  */
-export async function tryDeterministicFlow({ phone, content, conv, lead, contact, log, nudge }) {
+export async function tryDeterministicFlow(params, { skipWs = false } = {}) {
+  const { phone, content, conv, lead, contact, log, nudge } = params;
   const text = (content.text || '').trim();
   const ctx = { phone, conv, lead, contact, log, nudge };
 
   const graph = await loadFlowGraph();
-  if (!graph) return { handled: false }; // Sheet no disponible → camino LLM de siempre, intacto
-
   const currentFlowNode = conv.flowNode || null;
   const menuKeyword = isMenuKeyword(text);
+
+  // W&S OTCC: filtro por intención y modo W&S (ws/flow.js). Va ANTES de la
+  // salida a modo libre: si no, una pregunta de OTCC en modo libre iría directo
+  // al LLM comercial y el filtro nunca saldría. Con OXED_WS_ENABLED=false no hace nada.
+  if (!skipWs) {
+    const ws = await handleWsTurn({
+      text, ctx, graph, currentFlowNode, menuKeyword,
+      h: wsHelpers((replayText) => tryDeterministicFlow({ ...params, content: { ...content, text: replayText } }, { skipWs: true })),
+    });
+    if (ws) return ws;
+  }
+
+  if (!graph) return { handled: false }; // Sheet no disponible → camino LLM de siempre, intacto
 
   // Modo libre (flujo ya concluyó) y no piden el menú → LLM normal, sin nudge.
   if (currentFlowNode === FREEFORM && !menuKeyword) {
@@ -284,7 +297,18 @@ async function handleMenuChoice(graph, node, choiceDigit, ctx) {
     await sendNodeText(msg, ctx);
     return { handled: true }; // flowNode NO cambia — seguimos en el mismo nodo
   }
+  // W&S: "Ya formo parte de un programa" y el nodo Oxford TCC pasan por el filtro.
+  const ws = await interceptMenuChoice({ graph, fromNode: node, destId, ctx, h: wsHelpers() });
+  if (ws) return ws;
   return await jumpToNode(graph, destId, ctx);
+}
+
+/** Funciones del motor que usa ws/flow.js (inyectadas para evitar un import circular). */
+function wsHelpers(replay = null) {
+  return {
+    getNode, sendNodeText, persistFlowNode, jumpToNode, replay, FREEFORM,
+    productKeyForNode: (graph, nodeId) => productKeyFromLabel(productLabelFor(graph, nodeId)),
+  };
 }
 
 /**

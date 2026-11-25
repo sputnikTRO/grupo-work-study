@@ -3,6 +3,7 @@ import logger from '../../utils/logger.js';
 import * as oxfordHandler from '../../units/oxford-education/handler.js';
 import { isOxfordAdvisorPhone, handleOxfordAdvisorCommand } from '../../units/oxford-education/advisor-commands.js';
 import { applyStatusUpdates } from '../../services/advisor-notification.service.js';
+import { isWsSupportPhone, handleWsSupportCommand } from '../../units/oxford-education/ws/commands.js';
 
 /**
  * Oxford Education Webhook Handler
@@ -105,6 +106,13 @@ async function processOxfordChange(value) {
   for (const message of messages || []) {
     if (message.type && message.from) {
       try {
+        // Equipo de soporte W&S (Karen, Jorge) → sus comandos de CASOS W&S. Va
+        // antes que el de asesoras: un "ATIENDO 12" suyo es el caso W&S 12.
+        if (isWsSupportPhone(message.from)) {
+          logger.info({ unit: 'oxford_education', ws: true }, 'Message from W&S support contact, routing to case commands');
+          await handleWsSupportCommand(message);
+          continue;
+        }
         // Advisor sending a command (LISTO/REGRESA/PENDIENTES) → route to command handler.
         if (isOxfordAdvisorPhone(message.from)) {
           logger.info({ from: message.from, unit: 'oxford_education' }, 'Message from Oxford advisor, routing to command handler');

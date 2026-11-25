@@ -172,6 +172,67 @@ export async function sendTemplateMessage(to, templateName, languageCode, bodyPa
 }
 
 /**
+ * W&S OTCC — envía una imagen ya subida a Meta (por media id). Solo se entrega
+ * con la ventana de 24h abierta.
+ */
+export async function sendImageMessage(to, mediaId, caption = '') {
+  return await sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'image',
+    image: caption ? { id: mediaId, caption } : { id: mediaId },
+  });
+}
+
+/**
+ * W&S OTCC — plantilla con imagen en el encabezado. A diferencia de una imagen
+ * suelta, se entrega SIN ventana abierta (es una plantilla aprobada).
+ */
+export async function sendTemplateWithImage(to, templateName, languageCode, mediaId, bodyParams = []) {
+  return await sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      components: [
+        { type: 'header', parameters: [{ type: 'image', image: { id: mediaId } }] },
+        { type: 'body', parameters: bodyParams.map((p) => ({ type: 'text', text: String(p ?? '—') })) },
+      ],
+    },
+  });
+}
+
+/**
+ * W&S OTCC — descarga un archivo que mandó el participante (id de Meta → bytes).
+ * @returns {Promise<{ buffer: Buffer, mimeType: string }>}
+ */
+export async function downloadMedia(mediaId) {
+  const headers = { Authorization: `Bearer ${env.OXED_ACCESS_TOKEN}` };
+  const meta = await axios.get(`${API_BASE_URL}/${mediaId}`, { headers, timeout: 10000 });
+  const file = await axios.get(meta.data.url, { headers, responseType: 'arraybuffer', timeout: 20000 });
+  return { buffer: Buffer.from(file.data), mimeType: meta.data.mime_type || file.headers['content-type'] || 'image/jpeg' };
+}
+
+/**
+ * W&S OTCC — sube bytes a Meta para reenviarlos (devuelve un media id nuevo).
+ * Los ids de archivos ENTRANTES no sirven para enviar; hay que subirlos.
+ */
+export async function uploadMedia(buffer, mimeType) {
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mimeType);
+  form.append('file', new Blob([buffer], { type: mimeType }), `captura.${(mimeType.split('/')[1] || 'jpg').replace('jpeg', 'jpg')}`);
+  const res = await axios.post(`${API_BASE_URL}/${env.OXED_PHONE_NUMBER_ID}/media`, form, {
+    headers: { Authorization: `Bearer ${env.OXED_ACCESS_TOKEN}` }, timeout: 20000,
+  });
+  return res.data.id;
+}
+
+/**
  * Marks an inbound message as read (best-effort, never throws).
  * @param {string} messageId - WhatsApp message ID
  */

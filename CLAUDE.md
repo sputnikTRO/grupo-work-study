@@ -355,3 +355,42 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
   (`TRAVEL_ADVISOR_TEMPLATE_V2`).
 - El historial reconstruido desde Postgres toma los ÚLTIMOS `MAX_HISTORY`
   mensajes (antes tomaba los primeros).
+
+## W&S OTCC dentro de Ox (`src/units/oxford-education/ws/`)
+
+Base de conocimiento para participantes de Work and Study con dudas de su
+certificación Oxford TCC (OTCC). Apagada con `OXED_WS_ENABLED=false` (default).
+- **Filtro por intención** (`ws/intent.js`, `ws/flow.js`): activan OTCC, Oxford TCC,
+  TCC (no TCC Kids), o "certificación/certificado" JUNTO con Oxford / inglés /
+  Work and Study. "Certificación" sola NO activa (son prospectos comerciales).
+  Se pregunta UNA vez por conversación; la respuesta queda en
+  `conv.metadata.wsFiltro`. "Work and Study" explícito + intención entra sin
+  preguntar. "Menú" en lugar de contestar = "no". El gancho va al inicio de
+  `tryDeterministicFlow`, ANTES de la salida a modo libre, y también en
+  `handleMenuChoice` (nodo Oxford TCC por etiqueta, y filtro_previo → 1).
+  `solicitud_datos` SÍ se interrumpe: un participante W&S no da su estado de México.
+- **Pregunta retenida**: si se pregunta el filtro, el texto original queda en
+  `wsFiltro.pendiente` y se contesta al responder (`replayText` en el resultado).
+  Con "no" se re-procesa por el motor normal (`skipWs`), igual que antes.
+- **Modo W&S** (`ws/mode.js`, nodos `ws_otcc` / `ws_datos`): prompt AISLADO
+  (`ws/prompt.js`) solo con la pestaña "FAQ OTCC W&S" (respaldo:
+  `docs/kb-ws-otcc.md`). Nunca entra el prompt comercial ni al revés.
+  `ws/guardrails.js` quita nombres/teléfonos del equipo y montos de toda
+  respuesta; deja el correo karen.mendez@… que la base indica.
+- **Casos** (`ws/cases.js`, tablas `support_cases` / `case_attachments`):
+  numeración propia; aviso a Karen → Jorge Gil a los 30 min hábiles
+  (`OXED_WS_SUPPORT_CONTACTS`, `OXED_WS_SLA_*`); si nadie confirma, `sin_confirmar`
+  sin más avisos. Fuera de horario el aviso sale a la apertura. Poller:
+  `src/jobs/ws-cases.job.js`. Comandos de Karen/Jorge en `ws/commands.js`
+  (enrutados ANTES que los de asesoras; `advisor_commands.scope = 'caso_ws'`).
+- **Capturas**: se descargan de Meta y se guardan en la base. Una plantilla NO
+  abre la ventana de 24h: con captura, el aviso usa `OXED_WS_TEMPLATE_IMG`
+  (imagen en el encabezado); las demás se reenvían al responder ATIENDO.
+- **Imports de namespace** (`import * as wa`, `* as cache`) en `ws/`: los tests
+  existentes mockean esos módulos sin las funciones nuevas y un import con
+  nombre rompería el arranque.
+- Sheet: `scripts/seed-ws-otcc.mjs` (dry-run por defecto; crea la pestaña FAQ,
+  agrega nodos `ws_*` a "Flujo Ori", cambia el texto de filtro_previo con
+  respaldo/`--restore`, crea "Casos W&S"). Plantillas en `docs/templates/`.
+- Tests: `scripts/test-ws-otcc-flow.mjs`, `scripts/test-ws-cases.mjs`,
+  `tests/units/oxford-education/ws-*.test.js`.

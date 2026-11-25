@@ -10,6 +10,7 @@ import { registerAdminRoutes } from './api/admin.routes.js';
 import * as sheetsSyncJob from './jobs/sheets-sync.job.js';
 import * as followUpJob from './jobs/followup.job.js';
 import * as advisorSlaJob from './jobs/advisor-sla.job.js';
+import * as wsCasesJob from './jobs/ws-cases.job.js';
 import * as templateHealthJob from './jobs/template-health.job.js';
 
 /**
@@ -139,6 +140,7 @@ const shutdown = async (signal) => {
     logger.info('Follow-up job stopped');
 
     advisorSlaJob.stopAdvisorSlaJob();
+    wsCasesJob.stopWsCasesJob();
     logger.info('Oxford advisor SLA job stopped');
 
     templateHealthJob.stopTemplateHealthJob();
@@ -204,6 +206,7 @@ const start = async () => {
     // Start Oxford advisor SLA job (poll every minute; reasigna leads sin
     // confirmación de asesor tras OXED_ADVISOR_SLA_MINUTES)
     advisorSlaJob.startAdvisorSlaJob();
+    wsCasesJob.startWsCasesJob();
     logger.info('Oxford advisor SLA job started');
 
     // Chequeo de plantillas de aviso a asesoras (UTILITY + APPROVED en Meta), cada 6 h.

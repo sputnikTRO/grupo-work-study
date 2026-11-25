@@ -28,6 +28,10 @@ if (!body) problems.push('falta BODY');
 const vars = new Set([...(body?.text || '').matchAll(/\{\{(\d+)\}\}/g)].map((m) => m[1]));
 if (body?.example?.body_text?.[0]?.length !== vars.size) problems.push(`el ejemplo trae ${body?.example?.body_text?.[0]?.length} valores y el cuerpo ${vars.size} variables`);
 if (/\b(Ori|Miri)\b/.test(JSON.stringify(tpl))) problems.push('todavía menciona Ori/Miri');
+const header = tpl.components?.find((c) => c.type === 'HEADER');
+if (header?.format === 'IMAGE' && (!header.example?.header_handle?.[0] || /PENDIENTE/.test(header.example.header_handle[0]))) {
+  problems.push('el encabezado IMAGE necesita un header_handle real: sube una imagen de ejemplo con la API de carga reanudable de Meta y pon el handle en el JSON');
+}
 if (problems.length) { console.error(`❌ ${file}:\n - ${problems.join('\n - ')}`); process.exit(3); }
 
 console.log(`Plantilla ${tpl.name} (${tpl.language}, ${tpl.category}) → WABA ${waba}\n`);

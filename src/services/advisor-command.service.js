@@ -40,7 +40,7 @@ function safeLog(level, obj, msg) {
  * @param {string|null} [p.waMessageId]
  * @returns {Promise<Object|null>}
  */
-export async function recordAdvisorCommand({ unit, advisor, advisorPhone, text, command, ticketNumber = null, outcome, detail = null, waMessageId = null }) {
+export async function recordAdvisorCommand({ unit, advisor, advisorPhone, text, command, ticketNumber = null, outcome, detail = null, waMessageId = null, scope = 'comercial' }) {
   try {
     return await prisma.advisorCommand.create({
       data: {
@@ -53,6 +53,7 @@ export async function recordAdvisorCommand({ unit, advisor, advisorPhone, text, 
         outcome,
         detail: detail ? String(detail).slice(0, 500) : null,
         waMessageId,
+        scope,
       },
     });
   } catch (err) {

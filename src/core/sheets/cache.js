@@ -29,6 +29,8 @@ const SHEET_NAMES = [
   'FAQ Oxford',
   'Flujo Ori',
   'Flujo Miri',
+  // Base W&S OTCC: aislada, solo la lee el modo W&S de Ox (units/oxford-education/ws).
+  'FAQ OTCC W&S',
 ];
 
 let lastSuccessfulCache = {}; // Backup in-memory cache
@@ -167,6 +169,15 @@ export async function getAllViajes() {
 
 export async function getAllInfoGeneral() {
   return await getInfoGeneral(null, null);
+}
+
+/**
+ * Base de conocimiento W&S OTCC (pestaña "FAQ OTCC W&S"). Vacía si la pestaña
+ * no existe todavía: el modo W&S cae al respaldo de docs/kb-ws-otcc.md.
+ * @returns {Promise<Array<Object>>}
+ */
+export async function getWsOtccFAQ() {
+  return await getCachedSheet('FAQ OTCC W&S');
 }
 
 export async function getCachedSheetRaw(sheetName) {

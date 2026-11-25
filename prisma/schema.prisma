@@ -165,11 +165,75 @@ model AdvisorCommand {
   outcome       String                                    // aceptado | rechazado | info | ignorado | error
   detail        String?                                   // motivo del rechazo / nota
   waMessageId   String?  @map("wa_message_id")
+  // comercial = leads de asesoras; caso_ws = casos W&S OTCC (Karen/Jorge). Un
+  // "ATIENDO 12" se resuelve por quién lo manda: el caso W&S 12 nunca es el lead 12.
+  scope         String   @default("comercial") @map("scope")
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@index([unit, advisorPhone, createdAt])
   @@index([unit, ticketNumber])
   @@map("advisor_commands")
+}
+
+// Casos de soporte W&S OTCC (participantes de Work and Study). Separados de los
+// leads comerciales: numeración propia y su propio equipo (OXED_WS_SUPPORT_CONTACTS).
+// Ver src/units/oxford-education/ws/.
+model SupportCase {
+  id             String    @id @default(uuid())
+  caseNumber     Int       @unique @default(autoincrement()) @map("case_number")
+  unit           Unit      @default(oxford_education)
+  programa       String    @default("ws")
+  tema           String    @default("otcc")
+  conversationId String    @map("conversation_id")
+  contactId      String    @map("contact_id")
+  phone          String
+  fullName       String    @map("full_name")
+  email          String
+  stage          String
+  description    String
+  motivo         String?
+  // pendiente_aviso (fuera de horario) → asignado → atendiendo → resuelto | sin_confirmar
+  status         String    @default("pendiente_aviso")
+  assignedKey    String?   @map("assigned_key")
+  assignedName   String?   @map("assigned_name")
+  notifyAt       DateTime? @map("notify_at")
+  notifiedAt     DateTime? @map("notified_at")
+  slaDueAt       DateTime? @map("sla_due_at")
+  confirmedAt    DateTime? @map("confirmed_at")
+  confirmedBy    String?   @map("confirmed_by")
+  resolvedAt     DateTime? @map("resolved_at")
+  triedKeys      String[]  @default([]) @map("tried_keys")
+  attempts       Json      @default("[]")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  attachments    CaseAttachment[]
+
+  @@index([status, notifyAt])
+  @@index([status, slaDueAt])
+  @@index([conversationId])
+  @@map("support_cases")
+}
+
+// Capturas de pantalla de un caso W&S. Se guardan en la base (Meta solo conserva
+// el archivo un tiempo y la cuenta de Google solo tiene lectura en Drive).
+// caseId es null mientras el caso aún no se crea (llegó durante la captura).
+model CaseAttachment {
+  id             String        @id @default(uuid())
+  caseId         String?       @map("case_id")
+  conversationId String        @map("conversation_id")
+  waMediaId      String        @map("wa_media_id")
+  mimeType       String        @map("mime_type")
+  sizeBytes      Int           @map("size_bytes")
+  data           Bytes?
+  forwardedTo    String[]      @default([]) @map("forwarded_to")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  supportCase    SupportCase?  @relation(fields: [caseId], references: [id])
+
+  @@index([caseId])
+  @@index([conversationId])
+  @@map("case_attachments")
 }
 
 // ==========================================
