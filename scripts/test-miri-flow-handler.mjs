@@ -44,6 +44,7 @@ let DB_CONV;
 let DB_LEAD;
 let EXTRACT_RESULT = {};
 let CHAT_REPLY = 'Con gusto te cuento más sobre eso 😊';
+let ON_CHAT = null; // efecto opcional durante la llamada al LLM
 let officeHoursOverride = true;
 let TEMPLATE_V2 = '';
 let ENROLL_ROWS = {};
@@ -93,6 +94,7 @@ mock.module('../src/core/ai/claude.js', {
     // distintivo) y el respaldo conversacional de processMessageWithAI.
     chat: async (systemPrompt) => {
       if (systemPrompt.includes('extractor de datos')) return JSON.stringify(EXTRACT_RESULT);
+      if (ON_CHAT) ON_CHAT();
       return CHAT_REPLY;
     },
   },
@@ -136,6 +138,7 @@ mock.module('../src/services/contact.service.js', {
 mock.module('../src/services/conversation.service.js', {
   namedExports: {
     findActiveOrCreate: async () => ({ ...DB_CONV }),
+    mergeMetadata: async (_id, patch) => { DB_CONV.metadata = { ...(DB_CONV.metadata || {}), ...patch }; return { ...DB_CONV.metadata }; },
     update: async (_id, data) => { Object.assign(DB_CONV, data); return { ...DB_CONV }; },
     updateInterestScore: async (_id, score) => { DB_CONV.interestScore = score; },
   },
@@ -498,6 +501,20 @@ assert.strictEqual(DB_CONV.flowNode, 'menu_principal', 'el respaldo LLM NO rompe
 assert.ok(allText().includes('El viaje incluye seguro médico'), 'respondió el LLM');
 assert.ok(lastText().includes('Menú'), 'nudge para volver al menú');
 ok('texto libre en un menú → respaldo LLM sin romper el estado + nudge');
+
+// Regresión: guardar nudgedNode copiaba la metadata del inicio del turno y
+// borraba lo que otro paso hubiera guardado en el mismo turno.
+reset();
+DB_CONV.flowNode = 'menu_principal';
+DB_CONV.metadata = { campoPrevio: 1 };
+CHAT_REPLY = 'El viaje incluye seguro médico 😊';
+ON_CHAT = () => { DB_CONV.metadata = { ...DB_CONV.metadata, otroPaso: 'x' }; };
+await handleMessage(msg('¿y el seguro médico qué cubre?'), 'pnid');
+ON_CHAT = null;
+assert.strictEqual(DB_CONV.metadata.nudgedNode, 'menu_principal', 'nudgedNode igual que antes');
+assert.strictEqual(DB_CONV.metadata.otroPaso, 'x', 'lo escrito en el mismo turno sobrevive');
+assert.strictEqual(DB_CONV.metadata.campoPrevio, 1, 'lo previo también');
+ok('metadata se MEZCLA en Ed: nudgedNode funciona y no borra otros campos');
 
 reset();
 flowRowsOverride = []; // Sheet caído

@@ -33,7 +33,7 @@ mock.module('../src/core/whatsapp/parser.js', {
 mock.module('../src/core/ai/claude.js', { namedExports: { chat: async () => 'Hola, con gusto te ayudo 😊' } });
 mock.module('../src/services/contact.service.js', { namedExports: { findOrCreate: async () => ({ id: 'c1', name: 'Test' }) } });
 mock.module('../src/services/conversation.service.js', {
-  namedExports: { findActiveOrCreate: async () => ({ id: 'conv1', status: 'active' }), update: async (id, d) => ({ id, ...d }) },
+  namedExports: { findActiveOrCreate: async () => ({ id: 'conv1', status: 'active' }), update: async (id, d) => ({ id, ...d }), mergeMetadata: async (_id, patch) => ({ ...patch }) },
 });
 mock.module('../src/services/message.service.js', {
   namedExports: { createInbound: async () => ({}), createOutbound: async () => ({}) },

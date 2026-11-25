@@ -170,9 +170,10 @@ export async function handleMessage(message, phoneNumberId) {
 
       // Si en este turno salió un recordatorio (de donde sea), queda registrado
       // contra el nodo donde se quedó la conversación, en conversation.metadata.
+      // Solo la llave nudgedNode, mezclada en la base: copiar la metadata leída al
+      // inicio del turno borraba lo que otro paso hubiera guardado en el mismo turno.
       if (nudge.nudged && meta.nudgedNode !== conv.flowNode) {
-        conv.metadata = { ...meta, nudgedNode: conv.flowNode };
-        await conversationService.update(conv.id, { metadata: conv.metadata });
+        conv.metadata = await conversationService.mergeMetadata(conv.id, { nudgedNode: conv.flowNode });
       }
 
     } finally {

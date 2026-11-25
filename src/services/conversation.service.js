@@ -97,6 +97,36 @@ export async function update(conversationId, data) {
 }
 
 /**
+ * Mezcla campos en conversation.metadata de forma atómica (jsonb ||), sin
+ * pisar los que escribió otro paso del mismo turno.
+ *
+ * Por qué: antes cada escritor copiaba la metadata que leyó al INICIO del turno
+ * y guardaba el objeto entero ({ ...meta, nudgedNode }). Si en ese turno otro
+ * paso había guardado algo (p. ej. la respuesta del filtro W&S), se perdía.
+ * Un valor null en el patch deja la llave en null (los lectores lo tratan como
+ * ausente).
+ *
+ * @param {string} conversationId
+ * @param {Object} patch - solo las llaves a escribir
+ * @returns {Promise<Object>} metadata completa ya mezclada
+ */
+export async function mergeMetadata(conversationId, patch) {
+  const serviceLogger = logger.child({ conversationId, service: 'conversation.mergeMetadata' });
+  try {
+    const rows = await prisma.$queryRaw`
+      UPDATE conversations
+         SET metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+       WHERE id = ${conversationId}
+   RETURNING metadata`;
+    serviceLogger.debug({ keys: Object.keys(patch) }, 'Metadata mezclada');
+    return rows?.[0]?.metadata || {};
+  } catch (error) {
+    serviceLogger.error({ err: error }, 'Error mezclando metadata');
+    throw error;
+  }
+}
+
+/**
  * Updates interest score
  *
  * @param {string} conversationId - Conversation UUID
