@@ -111,6 +111,58 @@ export async function forwardPendingAttachments(c, contact) {
   return sent;
 }
 
+/** Quién tiene el caso ahora: quien lo confirmó, o a quien se le avisó. */
+export function caseHolder(c, contacts = wsConfig().contacts) {
+  if (c.status === 'atendiendo') return contacts.find((k) => k.nombre === c.confirmedBy || k.key === c.assignedKey) || null;
+  if (c.status === 'asignado') return contacts.find((k) => k.key === c.assignedKey) || null;
+  return null; // pendiente_aviso: la captura irá en el aviso; sin_confirmar/resuelto: nadie lo tiene
+}
+
+/**
+ * Una captura NUEVA de un caso que ya tiene responsable le llega por WhatsApp:
+ *   - ventana de 24h abierta → imagen suelta, al momento;
+ *   - ventana cerrada → plantilla con la imagen en el encabezado (se entrega sin ventana);
+ *   - sin plantilla con imagen aprobada → queda pendiente y sale con su siguiente mensaje.
+ * @returns {Promise<'enviada'|'plantilla'|'pendiente'|'sin_responsable'>}
+ */
+export async function deliverNewAttachment(c, att) {
+  const cfg = wsConfig();
+  const contact = caseHolder(c, cfg.contacts);
+  if (!contact) return 'sin_responsable';
+  if (await isAdvisorWindowOpen({ unit: 'oxford_education', advisorPhone: contact.phone })) {
+    await forwardPendingAttachments(c, contact);
+    return 'enviada';
+  }
+  if (cfg.templateImg && att?.data) {
+    try {
+      const total = await prisma.caseAttachment.count({ where: { caseId: c.id } }).catch(() => 1);
+      const params = caseTemplateParams(c, total);
+      params[6] = templateParam(`nueva captura (${total} en total)`);
+      const mediaId = await wa.uploadMedia(Buffer.from(att.data), att.mimeType);
+      const resp = await wa.sendTemplateWithImage(contact.phone, cfg.templateImg, cfg.templateLang, mediaId, params);
+      await prisma.caseAttachment.update({ where: { id: att.id }, data: { forwardedTo: { push: contact.key } } }).catch(() => {});
+      await recordAdvisorNotification({
+        unit: 'oxford_education', lead: { id: c.id, ticketNumber: c.caseNumber }, advisor: { nombre: contact.nombre },
+        advisorPhone: contact.phone, kind: 'caso_ws_captura', via: 'template', templateName: cfg.templateImg, apiResponse: resp,
+      });
+      return 'plantilla';
+    } catch (err) {
+      log().error({ err, caseNumber: c.caseNumber }, 'No se pudo mandar la captura nueva con plantilla; sale con el siguiente mensaje de la responsable');
+    }
+  }
+  return 'pendiente';
+}
+
+/** Al escribir Karen o Jorge (ventana abierta), les llega todo lo pendiente de sus casos. */
+export async function flushPendingFor(contact) {
+  const mine = await prisma.supportCase.findMany({
+    where: { status: { in: ['asignado', 'atendiendo'] }, assignedKey: contact.key },
+  }).catch(() => []);
+  let sent = 0;
+  for (const c of mine) sent += await forwardPendingAttachments(c, contact);
+  return sent;
+}
+
 const attempt = (contact, at) => ({ key: contact.key, nombre: contact.nombre, assignedAt: at.toISOString(), result: 'esperando' });
 function closeLastAttempt(attempts, result, at) {
   const list = Array.isArray(attempts) ? [...attempts] : [];

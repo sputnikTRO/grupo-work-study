@@ -59,7 +59,7 @@ mock.module('../src/units/oxford-education/whatsapp.js', {
 });
 mock.module('../src/units/oxford-education/ws/cases-sheet.js', { namedExports: { syncCaseToSheet: async () => {} } });
 
-const { createCase, processWsCases } = await import('../src/units/oxford-education/ws/cases.js');
+const { createCase, processWsCases, deliverNewAttachment } = await import('../src/units/oxford-education/ws/cases.js');
 const { handleWsSupportCommand, isWsSupportPhone } = await import('../src/units/oxford-education/ws/commands.js');
 
 let pass = 0;
@@ -136,6 +136,42 @@ WINDOW_OPEN = true;
 await createCase({ conv, contact, phone: '+34612345678', draft, now: at('2026-11-24T10:00') });
 assert.strictEqual(TXT.length, 1); assert.ok(TXT[0].text.includes('Caso W&S · OTCC #2'));
 ok('sin plantilla: texto libre solo con ventana abierta; si no, queda registrado como no enviado');
+
+console.log('\n== Capturas que llegan DESPUÉS del aviso ==');
+reset();
+await createCase({ conv, contact, phone: '+34612345678', draft, now: at('2026-11-24T10:00') }); // sin captura → plantilla de texto
+assert.strictEqual(TPL.at(-1).name, 'caso_ws_ox');
+const nueva = { id: 'n1', caseId: 'case1', conversationId: 'conv1', data: Buffer.from('z'), mimeType: 'image/png', forwardedTo: [] };
+ATTS.push(nueva);
+let how = await deliverNewAttachment({ ...CASES[0] }, nueva);
+assert.strictEqual(how, 'plantilla', 'ventana cerrada → plantilla con la imagen en el encabezado');
+assert.strictEqual(TPL.at(-1).name, 'caso_ws_ox_img'); assert.strictEqual(TPL.at(-1).to, KAREN);
+assert.ok(TPL.at(-1).params[6].includes('nueva captura'));
+assert.deepStrictEqual(nueva.forwardedTo, ['ws1']);
+ok('captura nueva con el caso asignado y ventana cerrada → le llega a Karen por plantilla con imagen');
+
+WINDOW_OPEN = true;
+const otra = { id: 'n2', caseId: 'case1', conversationId: 'conv1', data: Buffer.from('w'), mimeType: 'image/png', forwardedTo: [] };
+ATTS.push(otra);
+how = await deliverNewAttachment({ ...CASES[0] }, otra);
+assert.strictEqual(how, 'enviada'); assert.strictEqual(IMGS.at(-1).to, KAREN);
+ok('con la ventana abierta → imagen suelta al momento');
+
+WINDOW_OPEN = false; ENV.OXED_WS_TEMPLATE_IMG = '';
+const tercera = { id: 'n3', caseId: 'case1', conversationId: 'conv1', data: Buffer.from('v'), mimeType: 'image/png', forwardedTo: [] };
+ATTS.push(tercera);
+how = await deliverNewAttachment({ ...CASES[0] }, tercera);
+assert.strictEqual(how, 'pendiente');
+const imgsAntes = IMGS.length;
+await cmd(KAREN, 'PENDIENTES');
+assert.strictEqual(IMGS.length, imgsAntes + 1, 'al escribir Karen le llega la pendiente');
+assert.deepStrictEqual(tercera.forwardedTo, ['ws1']);
+ok('sin plantilla con imagen → queda pendiente y le llega en cuanto Karen escribe');
+
+await cmd(JORGE, 'ATIENDO 1');
+assert.strictEqual(CASES[0].confirmedBy, 'Jorge Gil');
+assert.ok(IMGS.filter((i) => i.to === JORGE).length === 3, 'Jorge recibe las 3 capturas al tomar el caso');
+ok('si el caso pasa a Jorge, recibe todas las capturas al tomarlo');
 
 console.log('\n== Ruteo ==');
 reset();

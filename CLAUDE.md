@@ -386,6 +386,10 @@ certificación Oxford TCC (OTCC). Apagada con `OXED_WS_ENABLED=false` (default).
 - **Capturas**: se descargan de Meta y se guardan en la base. Una plantilla NO
   abre la ventana de 24h: con captura, el aviso usa `OXED_WS_TEMPLATE_IMG`
   (imagen en el encabezado); las demás se reenvían al responder ATIENDO.
+  Una captura que llega DESPUÉS del aviso le llega a quien tiene el caso
+  (`deliverNewAttachment`): ventana abierta → imagen al momento; cerrada →
+  plantilla con imagen; sin esa plantilla → pendiente hasta su siguiente mensaje
+  (`flushPendingFor`). Nunca se queda solo en la base si hay responsable.
 - **Imports de namespace** (`import * as wa`, `* as cache`) en `ws/`: los tests
   existentes mockean esos módulos sin las funciones nuevas y un import con
   nombre rompería el arranque.

@@ -10,7 +10,7 @@ import logger from '../../../utils/logger.js';
 import * as wa from '../whatsapp.js';
 import { recordAdvisorCommand } from '../../../services/advisor-command.service.js';
 import { wsConfig, supportContactByPhone } from './config.js';
-import { forwardPendingAttachments, syncCase } from './cases.js';
+import { forwardPendingAttachments, flushPendingFor, syncCase } from './cases.js';
 import { normalize } from './intent.js';
 
 /** ¿El número es de un contacto del equipo W&S (y el modo está prendido)? */
@@ -106,4 +106,7 @@ export async function handleWsSupportCommand(message, now = new Date()) {
   });
   try { await wa.sendTextMessage(contact.phone, res.reply); } catch (err) { log.error({ err }, 'No se pudo responder al contacto W&S'); }
   if (res.after) await res.after();
+  // Acaba de escribir → su ventana de 24h está abierta: le llegan las capturas
+  // que quedaron pendientes de sus casos.
+  try { await flushPendingFor(contact); } catch (err) { log.warn({ err }, 'No se pudieron reenviar capturas pendientes'); }
 }

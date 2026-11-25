@@ -20,8 +20,7 @@ import { buildWsPrompt, stripWsTags, TAG_CANALIZAR, TAG_NO_ES_WS } from './promp
 import { sanitizeWsReply } from './guardrails.js';
 import { loadWsKb } from './kb.js';
 import { canalizadoMessage } from './hours.js';
-import { createCase, forwardPendingAttachments } from './cases.js';
-import { isAdvisorWindowOpen } from '../../../services/advisor-command.service.js';
+import { createCase, deliverNewAttachment } from './cases.js';
 
 const FREEFORM = 'llm_freeform';
 const EMAIL_RE = /^[\w.+-]+@[\w-]+(\.[\w-]+)+$/;
@@ -89,9 +88,11 @@ export async function storeAttachment(ctx, content) {
     const att = await prisma.caseAttachment.create({
       data: { caseId: open?.id || null, conversationId: ctx.conv.id, waMediaId: content.mediaUrl, mimeType, sizeBytes: buffer.length, data: buffer },
     });
-    if (open?.status === 'atendiendo') {
-      const contact = wsConfig().contacts.find((c) => c.nombre === open.confirmedBy);
-      if (contact && await isAdvisorWindowOpen({ unit: 'oxford_education', advisorPhone: contact.phone })) await forwardPendingAttachments(open, contact);
+    // Si el caso ya tiene responsable (Karen o Jorge), la captura le llega por
+    // WhatsApp, no solo se guarda (así lo pidió el cliente).
+    if (open && ['asignado', 'atendiendo'].includes(open.status)) {
+      const how = await deliverNewAttachment(open, att);
+      ctx.log.info({ caseNumber: open.caseNumber, how }, 'Captura nueva de un caso W&S con responsable');
     }
     return att;
   } catch (err) {
