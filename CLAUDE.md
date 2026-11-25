@@ -398,3 +398,21 @@ certificación Oxford TCC (OTCC). Apagada con `OXED_WS_ENABLED=false` (default).
   respaldo/`--restore`, crea "Casos W&S"). Plantillas en `docs/templates/`.
 - Tests: `scripts/test-ws-otcc-flow.mjs`, `scripts/test-ws-cases.mjs`,
   `tests/units/oxford-education/ws-*.test.js`.
+## Configuración de build/deploy: vive en el servicio de Railway, no en el repo
+
+Desde nov-2026 el repo NO tiene `railway.json` (Config as Code de Railway dejó de
+leerse el 1-dic-2026). La configuración está en Settings del servicio
+`grupo-work-study` (proyecto illustrious-forgiveness, entorno production):
+- Builder: **NIXPACKS**
+- Build: `npm install && npx prisma generate`
+- Start: `npx prisma migrate deploy && npm start` (las migraciones corren en cada deploy)
+- Healthcheck: `/ready`, timeout 300 s
+- Reinicio: ON_FAILURE, máximo 3 reintentos
+- Origen: GitHub `sputnikTRO/grupo-work-study`, deploy automático desde `main`
+
+**NO usar `railway config apply`** (IaC, `.railway/railway.ts`) sin declarar en el
+archivo las variables y el origen del servicio: borra todo lo no declarado. El
+plan probado en nov-2026 eliminaba las 26 variables, desconectaba GitHub y dejaba
+builder y reintentos en null. IaC tampoco tiene campos documentados para builder
+ni política de reinicio. Cambios de configuración: en el dashboard o por la API
+(`serviceInstanceUpdate`), leyendo el antes y el después.
