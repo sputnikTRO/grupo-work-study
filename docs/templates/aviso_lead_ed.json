@@ -1,0 +1,26 @@
+{
+  "name": "aviso_lead_ed",
+  "language": "es_MX",
+  "category": "UTILITY",
+  "allow_category_change": false,
+  "components": [
+    {
+      "type": "BODY",
+      "text": "🔔 Lead Travel #{{1}} asignado a ti\n\n👤 Papá/mamá: {{2}}\n🎒 Viajero: {{3}}\n🏫 Colegio: {{4}}\n✈️ Programa: {{5}}\n📍 Destino: {{6}}\n📱 WhatsApp: {{7}}\n\n📌 Motivo: {{8}}\n\nResponde LISTO {{1}} cuando lo atiendas. Ed sigue disponible para el contacto.",
+      "example": {
+        "body_text": [
+          [
+            "87",
+            "Laura Méndez",
+            "Diego Méndez, 15 años",
+            "Colegio The Hills Institute",
+            "English 4 Life",
+            "Londres",
+            "55 3112 2119",
+            "Solicita plan de pagos"
+          ]
+        ]
+      }
+    }
+  ]
+}
