@@ -337,3 +337,21 @@ Harness de conversaciones completas contra el `handleMessage` real de Ori y Miri
 - El copy de la plantilla aprobada de WhatsApp (`OXED_ADVISOR_TEMPLATE_NAME`) vive
   en Meta Business Manager, fuera del repo — no se puede inyectar texto libre ahí
   desde código (ver TODO en `advisor-notify.js`).
+
+## Nombres de los asistentes: Ox y Ed (antes Ori y Miri)
+
+- Desde nov-2026 lo que ven prospectos y asesoras dice **Ox** (Oxford Education,
+  femenina: "la asistente") y **Ed** (Travel, masculino: "el asistente"). Los
+  nombres internos (unidades, archivos, pestañas "Flujo Ori"/"Flujo Miri", tablas,
+  carpetas de evals) NO cambian.
+- `src/core/ai/persona-name.js` reemplaza el nombre viejo en los turnos del
+  asistente del historial que recibe el LLM (los mensajes guardados no se tocan).
+  Usa `\b`, así que "Miriana" (asesora) queda intacta.
+- Textos del Sheet: `scripts/rename-sheet-personas.mjs` (dry-run por defecto,
+  `--confirm` guarda respaldo en `scratchpad/`, `--restore <archivo>`).
+- Plantillas: `nuevo_lead_oxford_util` dice "Ori" → la nueva es `nuevo_lead_ox`
+  (`docs/templates/`, se somete con `scripts/submit-template.mjs`, dry-run por
+  defecto). Ed usa `nuevo_lead_travel_v2`, que no menciona nombre
+  (`TRAVEL_ADVISOR_TEMPLATE_V2`).
+- El historial reconstruido desde Postgres toma los ÚLTIMOS `MAX_HISTORY`
+  mensajes (antes tomaba los primeros).

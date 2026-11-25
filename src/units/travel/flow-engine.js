@@ -255,7 +255,7 @@ export async function tryDeterministicFlow({ phone, content, conv, lead, contact
   const verdict = classifyCta(text);
   if (verdict === 'accept') {
     await conversation.addMessage(conv.id, 'user', text);
-    return await runHandoff(node.id, ctx, `Flujo Miri — aceptó hablar con asesora (nodo ${node.id})`);
+    return await runHandoff(node.id, ctx, `Flujo Ed — aceptó hablar con asesora (nodo ${node.id})`);
   }
   return { handled: false, midFlowFallback: true };
 }
@@ -364,7 +364,7 @@ async function jumpToNode(graph, nodeId, ctx) {
   // executeHandoffToAdvisor (misma redacción venga del menú o del LLM).
   if (HANDOFF_TRACKS[node.id]) {
     const origen = ctx.conv.flowNode;
-    const reason = ORIGIN_REASONS[origen] || `Flujo Miri — pidió hablar con una asesora (desde ${origen || 'el menú'})`;
+    const reason = ORIGIN_REASONS[origen] || `Flujo Ed — pidió hablar con una asesora (desde ${origen || 'el menú'})`;
     return await runHandoff(node.id, ctx, reason);
   }
 
@@ -394,7 +394,7 @@ async function jumpToNode(graph, nodeId, ctx) {
 
   // rs_elegible cierra con derivación al carrusel de Rising Stars.
   if (node.id === 'rs_elegible') {
-    return await runHandoff('handoff_rs', ctx, 'Flujo Miri — Rising Stars, alumno elegible (verificar beca)');
+    return await runHandoff('handoff_rs', ctx, 'Flujo Ed — Rising Stars, alumno elegible (verificar beca)');
   }
 
   return { handled: true };

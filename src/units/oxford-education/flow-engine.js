@@ -368,7 +368,7 @@ async function handleCtaLeaf(graph, node, verdict, ctx) {
     const viajes = await handoffToTravel({
       lead: ctx.lead, conv: ctx.conv, contact: ctx.contact,
       productLabel: producto,
-      reason: `Flujo Ori — aceptó hablar con asesor (${producto})`,
+      reason: `Flujo Ox — aceptó hablar con asesor (${producto})`,
       log: ctx.log,
     });
     if (viajes.handedOff || viajes.yaDerivado) {
@@ -383,7 +383,7 @@ async function handleCtaLeaf(graph, node, verdict, ctx) {
     ctx.contact,
     // El motivo lleva el NOMBRE del producto, no el id del nodo: es lo único
     // que ve la asesora para los productos que el enum no puede guardar.
-    `Flujo Ori — aceptó hablar con asesor (${menuLabelFor(graph, node.id) || `nodo ${node.id}`})`,
+    `Flujo Ox — aceptó hablar con asesor (${menuLabelFor(graph, node.id) || `nodo ${node.id}`})`,
   );
 
   if (!handedOff) {

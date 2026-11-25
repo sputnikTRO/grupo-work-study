@@ -87,7 +87,7 @@ export async function handleOxfordAdvisorCommand(message) {
       // No-op: con el handoff tibio Ori nunca se silencia, no hay nada que "regresar".
       await sendTextMessage(
         message.from,
-        'ℹ️ Ya no hace falta REGRESA: Ori nunca deja de atender al prospecto tras derivar. ' +
+        'ℹ️ Ya no hace falta REGRESA: Ox nunca deja de atender al prospecto tras derivar. ' +
           'Usa *LISTO #* cuando cierres el lead.',
       );
     } else if (text === 'AYUDA' || text === 'HELP' || text === 'HOLA') {
@@ -193,7 +193,7 @@ async function handleAtiendo(ticketNumber, advisor, replyTo, cmdLog) {
   const tiempo = fields.responseSeconds != null && !late ? ` (en ${mins}m ${secs}s)` : '';
   await sendTextMessage(
     replyTo,
-    `✅ Confirmado, el lead #${ticket} es tuyo${tiempo}. Ori sigue disponible para el prospecto mientras tú tomas precio y cierre.`,
+    `✅ Confirmado, el lead #${ticket} es tuyo${tiempo}. Ox sigue disponible para el prospecto mientras tú tomas precio y cierre.`,
   );
   cmdLog.info({ ticketNumber: ticket, responseSeconds: fields.responseSeconds, late }, 'Oxford advisor confirmed lead (ATIENDO)');
 
@@ -335,7 +335,7 @@ async function handleListo(ticketNumber, advisor, replyTo, cmdLog) {
   const name = lead.fullName || lead.contact.name || lead.contact.phone;
   await sendTextMessage(
     replyTo,
-    `✅ Lead #${ticketNumber} (${name}) marcado como atendido. Ori sigue disponible para el prospecto.`,
+    `✅ Lead #${ticketNumber} (${name}) marcado como atendido. Ox sigue disponible para el prospecto.`,
   );
   cmdLog.info({ ticketNumber, name }, 'Oxford lead marked attended (tracking) by advisor');
 }
@@ -362,13 +362,13 @@ async function findLeadByTicket(ticketNumber, advisor) {
 }
 
 function getHelpMessage(advisor) {
-  return `Hola ${advisor.apodo} 👋 Soy Ori. Comandos disponibles:
+  return `Hola ${advisor.apodo} 👋 Soy Ox. Comandos disponibles:
 
 ⏱️ *ATIENDO [#]* → Confirmar que tomas un lead recién derivado (tienes ${env.OXED_ADVISOR_SLA_MINUTES} min o se reasigna)
 ✅ *LISTO #* → Marcar como cerrado/atendido un lead (tracking)
 📋 *PENDIENTES* → Ver tus leads derivados sin cerrar
 
-Nota: Ori nunca deja de atender al prospecto tras derivar, así que ya no existe REGRESA.
+Nota: Ox nunca deja de atender al prospecto tras derivar, así que ya no existe REGRESA.
 
 Ejemplo: LISTO 47`;
 }

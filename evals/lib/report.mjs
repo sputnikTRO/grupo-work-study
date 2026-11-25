@@ -7,7 +7,7 @@ const esc = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const quote = (s) => String(s ?? '').split('\n').map((l) => `> ${l}`).join('\n');
 
 function transcript(sc) {
-  const bot = sc.unit === 'ori' ? 'Ori' : 'Miri';
+  const bot = sc.unit === 'ori' ? 'Ox' : 'Ed';
   const bad = new Set(sc.checks.filter((c) => !c.pass).flatMap((c) => c.turns));
   return sc.turns.map((t) => {
     const head = `**t${t.i}**${bad.has(t.i) ? ' ⚠️' : ''} · nodo \`${t.nodeBefore ?? '∅'}\` → \`${t.nodeAfter ?? '∅'}\`${t.source === 'sim' ? ' · _simulado_' : ''}`;

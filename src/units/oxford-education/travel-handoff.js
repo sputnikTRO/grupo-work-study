@@ -88,7 +88,7 @@ export async function handoffToTravel({ lead, conv, contact, productLabel, reaso
       schoolCode: lead.institutionName || travelLead.schoolCode,
       programInterest: productLabel,
       leadType: lead.leadType === 'b2b_institutional' ? 'institucion' : 'familia',
-      notes: [travelLead.notes, `[Vía Ori] ${reason || `Interés en ${productLabel}`}`].filter(Boolean).join('\n'),
+      notes: [travelLead.notes, `[Vía Ox] ${reason || `Interés en ${productLabel}`}`].filter(Boolean).join('\n'),
     };
     await travelLeadService.updateTravelLead(travelLead.id, datos);
     Object.assign(travelLead, datos);
@@ -104,7 +104,7 @@ export async function handoffToTravel({ lead, conv, contact, productLabel, reaso
     Object.assign(travelLead, { assignedAdvisor: advisor.nombre, status: 'derivado_asesor' });
 
     // El motivo lleva el origen: la asesora de viajes ve de dónde vino el lead.
-    const motivo = `Vía Ori (Oxford Education) — ${reason || `interés en ${productLabel}`}`;
+    const motivo = `Vía Ox (Oxford Education) — ${reason || `interés en ${productLabel}`}`;
     await sendAdvisorNotification(
       advisor, travelLead, conv, contact.phone, motivo,
       env.WA_PHONE_NUMBER_ID_TRAVEL, log, track, undefined,

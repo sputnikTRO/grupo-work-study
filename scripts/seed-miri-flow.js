@@ -55,7 +55,7 @@ const FLOW_NODES = [
   {
     id: 'bienvenida',
     estado: 'Nuevo (redacción provisional)',
-    texto: '¡Hola! Soy Miri, del equipo de Oxford Education & Travel ✈️ Acompaño a las familias con nuestros programas de inmersión en inglés en el extranjero.\n\n¿En qué te puedo ayudar hoy?',
+    texto: '¡Hola! Soy Ed, del equipo de Oxford Education & Travel ✈️ Acompaño a las familias con nuestros programas de inmersión en inglés en el extranjero.\n\n¿En qué te puedo ayudar hoy?',
     opciones: {},
     notas: 'Se envía junto con filtro_previo al iniciar la conversación (mismo patrón que Ori: dos mensajes seguidos).',
   },
