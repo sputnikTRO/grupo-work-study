@@ -18,6 +18,7 @@ import * as sheetsCache from '../../core/sheets/cache.js';
 import { syncLeadToSheet } from '../../core/sheets/leads-sync.js';
 import { tryDeterministicFlow, showMainMenu } from './flow-engine.js';
 import { createNudgeGuard } from '../../core/flow/nudge.js';
+import { renameLegacyPersona } from '../../core/ai/persona-name.js';
 
 /**
  * Travel Unit Message Handler
@@ -221,7 +222,7 @@ async function processMessageWithAI(phone, content, conv, lead, contact, phoneNu
 
   try {
     // Load conversation history from Redis
-    const history = await conversation.getHistory(conv.id);
+    const history = renameLegacyPersona(await conversation.getHistory(conv.id), 'travel');
     processLogger.debug({ historyLength: history.length }, 'History loaded from Redis');
 
     // Build dynamic knowledge from Google Sheets

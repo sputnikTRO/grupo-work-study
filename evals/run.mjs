@@ -138,8 +138,8 @@ const ori = await import(src('units/oxford-education/handler.js'));
 const miri = await import(src('units/travel/handler.js'));
 
 const UNITS = {
-  ori: { enum: 'oxford_education', bot: 'Ori', handle: ori.handleMessage, pnid: env.OXED_PHONE_NUMBER_ID },
-  miri: { enum: 'travel', bot: 'Miri', handle: miri.handleMessage, pnid: env.WA_PHONE_NUMBER_ID_TRAVEL },
+  ori: { enum: 'oxford_education', bot: 'Ox', handle: ori.handleMessage, pnid: env.OXED_PHONE_NUMBER_ID },
+  miri: { enum: 'travel', bot: 'Ed', handle: miri.handleMessage, pnid: env.WA_PHONE_NUMBER_ID_TRAVEL },
 };
 
 // Textos de fallo técnico: si aparecen, el turno no se evaluó de verdad.

@@ -124,12 +124,12 @@ export async function notifyAdvisor(advisor, lead, conv, contact, reason, zonaKe
 
 📌 Motivo: ${motivo}
 
-ℹ️ El prospecto sigue conversando con Ori para dudas generales; tú tomas precio y cierre.
+ℹ️ El prospecto sigue conversando con Ox para dudas generales; tú tomas precio y cierre.
 
 ⏱️ Responde *ATIENDO* para confirmar que ya lo estás atendiendo. Si no confirmas en ${slaMinutes} minutos, se reasignará a otra asesora.
 
 ---
-✅ *LISTO ${ticket}* → cuando cierres/atiendas el lead (solo tracking; Ori nunca se silencia)`;
+✅ *LISTO ${ticket}* → cuando cierres/atiendas el lead (solo tracking; Ox nunca se silencia)`;
     const apiResponse = await sendTextMessage(advisorPhone, notification);
     await recordAdvisorNotification({ ...rastro, via: 'text', apiResponse });
     log.info({ advisor: advisor.nombre, advisorPhone, via: 'text', waMessageId: apiResponse?.messages?.[0]?.id }, 'Advisor notification sent (fallback text)');

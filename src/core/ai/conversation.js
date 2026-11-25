@@ -37,9 +37,12 @@ export async function getHistory(conversationId) {
 
     const dbMessages = await prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'asc' },
+      // Los ÚLTIMOS MAX_HISTORY (desc + reverse). Con 'asc' + take se tomaban
+      // los primeros: en una conversación larga el LLM veía el saludo y no lo
+      // más reciente.
+      orderBy: { createdAt: 'desc' },
       take: MAX_HISTORY,
-    });
+    }).then((rows) => rows.reverse());
 
     if (dbMessages.length === 0) {
       convLogger.debug('No history in PostgreSQL either, starting fresh');

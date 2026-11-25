@@ -34,7 +34,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown:
  * @returns {Promise<Object|null>} calificación o { error }
  */
 export async function judge(sc, turns) {
-  const botName = sc.unit === 'ori' ? 'Ori' : 'Miri';
+  const botName = sc.unit === 'ori' ? 'Ox' : 'Ed';
   const transcript = turns.map((t) => [
     `[t${t.i}] Prospecto: ${t.user}`,
     ...t.bot.map((m) => `[t${t.i}] ${botName}: ${m}`),

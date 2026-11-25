@@ -57,7 +57,7 @@ export async function handleAdvisorCommand(message, phoneNumberId) {
       // No-op: con el handoff tibio Miri nunca se silencia, no hay nada que "regresar".
       await sendTextMessage(
         message.from,
-        'ℹ️ Ya no hace falta REGRESA: Miri nunca deja de atender al prospecto tras derivar. Usa *LISTO #* cuando cierres el lead.',
+        'ℹ️ Ya no hace falta REGRESA: Ed nunca deja de atender al prospecto tras derivar. Usa *LISTO #* cuando cierres el lead.',
         phoneNumberId,
       );
 
@@ -147,7 +147,7 @@ async function handleListo(ticketNumber, advisor, replyTo, phoneNumberId, cmdLog
   const name = lead.parentName || lead.contact.name || lead.contact.phone;
   await sendTextMessage(
     replyTo,
-    `✅ Lead #${ticketNumber} (${name}) marcado como atendido. Miri sigue disponible para el prospecto.`,
+    `✅ Lead #${ticketNumber} (${name}) marcado como atendido. Ed sigue disponible para el prospecto.`,
     phoneNumberId
   );
   cmdLogger.info({ ticketNumber, name }, 'Lead marked attended (tracking) by advisor');
@@ -193,12 +193,12 @@ async function findLeadByTicket(ticketNumber, advisor) {
 }
 
 function getHelpMessage(advisor) {
-  return `Hola ${advisor.apodo} 👋 Soy Miri. Comandos disponibles:
+  return `Hola ${advisor.apodo} 👋 Soy Ed. Comandos disponibles:
 
 ✅ *LISTO #* → Marcar como cerrado/atendido un lead (tracking)
 📋 *PENDIENTES* → Ver tus leads derivados sin cerrar
 
-Nota: Miri nunca deja de atender al prospecto tras derivar, así que ya no existe REGRESA.
+Nota: Ed nunca deja de atender al prospecto tras derivar, así que ya no existe REGRESA.
 
 Ejemplo: LISTO 47`;
 }

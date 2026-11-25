@@ -14,6 +14,7 @@ import { parseActions, cleanResponse, executeActions } from './actions.js';
 import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
 import { tryDeterministicFlow, showMainMenu, FREEFORM } from './flow-engine.js';
 import { createNudgeGuard } from '../../core/flow/nudge.js';
+import { renameLegacyPersona } from '../../core/ai/persona-name.js';
 
 /**
  * Oxford Education Unit Message Handler
@@ -150,7 +151,7 @@ export async function handleMessage(message, phoneNumberId) {
  *   el nodo del flujo cuando la derivación de verdad ocurrió.
  */
 async function processWithAI(phone, content, conv, lead, contact, log, nudge) {
-  const history = await store.getHistory(conv.id);
+  const history = renameLegacyPersona(await store.getHistory(conv.id), 'oxford_education');
   // Ambas leen del cache de Sheets; en paralelo para no sumar latencias al turno.
   const [dynamicKnowledge, flowKnowledge] = await Promise.all([
     buildOxfordKnowledge(lead),
@@ -240,6 +241,6 @@ function buildConversationSummary(history, userText, botReply) {
 
   return turns
     .slice(-6)
-    .map((m) => `${m.role === 'user' ? 'Cliente' : 'Ori'}: ${String(m.content).replace(/\s+/g, ' ').trim()}`)
+    .map((m) => `${m.role === 'user' ? 'Cliente' : 'Ox'}: ${String(m.content).replace(/\s+/g, ' ').trim()}`)
     .join(' | ');
 }
