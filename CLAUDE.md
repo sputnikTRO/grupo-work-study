@@ -396,8 +396,11 @@ certificación Oxford TCC (OTCC). Apagada con `OXED_WS_ENABLED=false` (default).
 - Sheet: `scripts/seed-ws-otcc.mjs` (dry-run por defecto; crea la pestaña FAQ,
   agrega nodos `ws_*` a "Flujo Ori", cambia el texto de filtro_previo con
   respaldo/`--restore`, crea "Casos W&S"). Plantillas en `docs/templates/`.
+- El chequeo de plantillas (`template-health`) vigila también `OXED_WS_TEMPLATE` y
+  `OXED_WS_TEMPLATE_IMG` en cuanto están configuradas, aunque el modo esté apagado.
 - Tests: `scripts/test-ws-otcc-flow.mjs`, `scripts/test-ws-cases.mjs`,
   `tests/units/oxford-education/ws-*.test.js`.
+
 ## Configuración de build/deploy: vive en el servicio de Railway, no en el repo
 
 Desde nov-2026 el repo NO tiene `railway.json` (Config as Code de Railway dejó de

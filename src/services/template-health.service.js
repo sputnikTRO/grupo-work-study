@@ -25,6 +25,13 @@ export function advisorTemplatesInUse(e = env) {
   return [
     { unit: 'oxford_education', wabaId: e.OXED_WABA_ID, token: e.OXED_ACCESS_TOKEN, name: oxford },
     { unit: 'travel', wabaId: e.WA_WABA_ID, token: e.WA_ACCESS_TOKEN, name: travel },
+    // Avisos de casos W&S OTCC (Karen/Jorge): se vigilan en cuanto están
+    // configurados, aunque el modo siga apagado, para no prenderlo con una
+    // plantilla recategorizada o pausada.
+    ...[e.OXED_WS_TEMPLATE, e.OXED_WS_TEMPLATE_IMG]
+      .map((n) => (n || '').trim())
+      .filter(Boolean)
+      .map((name) => ({ unit: 'oxford_education', wabaId: e.OXED_WABA_ID, token: e.OXED_ACCESS_TOKEN, name })),
   ];
 }
 

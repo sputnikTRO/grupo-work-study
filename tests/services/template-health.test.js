@@ -12,6 +12,10 @@ test('resuelve la plantilla que la app usa de verdad (misma regla que advisor-no
   assert.deepEqual(advisorTemplatesInUse(cfg).map((t) => t.name), ['nuevo_lead_oxford_util', 'nuevo_lead_travel']);
   assert.equal(advisorTemplatesInUse({ ...cfg, OXED_ADVISOR_SLA_TEMPLATE: '' })[0].name, 'nuevo_lead_oxford');
   assert.equal(advisorTemplatesInUse({ ...cfg, TRAVEL_ADVISOR_TEMPLATE_V2: ' nuevo_lead_travel_v2 ' })[1].name, 'nuevo_lead_travel_v2');
+  // Plantillas de casos W&S: solo si están configuradas, en la WABA de Ox.
+  const ws = advisorTemplatesInUse({ ...cfg, OXED_WS_TEMPLATE: 'caso_ws_ox', OXED_WS_TEMPLATE_IMG: 'caso_ws_ox_img' });
+  assert.deepEqual(ws.map((t) => t.name), ['nuevo_lead_oxford_util', 'nuevo_lead_travel', 'caso_ws_ox', 'caso_ws_ox_img']);
+  assert.equal(ws[3].wabaId, cfg.OXED_WABA_ID);
 });
 
 test('MARKETING o no-APPROVED es alerta; UTILITY + APPROVED está bien', () => {
