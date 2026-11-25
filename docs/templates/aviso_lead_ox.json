@@ -1,0 +1,26 @@
+{
+  "name": "aviso_lead_ox",
+  "language": "es_MX",
+  "category": "UTILITY",
+  "allow_category_change": false,
+  "components": [
+    {
+      "type": "BODY",
+      "text": "🔔 Lead Oxford #{{1}} asignado a ti\n\n👤 {{2}} ({{3}})\n🏫 {{4}}\n📚 Producto: {{5}}\n📍 Zona: {{6}}\n📱 {{7}}\n\n📌 {{8}}\n\nResponde ATIENDO {{1}} para confirmar que lo atiendes; si no confirmas, se reasigna. Responde LISTO {{1}} al terminar. Ox sigue disponible para el prospecto.",
+      "example": {
+        "body_text": [
+          [
+            "47",
+            "María López",
+            "institución",
+            "Colegio Ejemplo",
+            "Oxford TCC",
+            "Guadalajara, Jalisco (zona CENTRO)",
+            "33 1234 5678",
+            "Solicita cotización para 120 alumnos"
+          ]
+        ]
+      }
+    }
+  ]
+}
