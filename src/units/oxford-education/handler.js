@@ -15,6 +15,7 @@ import { syncOxfordLeadToSheet, deriveTemperature } from './sheets-sync.js';
 import { tryDeterministicFlow, showMainMenu, FREEFORM } from './flow-engine.js';
 import { createNudgeGuard } from '../../core/flow/nudge.js';
 import { renameLegacyPersona } from '../../core/ai/persona-name.js';
+import { processWsTurn } from './ws/mode.js';
 
 /**
  * Oxford Education Unit Message Handler
@@ -90,7 +91,22 @@ export async function handleMessage(message, phoneNumberId) {
     const flowResult = await tryDeterministicFlow({ phone, content, conv, lead, contact, log, nudge });
 
     if (!flowResult.handled) {
-      const { handoffOccurred } = await processWithAI(phone, content, conv, lead, contact, log, nudge);
+      // Si el filtro W&S retuvo una pregunta (se preguntó primero si es de Work
+      // and Study), este turno contesta ESA pregunta, no la respuesta al filtro.
+      const turnContent = flowResult.replayText
+        ? { ...content, text: flowResult.replayText, type: 'text', mediaUrl: null }
+        : content;
+
+      let handoffOccurred = false;
+      if (flowResult.ws) {
+        // Modo W&S-OTCC: prompt y base AISLADOS (ws/mode.js), nunca el comercial.
+        const wsResult = await processWsTurn({ phone, content: turnContent, text: turnContent.text, conv, lead, contact, log });
+        if (wsResult.fallbackCommercial) {
+          ({ handoffOccurred } = await processWithAI(phone, turnContent, conv, lead, contact, log, nudge));
+        }
+      } else {
+        ({ handoffOccurred } = await processWithAI(phone, turnContent, conv, lead, contact, log, nudge));
+      }
 
       // Si la derivación OCURRIÓ por el camino del LLM, el guion terminó igual
       // que cuando deriva el menú: se cierra el nodo. Si no, el prospecto queda
@@ -125,9 +141,10 @@ export async function handleMessage(message, phoneNumberId) {
     // Si en este turno salió un recordatorio (de donde sea), queda registrado
     // contra el nodo donde se quedó la conversación, en conversation.metadata
     // (Json libre que ya existe).
+    // Solo la llave nudgedNode, mezclada en la base: copiar la metadata leída al
+    // inicio del turno borraba lo que otro paso hubiera guardado en el mismo turno.
     if (nudge.nudged && meta.nudgedNode !== conv.flowNode) {
-      conv.metadata = { ...meta, nudgedNode: conv.flowNode };
-      await conversationService.update(conv.id, { metadata: conv.metadata });
+      conv.metadata = await conversationService.mergeMetadata(conv.id, { nudgedNode: conv.flowNode });
     }
   } catch (error) {
     log.error({ err: error }, 'Error handling Oxford message');

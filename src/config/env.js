@@ -100,6 +100,21 @@ export const env = {
   // OXED_ADVISOR_SLA_MINUTES. Formato "<días ISO> HH:MM-HH:MM; …" (1 = lunes).
   // "off" → el reloj corre siempre. Ver src/units/oxford-education/sla-hours.js.
   OXED_ADVISOR_SLA_HOURS: optionalEnv('OXED_ADVISOR_SLA_HOURS', '1-5 09:00-19:00; 6 09:00-14:00'),
+
+  // ── W&S OTCC (base de conocimiento para participantes de Work and Study) ──
+  // Apagado por default: con false no hay filtro por intención y la opción 1 de
+  // filtro_previo se comporta como antes. Ver src/units/oxford-education/ws/.
+  OXED_WS_ENABLED: optionalEnv('OXED_WS_ENABLED', 'false') === 'true',
+  // Equipo que atiende los casos, EN ORDEN de escalamiento: "Nombre|teléfono; Nombre|teléfono".
+  // Uso interno: nunca llega a un prompt ni a un mensaje al participante.
+  OXED_WS_SUPPORT_CONTACTS: optionalEnv('OXED_WS_SUPPORT_CONTACTS', 'Karen Méndez|5528450167; Jorge Gil|9381091603'),
+  OXED_WS_SLA_MINUTES: parseInt(optionalEnv('OXED_WS_SLA_MINUTES', '30'), 10),
+  OXED_WS_SLA_HOURS: optionalEnv('OXED_WS_SLA_HOURS', '1-5 08:00-16:00'),
+  // Plantillas UTILITY del aviso de caso (vacías hasta que Meta las apruebe; sin
+  // plantilla el aviso sale como texto si la ventana de 24h está abierta).
+  OXED_WS_TEMPLATE: optionalEnv('OXED_WS_TEMPLATE', ''),
+  OXED_WS_TEMPLATE_IMG: optionalEnv('OXED_WS_TEMPLATE_IMG', ''),
+  OXED_WS_TEMPLATE_LANG: optionalEnv('OXED_WS_TEMPLATE_LANG', 'es_MX'),
   // Cómo se avisa de un lead nuevo: 'chain' (default) = a una asesora y, si no
   // confirma, a la siguiente; 'team' = a todo el equipo de la zona a la vez y lo
   // toma la primera que responda ATIENDO. Se puede cambiar sin desplegar.

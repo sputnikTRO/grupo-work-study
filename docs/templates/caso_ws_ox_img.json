@@ -1,0 +1,34 @@
+{
+  "name": "caso_ws_ox_img",
+  "language": "es_MX",
+  "category": "UTILITY",
+  "allow_category_change": false,
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "IMAGE",
+      "example": {
+        "header_handle": [
+          "PENDIENTE_SUBIR_IMAGEN_DE_EJEMPLO"
+        ]
+      }
+    },
+    {
+      "type": "BODY",
+      "text": "🛟 Caso W&S · OTCC #{{1}}\n\n👤 {{2}}\n✉️ {{3}}\n📚 Etapa: {{4}}\n📱 {{5}}\n\n📝 {{6}}\n\n📎 Capturas: {{7}}\n\nEl participante sigue con Ox para dudas generales. Responde ATIENDO {{1}} para tomar el caso — si no confirmas en 30 minutos, se reasigna. Responde LISTO {{1}} cuando quede resuelto.",
+      "example": {
+        "body_text": [
+          [
+            "12",
+            "Ana López",
+            "ana@correo.com",
+            "Mock",
+            "+34 612 345 678",
+            "No le llega el código del Mock después de revisar spam",
+            "1"
+          ]
+        ]
+      }
+    }
+  ]
+}

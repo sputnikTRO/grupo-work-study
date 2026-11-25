@@ -40,6 +40,7 @@ let EXTRACT_RESULT = {};
 let DB_TRAVEL_LEAD;              // lead de la unidad Travel (handoff cruzado)
 const TRAVEL_TEMPLATES = [];     // plantillas enviadas a la asesora de viajes    // lo que "extrae" el LLM en el próximo turno de solicitud_datos/ya_inscrito_stub
 let CHAT_REPLY = 'Claro, con gusto te cuento más sobre eso 😊'; // respuesta conversacional del respaldo LLM
+let ON_CHAT = null; // efecto opcional DURANTE la llamada al LLM (simula otro paso que escribe en el turno)
 
 function resetState() {
   SENT.length = 0;
@@ -60,6 +61,7 @@ function resetState() {
   };
   TRAVEL_TEMPLATES.length = 0;
   CHAT_REPLY = 'Claro, con gusto te cuento más sobre eso 😊';
+  ON_CHAT = null;
 }
 resetState();
 
@@ -80,6 +82,7 @@ mock.module('../src/core/ai/claude.js', {
     // conversacional (processWithAI, prompt normal de Ori).
     chat: async (systemPrompt) => {
       if (systemPrompt.includes('extractor de datos')) return JSON.stringify(EXTRACT_RESULT);
+      if (ON_CHAT) ON_CHAT();
       return CHAT_REPLY;
     },
   },
@@ -111,6 +114,7 @@ mock.module('../src/services/contact.service.js', {
 mock.module('../src/services/conversation.service.js', {
   namedExports: {
     findActiveOrCreate: async () => ({ ...DB_CONV }),
+    mergeMetadata: async (_id, patch) => { DB_CONV.metadata = { ...(DB_CONV.metadata || {}), ...patch }; return { ...DB_CONV.metadata }; },
     update: async (_id, data) => { Object.assign(DB_CONV, data); return { ...DB_CONV }; },
   },
 });
@@ -639,6 +643,30 @@ await handleMessage(msg('¿y eso incluye la parte oral?'), 'pnid'); // CTA ambig
 assert.strictEqual(SENT.length, 2, 'en el nodo NUEVO el recordatorio vuelve a salir');
 assert.ok(SENT[1].text.includes('Menú'));
 ok('al cambiar de nodo el recordatorio reaparece (guía de navegación, no one-shot)');
+
+// ============================================================================
+// Escenario D-meta — guardar el recordatorio NO borra otros campos de metadata
+// ============================================================================
+// Regresión: el handler copiaba la metadata leída al INICIO del turno y la
+// guardaba entera con nudgedNode. Lo que otro paso guardara en el mismo turno
+// (p. ej. la respuesta del filtro W&S) se perdía.
+console.log('\n== D-meta. El recordatorio de "Menú" no borra otros campos de metadata ==');
+resetState();
+DB_CONV.flowNode = 'cat_1';
+DB_CONV.metadata = { campoPrevio: 'se conserva' };
+SENT.length = 0;
+CHAT_REPLY = 'Con gusto te cuento 😊';
+ON_CHAT = () => { DB_CONV.metadata = { ...DB_CONV.metadata, wsFiltro: { respuesta: 'no' } }; };
+await handleMessage(msg('¿y eso cuánto tarda?'), 'pnid');
+assert.ok(SENT.some((m) => m.text.includes('Menú')), 'salió el recordatorio');
+assert.strictEqual(DB_CONV.metadata.nudgedNode, 'cat_1', 'nudgedNode se guarda igual que antes');
+assert.deepStrictEqual(DB_CONV.metadata.wsFiltro, { respuesta: 'no' }, 'lo escrito en el mismo turno sobrevive');
+assert.strictEqual(DB_CONV.metadata.campoPrevio, 'se conserva', 'y lo que ya había también');
+ON_CHAT = null;
+SENT.length = 0;
+await handleMessage(msg('¿y el certificado llega físico?'), 'pnid');
+assert.ok(!SENT.some((m) => m.text.includes('Escribe *Menú*')), 'el nudgedNode mezclado sigue evitando repetir el recordatorio');
+ok('metadata se MEZCLA: nudgedNode funciona igual y no borra wsFiltro ni otros campos');
 
 // ============================================================================
 // Escenario D2 — El copy no afirma un contacto que el sistema no puede saber

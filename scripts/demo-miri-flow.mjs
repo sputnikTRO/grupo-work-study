@@ -50,6 +50,7 @@ mock.module('../src/services/contact.service.js', { namedExports: { findOrCreate
 mock.module('../src/services/conversation.service.js', {
   namedExports: {
     findActiveOrCreate: async () => ({ ...DB_CONV }),
+    mergeMetadata: async (_id, patch) => { DB_CONV.metadata = { ...(DB_CONV.metadata || {}), ...patch }; return { ...DB_CONV.metadata }; },
     update: async (_id, d) => { Object.assign(DB_CONV, d); return { ...DB_CONV }; },
     updateInterestScore: async (_id, s) => { DB_CONV.interestScore = s; },
   },
