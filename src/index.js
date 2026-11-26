@@ -7,6 +7,7 @@ import redis from './core/database/redis.js';
 import webhookRoutes from './routes/webhook.js';
 import oxfordWebhookRoutes from './routes/oxford-webhook.js';
 import { registerAdminRoutes } from './api/admin.routes.js';
+import { registerProtectedAdminRoutes } from './api/admin-auth.js';
 import * as sheetsSyncJob from './jobs/sheets-sync.job.js';
 import * as followUpJob from './jobs/followup.job.js';
 import * as advisorSlaJob from './jobs/advisor-sla.job.js';
@@ -28,6 +29,9 @@ import * as templateHealthJob from './jobs/template-health.job.js';
 
 // Create Fastify instance
 const fastify = Fastify({
+  // Railway termina HTTPS en su proxy: confiar en X-Forwarded-* para conocer la
+  // IP real del cliente (registro de accesos rechazados a /admin).
+  trustProxy: true,
   logger: {
     level: env.LOG_LEVEL,
     transport: env.NODE_ENV === 'development'
@@ -125,7 +129,8 @@ await fastify.register(webhookRoutes);
 await fastify.register(oxfordWebhookRoutes);
 
 // Register admin routes
-await registerAdminRoutes(fastify);
+// Solo con `Authorization: Bearer <ADMIN_API_TOKEN>`; sin token, 404 (ver api/admin-auth.js).
+await registerProtectedAdminRoutes(fastify, registerAdminRoutes, () => env.ADMIN_API_TOKEN);
 
 // Graceful shutdown
 const shutdown = async (signal) => {

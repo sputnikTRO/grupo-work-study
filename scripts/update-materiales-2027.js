@@ -101,7 +101,7 @@ async function main() {
   console.log('\n2. Clearing stale Actividades Extra (LON2026)...');
   await clearActivitiesSheet();
 
-  console.log('\n✅ Done. Run /admin/refresh-sheets-cache to reload the cache.');
+  console.log('\n✅ Done. Run POST /admin/refresh-sheets-cache (Authorization: Bearer $ADMIN_API_TOKEN) to reload the cache.');
 }
 
 main().catch(err => {

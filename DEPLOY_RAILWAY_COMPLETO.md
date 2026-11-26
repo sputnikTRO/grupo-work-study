@@ -221,7 +221,8 @@ node scripts/verify-materiales-sheet.js
 ### **Forzar refresh del cache:**
 ```bash
 # Hacer request a tu API:
-curl -X POST https://tu-app.up.railway.app/admin/refresh-cache
+# Las rutas /admin/* exigen el token ADMIN_API_TOKEN (variable en Railway); sin él responden 404.
+curl -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" https://tu-app.up.railway.app/admin/refresh-sheets-cache
 ```
 
 ### **Ver logs específicos:**

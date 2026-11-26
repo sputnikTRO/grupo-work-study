@@ -296,7 +296,7 @@ node scripts/test-material-sending.js
 npm run dev
 
 # Reiniciar cache manualmente (en Railway)
-# POST /admin/refresh-cache
+# POST /admin/refresh-sheets-cache con Authorization: Bearer $ADMIN_API_TOKEN (sin token: 404)
 ```
 
 ---

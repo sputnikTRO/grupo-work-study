@@ -419,3 +419,14 @@ plan probado en nov-2026 eliminaba las 26 variables, desconectaba GitHub y dejab
 builder y reintentos en null. IaC tampoco tiene campos documentados para builder
 ni política de reinicio. Cambios de configuración: en el dashboard o por la API
 (`serviceInstanceUpdate`), leyendo el antes y el después.
+
+## Rutas /admin/* (cerradas con token desde nov-2026)
+
+- Exigen `Authorization: Bearer <ADMIN_API_TOKEN>` (variable en Railway, nunca en el
+  repo). Sin token, con uno incorrecto o si la variable falta: **404**, como una
+  ruta inexistente. Ver `src/api/admin-auth.js`; cada intento rechazado se registra
+  con IP y ruta ("Acceso a /admin rechazado").
+- Rutas nuevas de admin se agregan dentro de `registerAdminRoutes` para quedar
+  bajo el candado; NO registrarlas directo en `src/index.js`.
+- La app usa `trustProxy: true` (Railway termina HTTPS en su proxy), así que
+  `request.ip` es la IP real del cliente.
