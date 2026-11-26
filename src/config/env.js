@@ -101,6 +101,9 @@ export const env = {
   // "off" → el reloj corre siempre. Ver src/units/oxford-education/sla-hours.js.
   OXED_ADVISOR_SLA_HOURS: optionalEnv('OXED_ADVISOR_SLA_HOURS', '1-5 09:00-19:00; 6 09:00-14:00'),
 
+  // Token de las rutas /admin/* (Authorization: Bearer …). Vacío = rutas cerradas.
+  ADMIN_API_TOKEN: optionalEnv('ADMIN_API_TOKEN', ''),
+
   // ── W&S OTCC (base de conocimiento para participantes de Work and Study) ──
   // Apagado por default: con false no hay filtro por intención y la opción 1 de
   // filtro_previo se comporta como antes. Ver src/units/oxford-education/ws/.
