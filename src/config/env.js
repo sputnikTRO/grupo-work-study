@@ -101,6 +101,9 @@ export const env = {
   // "off" → el reloj corre siempre. Ver src/units/oxford-education/sla-hours.js.
   OXED_ADVISOR_SLA_HOURS: optionalEnv('OXED_ADVISOR_SLA_HOURS', '1-5 09:00-19:00; 6 09:00-14:00'),
 
+  // Panel: teléfonos que se excluyen por default de la lista e indicadores (comparación por últimos 10 dígitos).
+  PANEL_EXCLUDE_PHONES: optionalEnv('PANEL_EXCLUDE_PHONES', '5535305000').split(',').map((x) => x.trim()).filter(Boolean),
+
   // Token de las rutas /admin/* (Authorization: Bearer …). Vacío = rutas cerradas.
   ADMIN_API_TOKEN: optionalEnv('ADMIN_API_TOKEN', ''),
 
