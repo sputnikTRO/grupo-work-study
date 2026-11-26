@@ -23,38 +23,8 @@ import { canalizadoMessage } from './hours.js';
 import { createCase, deliverNewAttachment } from './cases.js';
 
 const FREEFORM = 'llm_freeform';
-const EMAIL_RE = /^[\w.+-]+@[\w-]+(\.[\w-]+)+$/;
-
-export const CASE_FIELDS = [
-  { key: 'fullName', label: 'nombre completo del participante (nombre y apellido)' },
-  { key: 'email', label: 'correo electrónico' },
-  { key: 'stage', label: 'etapa de evaluación: Diagnóstico, Mock, Certificación o Speaking' },
-  { key: 'description', label: 'descripción breve del problema o consulta, en palabras del participante (no el nombre ni el correo)' },
-];
-
-export function normalizeStage(v) {
-  const n = String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  if (/diagn/.test(n)) return 'Diagnóstico';
-  if (/mock|practica/.test(n)) return 'Mock';
-  if (/speaking|oral|entrevista/.test(n)) return 'Speaking';
-  if (/certifica|final/.test(n)) return 'Certificación';
-  return null;
-}
-
-/** Mezcla lo extraído en el borrador validando cada campo. */
-export function mergeDraft(draft, extracted) {
-  const out = { ...draft };
-  if (extracted.fullName && extracted.fullName.trim().split(/\s+/).length >= 2) out.fullName = extracted.fullName.trim();
-  if (extracted.email && EMAIL_RE.test(extracted.email.trim().toLowerCase())) out.email = extracted.email.trim().toLowerCase();
-  const stage = normalizeStage(extracted.stage);
-  if (stage) out.stage = stage;
-  if (extracted.description && extracted.description.trim().length >= 8) out.description = extracted.description.trim();
-  return out;
-}
-
-export function missingFields(draft) {
-  return CASE_FIELDS.map((f) => f.key).filter((k) => !draft[k]);
-}
+export { CASE_FIELDS, normalizeStage, mergeDraft, missingFields } from './draft.js';
+import { CASE_FIELDS, mergeDraft, missingFields } from './draft.js';
 
 export function askMissingText(missing) {
   const labels = missing.map((k) => CASE_FIELD_LABELS[k]);
