@@ -430,3 +430,28 @@ ni política de reinicio. Cambios de configuración: en el dashboard o por la AP
   bajo el candado; NO registrarlas directo en `src/index.js`.
 - La app usa `trustProxy: true` (Railway termina HTTPS en su proxy), así que
   `request.ip` es la IP real del cliente.
+
+## Panel de prospectos (`/panel`, `src/panel/`)
+
+Panel web de solo lectura dentro de la app: indicadores, tabla en vivo y detalle
+por prospecto de Ox y Ed. Diseño aprobado en nov-2026.
+- **Acceso:** usuario + contraseña (scrypt, `src/panel/password.js`). Sesiones en
+  `panel_sessions`: la cookie `__Host-panel_sid` lleva el token y la base solo su
+  sha256. Expiran a las 12 h o tras 2 h sin actividad. Límite de 5 fallos en 15 min por correo y
+  por IP (Redis, con respaldo en memoria). Primer ingreso obliga a cambiar la
+  contraseña. Usuarios: `scripts/panel-user.mjs` (no hay registro público).
+- **Seguridad:** todo `/panel` sin sesión redirige al login (API: 401). POST exige
+  el `Origin` del panel. Encabezados noindex/no-store/CSP estricta (sin scripts ni
+  estilos en línea: el JS y CSS viven en `src/panel/assets/`). `/panel` queda
+  fuera del CORS abierto de los webhooks. `/robots.txt` prohíbe todo.
+- **Solo lectura:** `src/panel/queries.js` corre cada consulta en una transacción
+  `READ ONLY` con `statement_timeout` de 3 s. NUNCA escribir desde ahí.
+- **Etapas** (`src/panel/stages.js`): Ed no tiene ATIENDO, así que nunca está
+  "atendido" ni "sin confirmar"; su tiempo de respuesta se mide hasta LISTO.
+- **Roles:** admin ve todo. Asesora (fase 2) solo sus leads (filtro en la
+  consulta), teléfono enmascarado, sin conversación ni datos del viajero (menor).
+- **Privacidad:** `panel_access_log` registra login, fallos, logout, búsquedas y
+  cada detalle abierto. `PANEL_EXCLUDE_PHONES` (default el número de pruebas)
+  se excluye por los últimos 10 dígitos, así cubre el bug del "1" doble.
+- Tests: `tests/panel/*.test.js`. Vista previa local con datos de ejemplo:
+  `scratchpad/panel-preview.mjs` (no se commitea).

@@ -8,6 +8,8 @@ import webhookRoutes from './routes/webhook.js';
 import oxfordWebhookRoutes from './routes/oxford-webhook.js';
 import { registerAdminRoutes } from './api/admin.routes.js';
 import { registerProtectedAdminRoutes } from './api/admin-auth.js';
+import { registerPanel } from './panel/routes.js';
+import { makePrismaDataSource } from './panel/queries.js';
 import * as sheetsSyncJob from './jobs/sheets-sync.job.js';
 import * as followUpJob from './jobs/followup.job.js';
 import * as advisorSlaJob from './jobs/advisor-sla.job.js';
@@ -51,9 +53,12 @@ const fastify = Fastify({
 });
 
 // Register CORS
+// CORS abierto para los webhooks; el panel (/panel) queda FUERA: solo su propio origen.
 await fastify.register(cors, {
-  origin: true, // Allow all origins for webhooks
-  methods: ['GET', 'POST'],
+  hook: 'onRequest',
+  delegator: (req, cb) => cb(null, String(req.url || '').startsWith('/panel')
+    ? { origin: false }
+    : { origin: true, methods: ['GET', 'POST'] }),
 });
 
 // Ready check endpoint (for Railway health checks)
@@ -131,6 +136,13 @@ await fastify.register(oxfordWebhookRoutes);
 // Register admin routes
 // Solo con `Authorization: Bearer <ADMIN_API_TOKEN>`; sin token, 404 (ver api/admin-auth.js).
 await registerProtectedAdminRoutes(fastify, registerAdminRoutes, () => env.ADMIN_API_TOKEN);
+
+// Panel de prospectos (/panel): solo lectura, con login. Ver src/panel/.
+await registerPanel(fastify, {
+  db: prisma,
+  redis: redis.getClient(),
+  dataSource: makePrismaDataSource(prisma, { excludePhones: env.PANEL_EXCLUDE_PHONES }),
+});
 
 // Graceful shutdown
 const shutdown = async (signal) => {

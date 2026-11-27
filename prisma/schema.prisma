@@ -96,6 +96,7 @@ model Conversation {
 
   @@index([contactId, unit])
   @@index([status])
+  @@index([contactId, unit, lastMessageAt])
   @@map("conversations")
 }
 
@@ -114,6 +115,7 @@ model Message {
 
   @@index([conversationId])
   @@index([waMessageId])
+  @@index([conversationId, createdAt])
   @@map("messages")
 }
 
@@ -281,6 +283,8 @@ model TravelLead {
   @@index([contactId])
   @@index([status])
   @@index([schoolCode])
+  @@index([createdAt])
+  @@index([updatedAt])
   @@map("travel_leads")
 }
 
@@ -490,5 +494,62 @@ model OxfordLead {
   @@index([temperature])
   @@index([status])
   @@index([primaryProduct])
+  @@index([createdAt])
+  @@index([updatedAt])
   @@map("oxford_leads")
+}
+
+// ==========================================
+// PANEL de prospectos (/panel): usuarios, sesiones y registro de accesos.
+// Ver src/panel/. Solo lectura sobre las tablas del bot.
+// ==========================================
+
+model PanelUser {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  name               String
+  passwordHash       String         @map("password_hash")   // scrypt$N$r$p$salt$hash
+  role               String         @default("admin")       // admin | asesora
+  advisorName        String?        @map("advisor_name")    // rol asesora (fase 2): su nombre tal como en assigned_advisor
+  active             Boolean        @default(true)
+  mustChangePassword Boolean        @default(true) @map("must_change_password")
+  lastLoginAt        DateTime?      @map("last_login_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  sessions           PanelSession[]
+
+  @@map("panel_users")
+}
+
+model PanelSession {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique @map("token_hash")   // sha256 del token de la cookie; el token nunca se guarda
+  userId      String    @map("user_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  expiresAt   DateTime  @map("expires_at")           // tope absoluto (12 h)
+  ip          String?
+  userAgent   String?   @map("user_agent")
+
+  user        PanelUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("panel_sessions")
+}
+
+model PanelAccessLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  email     String?
+  action    String                                  // login_ok | login_fail | login_blocked | logout | view_lead | search | password_change
+  detail    String?
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("panel_access_log")
 }
